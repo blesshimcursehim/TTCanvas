@@ -2,7 +2,7 @@
 
 All notable changes are documented here.
 
-## Unreleased
+## v0.15.0 - 2026-07-15
 
 ### Features
 
