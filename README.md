@@ -80,7 +80,7 @@ Your vault is just a folder. Zip it, put it in Dropbox, or commit it to git.
 - **NPC Generator**: random name / species / role / age / description with per-field lock; campaign context textarea; optional SRD 5.2.1 combat stat generation; save directly to NPC Library; optional AI description generation (Ollama or any OpenAI-compatible API, not required to use the widget)
 - **NPC Library**: vault-resident NPC sheets with 5E-compatible stat blocks; search; relationship filter; portrait upload/crop; export and import `.npc-library.json` bundles; ▶ cinematic character card to Player Window
 - **Bestiary**: creature library with folder tree; portraits; CR / HP / AC; add directly to Initiative Tracker; drag creature onto Map Display to place as a token; ▶ cinematic creature card to Player Window
-- **Session Recorder**: timestamped session log (in-game time from Time Tracker); export to `.md` via native save dialog; optional AI summary streamed into a collapsible panel (requires AI configured in Preferences)
+- **Session Logger**: timestamped session log (in-game time from Time Tracker); export to `.md` via native save dialog; optional AI summary streamed into a collapsible panel (requires AI configured in Preferences)
 
 ### Custom widgets (mods)
 
@@ -111,7 +111,7 @@ vault/
 
 ## AI features (optional)
 
-AI is entirely optional. Every widget works without it. If you want it, two widgets can use a language model: the **NPC Generator** (personality descriptions) and the **Session Recorder** (session summary). Configure the provider once in **Preferences → Canvas → AI provider**. Two backends are supported: **Ollama** (local, free, no API key) and any **OpenAI-compatible API** (OpenAI, Groq, OpenRouter, LM Studio, etc.).
+AI is entirely optional. Every widget works without it. If you want it, two widgets can use a language model: the **NPC Generator** (personality descriptions) and the **Session Logger** (session summary). Configure the provider once in **Preferences → Canvas → AI provider**. Two backends are supported: **Ollama** (local, free, no API key) and any **OpenAI-compatible API** (OpenAI, Groq, OpenRouter, LM Studio, etc.).
 
 All HTTP calls go through Rust, so the frontend never makes direct network requests. This avoids CORS issues inside the Tauri WebView and keeps API keys out of JS.
 
@@ -128,7 +128,7 @@ All HTTP calls go through Rust, so the frontend never makes direct network reque
    ollama serve
    ```
 4. In TTCanvas, open **Preferences → Canvas → AI provider**, select **Ollama**, and choose a model from the dropdown.
-5. Open the NPC Generator and click **✦ AI Describe**, or open Session Recorder and click **AI Summary**.
+5. Open the NPC Generator and click **✦ AI Describe**, or open Session Logger and click **AI Summary**.
 
 If Ollama is not running the AI buttons are disabled (no crash, no error state).
 

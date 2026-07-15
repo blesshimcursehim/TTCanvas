@@ -14,9 +14,17 @@ import {
   type DiagnosticsMeta,
 } from "../diagnostics/diagnostics";
 import { redact } from "../diagnostics/redact";
+import { logError } from "../diagnostics/log";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import styles from "./PreferencesModal.module.css";
 
-type Pane = "appearance" | "canvas" | "keyboard" | "diagnostics";
+type Pane = "appearance" | "canvas" | "keyboard" | "diagnostics" | "about";
+
+// Opens an external URL in the user's default browser. opener:default already
+// grants allow-open-url for http/https, so no extra capability is needed.
+function openExternal(url: string) {
+  void openUrl(url).catch((e) => logError("Failed to open external link", e));
+}
 
 const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
 const mod = isMac ? "⌘" : "Ctrl";
@@ -194,7 +202,7 @@ export function PreferencesModal({
           </div>
 
           <nav className={styles.railNav}>
-            {(["appearance", "canvas", "keyboard", "diagnostics"] as Pane[]).map((p) => (
+            {(["appearance", "canvas", "keyboard", "diagnostics", "about"] as Pane[]).map((p) => (
               <button
                 key={p}
                 className={`${styles.navBtn} ${pane === p ? styles.navBtnActive : ""}`}
@@ -380,6 +388,56 @@ export function PreferencesModal({
                 mods: modWidgetTypes,
               }}
             />
+          )}
+
+          {/* ── About pane ────────────────────────────────── */}
+          {pane === "about" && (
+            <div className={styles.pane}>
+              <div className={styles.sectionHead}>TTCanvas</div>
+              <p className={styles.aboutText}>
+                Version {version}. An offline, local-first GM screen for tabletop RPGs.
+                Your vault, notes and data stay on your machine.
+              </p>
+
+              <div className={styles.sectionHead}>Licence</div>
+              <p className={styles.aboutText}>
+                TTCanvas is free software under the GNU General Public License, version 3 or
+                later (GPL-3.0-or-later).{" "}
+                <button className={styles.aboutLink} onClick={() => openExternal("https://www.gnu.org/licenses/gpl-3.0.html")}>
+                  Read the full licence
+                </button>.
+              </p>
+              <p className={styles.aiHint}>
+                Plugins loaded via the official Plugin SDK are not considered derivative works;
+                see the Plugin Exception in the project&rsquo;s LICENSE.
+              </p>
+
+              <div className={styles.sectionHead}>Fifth-edition compatibility and attribution</div>
+              <p className={styles.aboutText}>
+                TTCanvas is independent, unofficial software. It is not approved, endorsed, or
+                sponsored by Wizards of the Coast. Its optional 5E-compatible material is based on
+                the 2024 rules released in the System Reference Document 5.2.1, adapted for its
+                generator and stat-block tools; it does not reproduce the full SRD.
+              </p>
+              <p className={styles.aboutText}>
+                This work includes material from the System Reference Document 5.2.1
+                (&ldquo;SRD 5.2.1&rdquo;) by Wizards of the Coast LLC, available at{" "}
+                <button className={styles.aboutLink} onClick={() => openExternal("https://www.dndbeyond.com/srd")}>
+                  dndbeyond.com/srd
+                </button>. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0
+                International License, available at{" "}
+                <button className={styles.aboutLink} onClick={() => openExternal("https://creativecommons.org/licenses/by/4.0/legalcode")}>
+                  creativecommons.org/licenses/by/4.0
+                </button>.
+              </p>
+
+              <div className={styles.sectionHead}>Open-source components</div>
+              <p className={styles.aboutText}>
+                Built with Tauri, React and TypeScript. Typefaces Inter, EB Garamond and
+                JetBrains Mono are used under the SIL Open Font License. Full third-party licence
+                texts ship with the source repository.
+              </p>
+            </div>
           )}
         </div>
       </div>
