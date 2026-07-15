@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 
 jobs:
@@ -80,13 +80,13 @@ jobs:
         working-directory: src-tauri
 
   # ── Full build ───────────────────────────────────────────────────────────────
-  # Only runs on pushes to main (not on PRs) and only if both checks pass.
+  # Only runs on pushes to main or dev (not on PRs) and only if both checks pass.
   # Calls the Tauri CLI directly to avoid the local-machine env vars in the
   # npm "tauri" script (LD_PRELOAD, GDK_BACKEND, etc.).
   build:
     name: Tauri build (Linux)
     needs: [frontend, backend]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7

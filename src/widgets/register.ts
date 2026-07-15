@@ -227,7 +227,7 @@ registerWidget({
   title: "Map Display",
   help: "# Map Display\n\nCreate scenes, choose a map image and place tokens on it. Pan and zoom within the map, configure its grid, and reveal areas with fog of war.\n\nThe player controls decide what the Player Window sees. Markup tools let you draw temporary or persistent annotations over the current scene.",
   icon: "map",
-  category: "Utilities",
+  category: "World",
   defaultSize: { width: 620, height: 500 },
   defaultState: (() => {
     const sceneId = `scene-${Date.now()}`;
@@ -331,8 +331,8 @@ registerWidget({
 
 registerWidget({
   type: "session-recorder",
-  title: "Session Recorder",
-  help: "# Session Recorder\n\nLog events as they happen, with wall-clock and campaign-time context. Edit or remove entries before exporting the session record.\n\nIf AI is configured in Settings, **AI Summary** writes a GM-facing narrative of the log. **Previously On…** writes a short, dramatic player-facing recap - edit it before you save or cast it, so you can redact anything the players shouldn't hear yet.",
+  title: "Session Logger",
+  help: "# Session Logger\n\nLog events as they happen, with wall-clock and campaign-time context. Edit or remove entries before exporting the session record.\n\nIf AI is configured in Settings, **AI Summary** writes a GM-facing narrative of the log. **Previously On…** writes a short, dramatic player-facing recap - edit it before you save or cast it, so you can redact anything the players shouldn't hear yet.",
   icon: "recorder",
   category: "Utilities",
   defaultSize: { width: 380, height: 520 },
@@ -349,7 +349,7 @@ registerWidget({
   title: "Rules Reference",
   help: "# Rules Reference\n\nChoose a folder of your own Markdown rules files, then browse and search them during play. TTCanvas reads the files from that folder and does not include any rulebook text.\n\nUse `[[wikilinks]]` within those files to move between related rules notes.",
   icon: "scroll",
-  category: "Utilities",
+  category: "Rules & Reference",
   defaultSize: { width: 480, height: 540 },
   defaultState: { rulesFolder: null, selectedFile: null } satisfies RulesReferenceState,
   singleton: true,
@@ -364,7 +364,7 @@ registerWidget({
   title: "Rule Cards",
   help: "# Rule Cards\n\nCreate short, searchable rules reminders and organise them by category. Select a card to read or edit its Markdown body.\n\nUse import and export to share a set of cards between campaigns.",
   icon: "cards",
-  category: "Utilities",
+  category: "Rules & Reference",
   defaultSize: { width: 480, height: 480 },
   defaultState: { cards: [], selectedId: null, query: "" } satisfies RuleCardsState,
   singleton: true,
@@ -424,7 +424,7 @@ registerWidget({
   title: "Encounter Builder",
   help: "# Encounter Builder\n\nBuild saved encounters from Bestiary creatures and custom combatants. Adjust quantities and review the calculated difficulty before play.\n\nSend an encounter to the Initiative Tracker when you are ready to run it.",
   icon: "flag",
-  category: "Utilities",
+  category: "Combat",
   defaultSize: { width: 480, height: 480 },
   defaultState: { encounters: [], selectedId: null } satisfies EncounterBuilderState,
   singleton: true,

@@ -7,10 +7,13 @@ All notable changes are documented here.
 ### Features
 
 - **Map Display - full-screen expand** - a new Expand button in the toolbar blows the map up to fill the screen, the same full-screen view Relationship Web already has. Handy for close inspection or laying out a big battle map. Your current pan and zoom carry over exactly. Click outside the map, press Escape, or hit the button again (now reading Exit) to come back.
+- **In-app licences and attribution** - Preferences has a new About tab showing the version, the GPL-3.0 licence, the SRD 5.2.1 attribution, and the open-source components TTCanvas is built from. This used to live only in the README, which people installing the app never saw.
 
 ### Changes
 
 - **Auto-update removed** - the in-app updater and its Preferences toggle are gone. New releases are announced on [Discord](https://discord.gg/ADvK4HEwFE) and published to GitHub Releases, so star the repo to get notified there.
+- **Session Recorder is now Session Logger** - the widget keeps a written event log rather than capturing audio, so the clearer name. Existing widgets and saved layouts carry over untouched.
+- **Tidier Add Widget menu** - Map Display now sits under World and Encounter Builder under Combat, and Rules Reference and Rule Cards have their own Rules & Reference group instead of everything piling into Utilities.
 - **Faster startup** - Map Display, the heaviest built-in widget, now loads in its own chunk instead of the eager startup bundle.
 - **SRD 5.2.1 NPC generation and attribution** - the NPC Generator now offers only the classes and species included in SRD 5.2.1, uses the 2024 species rules for ability scores and movement, and draws names from an original neutral pool. The README now includes the prescribed CC BY 4.0 attribution, an adaptation statement, and a clear unofficial-content notice.
 - **Neutral calendar presets** - the bundled Forgotten Realms and Warhammer Imperial calendars have been removed. Calendar setup now offers Gregorian and Blank / Custom presets, while custom calendar import and export remain available.
@@ -24,7 +27,6 @@ All notable changes are documented here.
 - **A broken app config no longer blanks the whole app** - a corrupted or hand-edited config file used to leave TTCanvas rendering nothing. It now recovers with safe defaults, backs up the broken file first, and tells you when that happened instead of getting stuck.
 - **The player window is properly sandboxed from the rest of the app** - most backend commands are now restricted to the main window. The player window can only do what it actually needs: control its own fullscreen/decorations, log a crash, and read map/portrait images from your vault.
 - **Cancelling an AI generation now actually stops it** - Cancel used to just hide further output while the request kept running underneath. It now genuinely interrupts the request, even a stalled one.
-- **Auto-updates should work again** - the release pipeline wasn't generating the signed files the in-app updater needs, so this release (and the last) may not have been auto-installable. Not yet confirmed against a live release, but should be fixed going forward.
 
 ## v0.14.0 - 2026-07-13
 
