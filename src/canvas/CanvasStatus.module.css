@@ -1,0 +1,17 @@
+.root {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  z-index: 1000;
+  padding: 6px 12px;
+  background: oklch(0 0 0 / 0.45);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  color: var(--ink-3);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}

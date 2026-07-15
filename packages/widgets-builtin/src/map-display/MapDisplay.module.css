@@ -1,0 +1,1299 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-2);
+  overflow: hidden;
+}
+
+/* Full-screen expand - a native <dialog> shown via showModal() renders in the browser's top
+   layer (escaping the canvas's own clipping/transform context) and provides a focus trap, initial
+   focus and focus restoration for free, so there's no separate scrim wrapper to size/position. */
+.expandDialog {
+  box-sizing: border-box;
+  width: 94vw;
+  height: 94vh;
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.expandDialog::backdrop {
+  background: oklch(0.1 0.01 258 / 0.72);
+  backdrop-filter: blur(3px);
+}
+
+/* ── Toolbar ───────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+/* Segmented tray: groups related buttons on a shared subtle background */
+.toolGroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md, 8px);
+  flex-shrink: 0;
+}
+
+.crumb {
+  background: transparent;
+  border: none;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+  transition: color 0.1s, background 0.1s;
+}
+
+.crumb:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.iconBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+}
+
+.iconBtn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.iconBtn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.iconBtnActive {
+  background: oklch(0.80 0.115 78 / 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.iconBtnActive:hover:not(:disabled) {
+  background: oklch(0.80 0.115 78 / 0.22);
+  color: var(--accent);
+}
+
+/* Inside a tray the group is the container, so drop per-button borders */
+.toolGroup .iconBtn,
+.toolGroup .zoomTextBtn {
+  border-color: transparent;
+  background: transparent;
+}
+
+.toolGroup .iconBtn:hover:not(:disabled),
+.toolGroup .zoomTextBtn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* …but the active tool keeps its accent treatment */
+.toolGroup .iconBtnActive {
+  border-color: var(--accent);
+  background: oklch(0.80 0.115 78 / 0.18);
+  color: var(--accent);
+}
+
+.toolGroup .iconBtnActive:hover:not(:disabled) {
+  background: oklch(0.80 0.115 78 / 0.24);
+  color: var(--accent);
+}
+
+.gridSizeInput {
+  width: 42px;
+  padding: 3px 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  outline: none;
+}
+
+.gridSizeInput::-webkit-outer-spin-button,
+.gridSizeInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+.gridSizeInput:focus {
+  border-color: var(--accent);
+}
+
+/* ── Viewport ──────────────────────────────────────── */
+
+/* ── Map area: left tool rail + viewport + overlay inspector ── */
+
+.mapArea {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+}
+
+.rail {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 5px;
+  background: var(--bg-2);
+  border-right: 1px solid var(--line-soft);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.rail::-webkit-scrollbar { display: none; }
+
+.railDivider {
+  width: 20px;
+  height: 1px;
+  background: var(--line-soft);
+  margin: 3px 0;
+  flex-shrink: 0;
+}
+
+.railSpacer {
+  flex: 1;
+  min-height: 6px;
+}
+
+/* Overlay inspector drawer - floats over the map's right edge, never resizes it. Top-anchored and
+   sized to its content (not forced to span the full map height) - `max-height` just caps it at the
+   map's edge, so a short panel (e.g. a couple of Style controls) doesn't leave a tall empty box. */
+.inspector {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 230px;
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - 16px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  z-index: 6;
+  overflow: hidden;
+}
+
+.inspectorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 6px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.inspectorTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.inspectorClose {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ink-3);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.inspectorClose:hover { color: var(--ink); background: var(--surface-2); }
+
+.inspectorBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* Markup inspector controls */
+.markupPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inspSection {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.inspLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.segmented {
+  display: flex;
+  gap: 3px;
+}
+
+.segBtn {
+  flex: 1;
+  padding: 5px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.segBtn:hover { background: var(--surface-3); color: var(--ink); }
+
+.segBtnActive,
+.segBtnActive:hover {
+  color: var(--accent-ink, oklch(0.2 0.03 260));
+  background: var(--accent, oklch(0.82 0.15 80));
+  border-color: var(--accent, oklch(0.82 0.15 80));
+}
+
+.swatchRow {
+  display: flex;
+  gap: 6px;
+}
+
+.swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s, border-color 0.1s;
+}
+
+.swatch:hover { transform: scale(1.1); }
+
+.swatchActive {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.markupDeleteBtn {
+  padding: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: oklch(0.75 0.16 25);
+  background: transparent;
+  border: 1px solid oklch(0.5 0.12 25 / 0.5);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.markupDeleteBtn:hover { background: oklch(0.5 0.15 25 / 0.18); color: oklch(0.82 0.15 25); }
+
+.inspHint {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink-3);
+}
+
+/* Visibility manager */
+.visPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.visGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.visGroupHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 2px 4px;
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 2px;
+}
+
+.visGroupName {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.visCount {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 0 6px;
+  margin-right: auto;
+}
+
+.visRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 2px 2px 8px;
+}
+
+.visRowName {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.visBtn {
+  width: 24px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.visBtn:hover:not(:disabled) { color: var(--ink); background: var(--surface-2); }
+
+.visBtn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Per-token kind reclassify button - a single-letter cycle, deliberately plain (not colour-coded)
+   so it doesn't compete with a token's own custom colour swatch. */
+.visKindBtn {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.visKindBtn:hover { color: var(--ink); background: var(--surface-3); border-color: var(--accent-line); }
+
+.visBtnOn,
+.visBtnOn:hover:not(:disabled) {
+  color: var(--accent-ink, oklch(0.2 0.03 260));
+  background: var(--accent, oklch(0.82 0.15 80));
+  border-color: var(--accent, oklch(0.82 0.15 80));
+}
+
+/* GM-only "ghost" token (on board, hidden from players) */
+.tokenGhost {
+  opacity: 0.5;
+  outline: 2px dashed var(--ink-3);
+  outline-offset: 1px;
+}
+
+/* The linked combatant currently has the initiative turn - box-shadow (not transform) so it
+   layers over .token's own transform:translate(-50%,-50%) instead of fighting it. */
+.tokenSpotlight {
+  animation: tokenSpotlightPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes tokenSpotlightPulse {
+  0%, 100% { box-shadow: 0 1px 4px oklch(0 0 0 / 0.5), 0 0 0 2px oklch(0.82 0.17 80 / 0.9); }
+  50%      { box-shadow: 0 1px 4px oklch(0 0 0 / 0.5), 0 0 0 7px oklch(0.82 0.17 80 / 0.35); }
+}
+
+.tokenGhostTag {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  background: var(--surface-3, oklch(0.3 0.02 260));
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0 3px;
+  pointer-events: none;
+}
+
+/* A pin linked to a Gazetteer place - bottom-right so it never collides with the remove button
+   (top-right) or the ghost tag (top-center). */
+.tokenLinkedTag {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1px solid oklch(1 0 0 / 0.7);
+  pointer-events: none;
+}
+
+.viewportWrap {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: oklch(0.12 0.01 264);
+}
+
+.mapWrapper {
+  position: relative;
+  transform-origin: center center;
+  user-select: none;
+}
+
+.transitionShield {
+  position: absolute;
+  inset: 0;
+  background: oklch(0.12 0.01 264);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.mapImg {
+  display: block;
+  max-width: none;
+  max-height: none;
+}
+
+.gridOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(oklch(1 0 0 / 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(1 0 0 / 0.18) 1px, transparent 1px);
+}
+
+/* ── Placeholder ───────────────────────────────────── */
+
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.placeholderHint {
+  color: var(--ink-4);
+  font-size: 12px;
+  margin: 0;
+}
+
+.placeholderActions {
+  display: flex;
+  gap: 8px;
+  pointer-events: all;
+}
+
+.placeholderBtn {
+  padding: 7px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.placeholderBtn:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.placeholderBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.placeholderNote {
+  color: var(--ink-4);
+  font-size: 11px;
+  margin: 0;
+  pointer-events: none;
+}
+
+/* Armed "place-location" tool - transient hint that the next map click drops the pin. */
+.placeLocationBanner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8;
+  background: var(--surface-3, oklch(0.3 0.02 260));
+  border: 1px solid var(--accent-line);
+  color: var(--ink);
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  pointer-events: none;
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.3);
+}
+
+/* ── Browser overlay ───────────────────────────────── */
+
+.browserOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+}
+
+.browser {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 220px;
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  box-shadow: 4px 0 16px oklch(0 0 0 / 0.25);
+}
+
+.browserHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.browserTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browserClose {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ink-4);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+}
+
+.browserClose:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.browserActions {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.browserActionBtn {
+  flex: 1;
+  padding: 5px 8px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 11.5px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.1s, color 0.1s;
+}
+
+.browserActionBtn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.browserActionBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.browserFooter {
+  padding: 6px 12px;
+  font-size: 10px;
+  color: var(--ink-4);
+  border-top: 1px solid var(--line-soft);
+  flex-shrink: 0;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+}
+
+.fileList {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+  padding: 4px 0;
+}
+
+.noFiles {
+  padding: 16px 12px;
+  color: var(--ink-4);
+  font-size: 12px;
+}
+
+.fileItem {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--ink-3);
+  font-size: 12.5px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+}
+
+.fileItem:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.fileItemActive {
+  background: oklch(0.80 0.115 78 / 0.1);
+  color: var(--accent);
+}
+
+.fileItemActive:hover {
+  background: oklch(0.80 0.115 78 / 0.16);
+  color: var(--accent);
+}
+
+/* ── Toolbar divider ───────────────────────────────── */
+
+.zoomTextBtn {
+  height: 28px;
+  padding: 0 6px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+}
+
+.zoomTextBtn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* ── Cursor modes ──────────────────────────────────── */
+
+.cursorBrush   { cursor: crosshair; }
+.cursorRect    { cursor: crosshair; }
+.cursorToken   { cursor: copy; }
+.cursorMeasure { cursor: crosshair; }
+
+/* ── Fog canvas ────────────────────────────────────── */
+
+.fogCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+/* ── Live rect preview ─────────────────────────────── */
+
+.liveRect {
+  position: absolute;
+  border: 2px dashed oklch(1 0 0 / 0.7);
+  background: oklch(1 0 0 / 0.08);
+  pointer-events: none;
+}
+.liveRect[data-mode="hide"] {
+  border-color: oklch(0.65 0.18 25 / 0.85);
+  background: oklch(0.65 0.18 25 / 0.12);
+}
+
+/* ── Alt-click ping ────────────────────────────────── */
+
+.ping {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px; /* centre on (left, top) - a static offset, unlike transform:translate(-50%,-50%),
+                               so it doesn't fight the animation's own transform below */
+  border-radius: 50%;
+  border: 2px solid oklch(0.82 0.17 80);
+  pointer-events: none;
+  animation: pingPulse 1.1s ease-out forwards;
+}
+
+@keyframes pingPulse {
+  from { transform: scale(0.3); opacity: 0.9; }
+  to   { transform: scale(2.4); opacity: 0; }
+}
+
+/* ── Token pin ─────────────────────────────────────── */
+
+.token {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid oklch(1 0 0 / 0.8);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  box-shadow: 0 1px 4px oklch(0 0 0 / 0.5);
+}
+
+/* ── Scene tab strip ───────────────────────────────── */
+
+.sceneTabs {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sceneTabs::-webkit-scrollbar { display: none; }
+
+.sceneTabList {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  padding: 3px 0;
+}
+
+.sceneTab {
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sceneTabBtn {
+  height: 22px;
+  padding: 0 8px;
+  background: transparent;
+  border: none;
+  color: var(--ink-4);
+  font-size: 10.5px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.1s, background 0.1s;
+  border-radius: 4px;
+}
+.sceneTabBtn:hover { color: var(--ink); background: var(--surface-2); }
+
+.sceneTabActive .sceneTabBtn {
+  color: var(--accent);
+  background: oklch(0.80 0.115 78 / 0.12);
+}
+.sceneTabActive .sceneTabBtn:hover {
+  background: oklch(0.80 0.115 78 / 0.18);
+}
+
+.sceneDeleteBtn {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ink-4);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s, color 0.1s;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+.sceneTab:hover .sceneDeleteBtn { opacity: 1; }
+.sceneDeleteBtn:hover { background: var(--surface-3); color: var(--ink); }
+
+.sceneRenameInput {
+  height: 22px;
+  padding: 0 6px;
+  background: var(--surface);
+  border: 1px solid var(--accent-line);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 10.5px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-weight: 600;
+  outline: none;
+  min-width: 60px;
+  max-width: 140px;
+}
+
+.sceneAddBtn {
+  height: 22px;
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ink-4);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: color 0.1s, background 0.1s;
+  margin-left: 4px;
+}
+.sceneAddBtn:hover { color: var(--ink); background: var(--surface-2); }
+
+/* ── Token pin ─────────────────────────────────────── */
+
+.token:hover .tokenRemove {
+  opacity: 1;
+}
+
+.tokenPortrait {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.tokenLabel {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 10px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: oklch(1 0 0 / 0.9);
+  text-shadow: 0 1px 3px oklch(0 0 0 / 0.8);
+  pointer-events: none;
+}
+
+.tokenRemove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: oklch(0.35 0 0);
+  border: 1px solid oklch(0.5 0 0);
+  color: oklch(0.8 0 0);
+  font-size: 10px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+  padding: 0;
+}
+
+/* ── Token conflict prompt ──────────────────────────── */
+
+.tokenConflictPrompt {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.35);
+  z-index: 20;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.tokenConflictLabel {
+  color: var(--ink-2);
+}
+
+.tokenConflictBtn {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.tokenConflictBtn:hover {
+  background: var(--surface-3);
+}
+
+.tokenConflictDismiss {
+  background: transparent;
+  border: none;
+  color: var(--ink-3);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.tokenConflictDismiss:hover {
+  color: var(--ink);
+}
+
+/* ── Measure SVG overlay ─────────────────────────────── */
+
+.measureSvg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Draggable endpoint grip - opts back into pointer events against the SVG's own `none`, so only
+   the two handles (not the line/label) intercept clicks and the map stays pannable elsewhere. */
+.measureHandle {
+  pointer-events: all;
+  cursor: grab;
+}
+
+/* ── Measure scale strip ─────────────────────────────── */
+
+.measurePanel {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.measureBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+}
+
+.measureBarIcon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.measureSummary {
+  flex: 1;
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.measureChangeBtn {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.measureChangeBtn:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.measureChangeBtnOpen {
+  background: oklch(0.80 0.115 78 / 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.measureSnapshotBtn {
+  margin: 0 10px 8px;
+  padding: 6px 0;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.measureSnapshotBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.scaleEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 10px 8px 34px;
+}
+
+.scalePanelRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+}
+
+.scalePanelLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  width: 76px;
+  flex-shrink: 0;
+}
+
+.scalePanelNote {
+  font-size: 11px;
+  color: var(--ink-3);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  white-space: nowrap;
+}
+
+.scalePanelVal {
+  font-size: 11px;
+  color: var(--ink-2);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  min-width: 26px;
+  text-align: center;
+}
+
+.scaleNumInput {
+  width: 48px;
+  padding: 3px 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  outline: none;
+}
+
+.scaleNumInput::-webkit-outer-spin-button,
+.scaleNumInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+.scaleNumInput:focus { border-color: var(--accent); }
+
+.scaleUnitInput {
+  width: 38px;
+  padding: 3px 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 12px;
+  text-align: center;
+  font-family: inherit;
+  outline: none;
+}
+
+.scaleUnitInput:focus { border-color: var(--accent); }
+
+.labelInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.labelInput:focus { border-color: var(--accent); }
+
+.scaleSetBtn {
+  padding: 3px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+}
+
+.scaleSetBtn:hover { background: var(--surface-3); color: var(--ink); }
+
+.scaleSetBtnArmed {
+  background: oklch(0.80 0.115 78 / 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.scaleCancelBtn {
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.1s, color 0.1s;
+}
+
+.scaleCancelBtn:hover { background: var(--surface-2); color: var(--ink); }
+
+.nudgeBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.1s;
+}
+
+.nudgeBtn:hover { background: var(--surface-2); color: var(--ink); }

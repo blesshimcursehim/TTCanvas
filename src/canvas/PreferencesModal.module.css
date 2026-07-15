@@ -1,0 +1,597 @@
+/* ── Scrim + modal shell ─────────────────────────────────── */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: oklch(0.10 0.012 258 / 0.62);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+}
+
+.modal {
+  display: flex;
+  width: min(820px, 92vw);
+  height: min(560px, 86vh);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px -16px oklch(0 0 0 / 0.7);
+}
+
+/* ── Left rail ───────────────────────────────────────────── */
+
+.rail {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-right: 1px solid var(--line-soft);
+  padding: 20px 12px 16px;
+  gap: 4px;
+}
+
+.railBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 8px;
+}
+
+.railLogo {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--bg);
+  font-family: "EB GaramondVariable", "EB Garamond", Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.railTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.railVersion {
+  font-size: 10px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--ink-4);
+  margin-top: 1px;
+}
+
+.railNav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--ink-3);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s, color 0.1s;
+}
+.navBtn:hover { background: var(--surface); color: var(--ink); }
+
+.navBtnActive {
+  background: var(--surface);
+  color: var(--ink);
+}
+.navBtnActive::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.railClose {
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink-3);
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.railClose:hover { background: var(--surface-2); color: var(--ink); }
+
+/* ── Body / panes ────────────────────────────────────────── */
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+
+.pane {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionHead {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: 6px;
+  margin-top: 4px;
+}
+
+/* ── Theme cards ─────────────────────────────────────────── */
+
+.themeCards {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.themeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  width: 110px;
+}
+.themeCard:hover:not(:disabled) { border-color: var(--ink-3); }
+.themeCardActive { border-color: var(--accent) !important; }
+.themeCardSoon { opacity: 0.45; cursor: default; position: relative; }
+
+.themePreview {
+  width: 94px;
+  height: 60px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: oklch(0.155 0.012 258);
+  position: relative;
+}
+[data-theme="dark-amber"] .themePreview,
+.themePreview[data-theme="dark-amber"] {
+  background: oklch(0.155 0.020 60);
+}
+
+.themePreviewBar {
+  height: 10px;
+  background: oklch(0.185 0.014 258);
+  border-bottom: 1px solid oklch(0.32 0.014 258 / 0.3);
+}
+.themePreviewWidget {
+  margin: 8px auto 0;
+  width: 74px;
+  height: 30px;
+  background: oklch(0.215 0.014 258);
+  border-radius: 4px;
+}
+
+.themeLabel {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  font-family: inherit;
+}
+
+.soonBadge {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  background: var(--surface-2);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+/* ── Accent swatches ─────────────────────────────────────── */
+
+.accentRow {
+  display: flex;
+  gap: 10px;
+}
+
+.accentSwatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.1s;
+  padding: 0;
+}
+.accentSwatch:hover { transform: scale(1.1); }
+.accentSwatchActive {
+  border-color: var(--ink);
+  transform: scale(1.1);
+}
+
+/* ── Density segmented control ───────────────────────────── */
+
+.segmented {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.segBtn {
+  height: 30px;
+  padding: 0 14px;
+  background: transparent;
+  border: none;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  border-right: 1px solid var(--line);
+}
+.segBtn:last-child { border-right: none; }
+.segBtn:hover:not(.segBtnActive) { background: var(--surface); color: var(--ink); }
+.segBtnActive {
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ── Reduce motion toggle ────────────────────────────────── */
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggleLabel {
+  font-size: 13px;
+  color: var(--ink-2);
+  flex: 1;
+}
+
+.toggle {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  border: none;
+  background: var(--surface-3);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.toggleOn { background: var(--accent); }
+
+.toggleThumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+  display: block;
+}
+.toggleOn .toggleThumb { transform: translateX(16px); }
+
+/* ── Canvas pane - widget list ───────────────────────────── */
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 3px 0;
+}
+
+.check {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkLabel {
+  font-size: 13px;
+  color: var(--ink-2);
+  user-select: none;
+}
+
+.modRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.modName {
+  flex: 1;
+  font-size: 13px;
+  color: var(--ink-2);
+  font-family: "JetBrains MonoVariable", monospace;
+}
+
+.modRemoveBtn {
+  height: 22px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-3);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.modRemoveBtn:hover { background: var(--surface-2); color: var(--ink); }
+
+/* ── AI config ───────────────────────────────────────────── */
+
+.aiTabs {
+  display: flex;
+  gap: 4px;
+}
+
+.aiTab {
+  height: 28px;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.aiTab:hover { background: var(--surface); color: var(--ink); }
+.aiTabActive {
+  background: var(--surface-2);
+  border-color: var(--accent-line);
+  color: var(--ink);
+}
+
+.aiHint {
+  font-size: 12px;
+  color: var(--ink-4);
+  font-style: italic;
+}
+
+.aiInput {
+  height: 30px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink);
+  font-size: 12.5px;
+  padding: 0 10px;
+  outline: none;
+  font-family: inherit;
+  width: 100%;
+}
+.aiInput:focus { border-color: var(--accent-line); }
+.aiInput::placeholder { color: var(--ink-4); }
+
+/* ── Custom conditions ───────────────────────────────────── */
+
+.conditionRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.conditionName {
+  flex: 1;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.conditionRemoveBtn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ink-4);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.1s, color 0.1s;
+}
+.conditionRemoveBtn:hover { background: var(--surface-2); color: var(--ink); }
+
+.conditionAddRow {
+  display: flex;
+  gap: 6px;
+}
+
+.conditionInput {
+  flex: 1;
+  height: 28px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink);
+  font-size: 12.5px;
+  padding: 0 8px;
+  outline: none;
+  font-family: inherit;
+  min-width: 0;
+}
+.conditionInput:focus { border-color: var(--accent-line); }
+.conditionInput::placeholder { color: var(--ink-4); }
+
+.conditionAddBtn {
+  height: 28px;
+  padding: 0 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+.conditionAddBtn:hover:not(:disabled) { background: var(--surface-3); color: var(--ink); }
+.conditionAddBtn:disabled { opacity: 0.35; cursor: default; }
+
+/* ── Keyboard pane ───────────────────────────────────────── */
+
+.shortcutTable {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.shortcutRow {
+  border-bottom: 1px solid var(--line-soft);
+}
+.shortcutRow:last-child { border-bottom: none; }
+
+.shortcutKey {
+  padding: 7px 12px 7px 0;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.shortcutAction {
+  padding: 7px 0;
+  font-size: 13px;
+  color: var(--ink-2);
+  vertical-align: middle;
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-bottom: 2px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-2);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-style: normal;
+  box-shadow: inset 0 -1px 0 var(--line);
+}
+
+.kbdPlus {
+  font-size: 10px;
+  color: var(--ink-4);
+  margin: 0 2px;
+}
+
+/* ── Diagnostics pane ────────────────────────────────────── */
+
+.diagActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.diagBtn {
+  height: 30px;
+  padding: 0 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.diagBtn:hover:not(:disabled) { background: var(--surface-3); color: var(--ink); }
+.diagBtn:disabled { opacity: 0.35; cursor: default; }
+
+.logViewHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.logViewHead .sectionHead {
+  flex: 1;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-top: 0;
+}
+
+.logTextBtn {
+  background: transparent;
+  border: none;
+  color: var(--ink-4);
+  font-size: 11px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background 0.1s, color 0.1s;
+}
+.logTextBtn:hover { background: var(--surface-2); color: var(--ink); }
+
+.logView {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-3);
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+.logViewEmpty { color: var(--ink-4); font-style: italic; }

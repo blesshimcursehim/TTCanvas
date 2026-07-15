@@ -1,0 +1,47 @@
+.trigger {
+  background: transparent;
+  border: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.question {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.confirm {
+  padding: 4px 9px;
+  background: oklch(0.45 0.18 22);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.confirm:hover {
+  filter: brightness(1.1);
+}
+
+.cancel {
+  padding: 4px 9px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.cancel:hover {
+  background: var(--surface-2);
+}

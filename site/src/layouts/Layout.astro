@@ -1,0 +1,31 @@
+---
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'TTCanvas - GM Screen for Tabletop RPGs',
+  description = 'A freeform canvas of widgets for dice rolling, NPC management, initiative tracking, maps, and more. Runs locally. Stores everything in a folder you own.',
+} = Astro.props;
+
+const base = import.meta.env.BASE_URL;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={`${base}screenshots/npc-library.png`} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href={`${base}icon.png`} />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

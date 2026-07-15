@@ -1,0 +1,90 @@
+.list { display: flex; flex-direction: column; gap: 4px; }
+
+.entry {
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.header:hover { background: var(--surface-3, var(--surface-2)); }
+
+.name {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.chevron {
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.desc {
+  padding: 0 10px 8px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.nameInput {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+  font-family: var(--font-mono);
+}
+.nameInput:focus { outline: none; border-color: var(--accent); }
+
+.descInput {
+  display: block;
+  width: calc(100% - 20px);
+  margin: 0 10px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 11.5px;
+  color: var(--ink);
+  resize: vertical;
+  line-height: 1.5;
+}
+.descInput:focus { outline: none; border-color: var(--accent); }
+
+.removeBtn {
+  background: transparent;
+  border: none;
+  color: var(--ink-3);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 2px;
+  line-height: 1;
+}
+.removeBtn:hover { color: var(--ink); }
+
+.addBtn {
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+.addBtn:hover { border-color: var(--accent); color: var(--accent); }

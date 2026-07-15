@@ -1,0 +1,306 @@
+.pane { display: flex; flex-direction: column; gap: 4px; }
+
+/* ── Overview ─────────────────────────────── */
+.fieldGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.fieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+}
+
+.fieldRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.fieldVal {
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.identityBlock { margin-bottom: 4px; }
+.identityName {
+  font-family: var(--font-serif, "EB Garamond Variable", serif);
+  font-size: 20px;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.identitySubtitle { font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+
+.input {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  color: var(--ink);
+  width: 100%;
+  box-sizing: border-box;
+}
+.input:focus { outline: none; border-color: var(--accent); }
+
+.select {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.select:focus { outline: none; border-color: var(--accent); }
+
+.notesTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 12.5px;
+  color: var(--ink);
+  resize: vertical;
+  line-height: 1.6;
+}
+.notesText { font-size: 12.5px; color: var(--ink-2); line-height: 1.6; white-space: pre-wrap; margin: 0; }
+
+/* ── Abilities ────────────────────────────── */
+.saveThrowGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+.saveThrowRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.saveBonus { font-family: var(--font-mono); font-size: 11px; color: var(--accent); margin-left: auto; }
+.saveThrowText { font-size: 12.5px; color: var(--ink-2); margin: 0; }
+
+.skillsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+.skillRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.skillRow:hover { background: var(--surface-2); }
+.skillName { flex: 1; font-size: 12px; color: var(--ink-2); }
+.skillBonus { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); width: 28px; text-align: right; }
+.skillInput { width: 44px; text-align: right; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; font-size: 11.5px; padding: 1px 4px; color: var(--ink); font-family: var(--font-mono); }
+
+/* ── Combat ──────────────────────────────── */
+.statRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.statCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  padding: 8px 12px;
+  min-width: 56px;
+}
+.statLabel { font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); text-align: center; }
+.statValue { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--ink); }
+.statInput { width: 52px; text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; font-size: 14px; font-weight: 700; color: var(--ink); font-family: var(--font-mono); padding: 2px 4px; }
+
+/* death saves */
+.deathSavesBlock { display: flex; flex-direction: column; gap: 6px; }
+.deathSaveRow { display: flex; align-items: center; gap: 10px; }
+.deathSaveLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  width: 72px;
+  flex-shrink: 0;
+}
+.pipRow { display: flex; gap: 5px; }
+.pip {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.1s, border-color 0.1s;
+}
+.pip:hover { border-color: var(--ink-2); }
+.successPip.pipFilled { background: var(--accent); border-color: var(--accent); }
+.failurePip.pipFilled { background: oklch(0.60 0.18 22); border-color: oklch(0.60 0.18 22); }
+
+.deathStateRow { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.fallenLabel { font-family: var(--font-mono); font-size: 11px; color: oklch(0.70 0.18 22); text-transform: uppercase; letter-spacing: 0.08em; }
+.stabilisedLabel { font-family: var(--font-mono); font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; }
+.resetBtn {
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--ink-2);
+}
+.resetBtn:hover { background: var(--surface-2); }
+
+/* ── Spellcasting ────────────────────────── */
+.slotRows { display: flex; flex-direction: column; gap: 5px; }
+.slotRow { display: flex; align-items: center; gap: 8px; }
+.slotLevel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  width: 32px;
+  flex-shrink: 0;
+}
+.slotTotalInput { width: 36px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; font-size: 12px; padding: 2px 4px; color: var(--ink); text-align: center; font-family: var(--font-mono); }
+.slotPips { display: flex; gap: 4px; flex-wrap: wrap; }
+.slotPip {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.1s;
+}
+.slotPip:hover { background: oklch(from var(--accent) l c h / 0.2); }
+.slotPipUsed { background: var(--accent); }
+.slotCount {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-3);
+  margin-left: auto;
+}
+
+.spellTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 12.5px;
+  color: var(--ink);
+  resize: vertical;
+  line-height: 1.6;
+}
+.spellList { display: flex; flex-direction: column; gap: 4px; }
+.spellLevel { display: flex; gap: 10px; align-items: baseline; }
+.spellLevelLabel { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); width: 72px; flex-shrink: 0; }
+.spellNames { font-size: 12.5px; color: var(--ink-2); }
+
+/* ── Inventory ───────────────────────────── */
+.currencyRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.currencyCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  padding: 8px 10px;
+  min-width: 48px;
+}
+.currencyLabel { font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); }
+.currencyValue { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--ink); }
+.currencyName { font-size: 9px; color: var(--ink-3); }
+.currencyInput { width: 48px; text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; font-size: 13px; font-weight: 700; color: var(--ink); font-family: var(--font-mono); padding: 2px 4px; }
+
+.equipList { display: flex; flex-direction: column; gap: 4px; }
+.equipRow { display: flex; align-items: center; gap: 6px; }
+.equipItem { font-size: 12.5px; color: var(--ink-2); padding: 2px 0; }
+.equipInput {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.equipInput:focus { outline: none; border-color: var(--accent); }
+.equipRemoveBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+.equipRemoveBtn:hover { background: var(--surface-2); color: var(--ink); }
+.equipAddRow { display: flex; gap: 6px; margin-top: 4px; }
+.equipAddBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.equipAddBtn:hover { background: var(--surface-2); }
+
+/* ── Shared ──────────────────────────────── */
+.empty { color: var(--ink-3); font-style: normal; }
+
+/* ── Footer ──────────────────────────────── */
+.castBtn {
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid var(--accent-line);
+  border-radius: 6px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.castBtn:hover { background: oklch(from var(--accent) l c h / 0.1); }

@@ -1,0 +1,180 @@
+---
+import Layout from '../layouts/Layout.astro';
+import '../styles/global.css';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const releases = 'https://github.com/blesshimcursehim/TTCanvas/releases/latest';
+const discord  = 'https://discord.gg/ADvK4HEwFE';
+const kofi     = 'https://ko-fi.com/ttcanvas';
+const patreon  = 'https://patreon.com/TTCanvas';
+
+const features = [
+  {
+    icon: '⬛',
+    title: 'Freeform canvas',
+    desc: 'Pan, zoom, place and resize any widget freely. Multi-select with marquee or Shift-click. Multiple named layouts per vault.',
+  },
+  {
+    icon: '🎲',
+    title: 'Full widget suite',
+    desc: 'Dice Roller, Party Tracker, Initiative Tracker, Map Display, Session Notes, Calendar, Sound Board, NPC tools, Bestiary, and more.',
+  },
+  {
+    icon: '🗂️',
+    title: 'Your vault, your files',
+    desc: 'Everything saves to a plain local folder as JSON and Markdown. Zip it, put it in Dropbox, or commit it to git. No accounts or sync fees.',
+  },
+  {
+    icon: '🖥️',
+    title: 'Player Window',
+    desc: 'Push your map with fog-of-war reveals and in-game time to a separate screen. Or send a cinematic character card from NPC Library, Bestiary, or Party Tracker.',
+  },
+  {
+    icon: '🤖',
+    title: 'Fully optional AI',
+    desc: "Don't use it. Use it. Up to you. Generate NPC descriptions with Ollama (local, no API key) or any OpenAI-compatible endpoint. All HTTP calls go through Rust.",
+  },
+  {
+    icon: '🧩',
+    title: 'Custom widgets',
+    desc: 'Drop a pre-built ESM .js file into your vault\'s mods/ folder to add your own widgets without recompiling.',
+  },
+];
+
+const screenshots = [
+  { file: 'npc-library.png',   caption: 'NPC Library with stat block sheet' },
+  { file: 'bestiary.png',      caption: 'Bestiary creature cards' },
+];
+---
+
+<Layout>
+  <!-- Nav -->
+  <nav>
+    <div class="container nav-inner">
+      <a href={base} class="nav-logo">
+        <img src={`${base}icon.png`} alt="TTCanvas icon" />
+        TTCanvas
+      </a>
+      <div class="nav-links">
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#download" class="nav-link">Download</a>
+        <a href="https://github.com/blesshimcursehim/TTCanvas" class="nav-link" target="_blank" rel="noopener">GitHub</a>
+        <a href={discord} class="nav-link" target="_blank" rel="noopener">Discord</a>
+        <a href={releases} class="btn btn-primary" style="padding: 7px 16px; font-size: 13px;" target="_blank" rel="noopener">
+          Download
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge">Public Alpha · v0.14.0</div>
+      <h1>An open-source GM toolbox<br />for tabletop RPGs.</h1>
+      <p class="hero-sub">
+        A freeform canvas of widgets for dice rolling, NPC management, initiative tracking,
+        maps, and more. Runs locally and stores everything in a plain folder you own.
+      </p>
+      <div class="hero-ctas">
+        <a href={releases} class="btn btn-primary" target="_blank" rel="noopener">
+          ↓ Download
+        </a>
+        <a href="https://github.com/blesshimcursehim/TTCanvas" class="btn btn-ghost" target="_blank" rel="noopener">
+          View on GitHub
+        </a>
+      </div>
+      <p class="hero-note">Linux · Windows · macOS TBA &nbsp;·&nbsp; GPL-3.0 &nbsp;·&nbsp; No account needed</p>
+      <div class="hero-screenshot">
+        <img src={`${base}screenshots/npc-library.png`} alt="TTCanvas NPC Library with a stat block sheet" />
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <div class="container">
+      <p class="section-label">Everything you need</p>
+      <h2 class="section-title">Built for the table, not the browser</h2>
+      <div class="features-grid">
+        {features.map(f => (
+          <div class="feature-card">
+            <span class="feature-icon">{f.icon}</span>
+            <h3>{f.title}</h3>
+            <p>{f.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Screenshots -->
+  <section class="screenshots" id="screenshots">
+    <div class="container">
+      <p class="section-label">Use it as you like</p>
+      <h2 class="section-title">Your game, your workflow</h2>
+      <div class="screenshots-grid">
+        {screenshots.map(s => (
+          <div class="screenshot-item">
+            <img src={`${base}screenshots/${s.file}`} alt={s.caption} loading="lazy" />
+            <p class="screenshot-caption">{s.caption}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Download -->
+  <section class="download" id="download">
+    <div class="container">
+      <p class="section-label">Try it out</p>
+      <h2 class="section-title">Download TTCanvas</h2>
+      <p class="download-desc">
+        Free and open source under GPL-3.0. No account, no telemetry, no subscription.
+        Download, open a folder, and start your session.
+      </p>
+      <div class="platform-cards">
+        <a href={releases} class="platform-card" target="_blank" rel="noopener">
+          <span class="platform-icon">🐧</span>
+          <span class="platform-name">Linux</span>
+          <span class="platform-ext">AppImage · .deb</span>
+        </a>
+        <a href={releases} class="platform-card" target="_blank" rel="noopener">
+          <span class="platform-icon">🪟</span>
+          <span class="platform-name">Windows</span>
+          <span class="platform-ext">.exe · .msi</span>
+        </a>
+        <div class="platform-card" style="opacity: 0.5; cursor: default;">
+          <span class="platform-icon">🍎</span>
+          <span class="platform-name">macOS</span>
+          <span class="platform-ext">TBA</span>
+        </div>
+      </div>
+      <p class="download-note">
+        All releases on <a href="https://github.com/blesshimcursehim/TTCanvas/releases" target="_blank" rel="noopener">GitHub Releases</a>.
+        Source code available under GPL-3.0.
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container footer-inner">
+      <div class="footer-logo">
+        <img src={`${base}icon.png`} alt="TTCanvas" />
+        TTCanvas
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/blesshimcursehim/TTCanvas" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/blesshimcursehim/TTCanvas/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/blesshimcursehim/TTCanvas/issues" target="_blank" rel="noopener">Issues</a>
+        <a href={discord} target="_blank" rel="noopener">Discord</a>
+        <a href={kofi} target="_blank" rel="noopener">Ko-fi</a>
+        <a href={patreon} target="_blank" rel="noopener">Patreon</a>
+      </div>
+      <p class="footer-copy">
+        GPL-3.0-or-later · Plugins loaded via the official Plugin SDK are not considered derivative works.
+      </p>
+    </div>
+  </footer>
+</Layout>

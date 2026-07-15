@@ -1,0 +1,61 @@
+.stack {
+  position: fixed;
+  top: 56px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 14px;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  box-shadow: 0 4px 20px oklch(0 0 0 / 0.4);
+  max-width: 360px;
+  pointer-events: all;
+  animation: slideIn 0.18s ease;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+.error  { border-left-color: oklch(0.55 0.18 22); }
+.success { border-left-color: oklch(0.55 0.16 145); }
+.info   { border-left-color: var(--accent); }
+
+.msg {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.4;
+  font-family: inherit;
+}
+
+.dismiss {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ink-4);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+  padding: 0;
+}
+.dismiss:hover { background: var(--surface-2); color: var(--ink); }

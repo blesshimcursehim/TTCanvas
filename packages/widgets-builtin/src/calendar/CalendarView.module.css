@@ -1,0 +1,435 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── Header ───────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px 6px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.headerCenter {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+}
+
+.monthName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.yearInput {
+  background: transparent;
+  border: none;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  width: 52px;
+  text-align: center;
+  outline: none;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  padding: 0;
+}
+.yearInput::-webkit-outer-spin-button,
+.yearInput::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.epochLabel {
+  font-size: 11px;
+  color: var(--ink-4);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+}
+
+.navBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--ink-3);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+  transition: background 0.1s, color 0.1s;
+}
+.navBtn:hover { background: var(--surface); color: var(--ink); }
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.todayBtn {
+  font-size: 10px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink-4);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.todayBtn:hover { background: var(--surface); color: var(--ink); }
+
+.editBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--ink-4);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  transition: background 0.1s, color 0.1s;
+}
+.editBtn:hover { background: var(--surface); color: var(--ink); }
+
+/* ── Month grid ───────────────────────────────────── */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  gap: 1px;
+  padding: 6px 4px;
+  flex-shrink: 0;
+}
+
+.weekHeader {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--ink-4);
+  text-align: center;
+  padding: 2px 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.empty {
+  /* spacer */
+}
+
+.dayCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 3px 2px;
+  transition: background 0.1s;
+  position: relative;
+}
+.dayCell:hover { background: var(--surface); }
+
+.dayNum {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--ink-2);
+  line-height: 1;
+}
+
+.dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.today { background: oklch(0.80 0.115 78 / 0.10); }
+.today .dayNum { color: oklch(0.68 0.115 78); font-weight: 700; }
+.today:hover { background: oklch(0.80 0.115 78 / 0.16); }
+
+.selected { background: var(--surface-2); outline: 1px solid var(--line); }
+.selected:hover { background: var(--surface-2); }
+
+/* ── Intercalary bands ────────────────────────────── */
+
+.intercalarySection {
+  padding: 2px 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.intercalaryBand {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.intercalaryLabel {
+  display: block;
+  padding: 5px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: oklch(0.68 0.115 78);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  background: oklch(0.80 0.115 78 / 0.07);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.intercalaryDays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 8px;
+}
+
+.intDayCell {
+  min-width: 36px;
+  height: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 3px 6px;
+  transition: background 0.1s;
+}
+.intDayCell:hover { background: var(--surface); }
+
+/* ── Event panel ──────────────────────────────────── */
+
+.eventPanel {
+  border-top: 1px solid var(--line-soft);
+  padding: 10px 12px;
+  flex-shrink: 0;
+}
+
+.eventPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.eventPanelDate {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+}
+
+.closePanel {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ink-4);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0;
+  border-radius: 3px;
+  transition: background 0.1s, color 0.1s;
+}
+.closePanel:hover { background: var(--surface); color: var(--ink); }
+
+.noEvents {
+  font-size: 11px;
+  color: var(--ink-4);
+  margin-bottom: 6px;
+}
+
+.eventItem {
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-bottom: 5px;
+}
+
+.eventTop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eventTitle {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.durationBadge {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
+  border-radius: 3px;
+  padding: 1px 4px;
+  flex-shrink: 0;
+}
+
+.removeEvent {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ink-4);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  border-radius: 3px;
+  transition: background 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+.removeEvent:hover { background: oklch(0.70 0.13 22 / 0.2); color: oklch(0.70 0.13 22); }
+
+.eventNote {
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-top: 3px;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+/* Add form */
+
+.addForm {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.addInput,
+.addTextarea {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 5px 8px;
+  outline: none;
+  resize: vertical;
+}
+.addInput:focus,
+.addTextarea:focus { border-color: var(--accent-line); }
+
+.addFooter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.durationLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--ink-3);
+  flex: 1;
+}
+
+.durationInput {
+  width: 44px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink);
+  font-size: 11px;
+  padding: 2px 4px;
+  outline: none;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.durationInput::-webkit-outer-spin-button,
+.durationInput::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.addSaveBtn {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+.addSaveBtn:hover { opacity: 0.85; }
+
+.addCancelBtn {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.addCancelBtn:hover { background: var(--surface); }
+
+.addEventBtn {
+  font-size: 11px;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 3px 0;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  margin-top: 4px;
+}
+.addEventBtn:hover { text-decoration: underline; }
+
+.defError {
+  padding: 12px;
+  color: var(--text);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 11px;
+}
+.defError p { margin: 0 0 6px; font-weight: 600; }
+.defError ul { margin: 0 0 10px; padding-left: 16px; }
+.defError li { margin-bottom: 2px; }

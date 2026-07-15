@@ -1,0 +1,573 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg);
+  color: var(--ink);
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.35 0.014 258 / 0.55) transparent;
+  box-sizing: border-box;
+}
+
+.root::-webkit-scrollbar { width: 4px; }
+.root::-webkit-scrollbar-thumb { background: oklch(0.35 0.014 258 / 0.55); border-radius: 2px; }
+
+/* ── Accent colour row ───────────────────────────────── */
+
+.accentRow {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  padding-bottom: 2px;
+}
+
+.accentDot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.accentDot:hover { transform: scale(1.15); }
+
+.accentDotActive {
+  border-color: var(--ink);
+  transform: scale(1.15);
+}
+
+/* ── Card: avatar + name + dropdowns ─────────────────── */
+
+.card {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.avatarCircle {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: oklch(0.12 0.01 258);
+  letter-spacing: 0.03em;
+  margin-top: 2px;
+}
+
+.cardBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nameInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 0;
+  padding: 2px 0;
+  font-family: var(--font-serif, "EB Garamond Variable", serif);
+  font-size: 18px;
+  color: var(--ink);
+  outline: none;
+  line-height: 1.2;
+}
+
+.nameInput:focus { border-bottom-color: var(--accent); }
+
+.dropdownRow {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 22px 4px 7px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23888'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  text-overflow: ellipsis;
+}
+
+.select:focus { border-color: var(--accent); }
+
+.levelInput {
+  width: 48px;
+  flex-shrink: 0;
+  padding: 4px 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.levelInput::-webkit-outer-spin-button,
+.levelInput::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.levelInput:focus { border-color: var(--accent); }
+
+.ageRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ageLabel {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+
+.ageInput {
+  width: 54px;
+  padding: 4px 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.ageInput::-webkit-outer-spin-button,
+.ageInput::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.ageInput:focus { border-color: var(--accent); }
+
+/* ── Lock button ──────────────────────────────────────── */
+
+.lockBtn {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  color: var(--ink-4);
+  opacity: 0.45;
+  transition: opacity 0.12s, border-color 0.12s, background 0.12s;
+}
+
+.lockBtn:hover { opacity: 0.85; background: var(--surface); border-color: var(--line-soft); }
+
+.lockBtn.locked {
+  opacity: 1;
+  border-color: var(--accent-line, var(--accent));
+  background: oklch(from var(--accent) l c h / 0.1);
+  color: var(--accent);
+}
+
+/* ── Narrative field blocks ───────────────────────────── */
+
+.sectionLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.fieldBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fieldHead {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.fieldLabel {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.rerollBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  color: var(--ink-3);
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.rerollBtn:hover:not(:disabled) { background: var(--surface); border-color: var(--line-soft); color: var(--ink); }
+.rerollBtn:disabled { opacity: 0.3; cursor: default; }
+
+.fieldInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-family: inherit;
+  outline: none;
+  line-height: 1.4;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.fieldInput:focus { border-color: var(--accent); color: var(--ink); }
+
+.italic { font-style: italic; }
+
+.streaming {
+  border-color: oklch(0.65 0.12 78 / 0.5);
+  background: oklch(0.65 0.12 78 / 0.04);
+  animation: streamPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes streamPulse {
+  0%, 100% { border-color: oklch(0.65 0.12 78 / 0.4); }
+  50%       { border-color: oklch(0.65 0.12 78 / 0.8); }
+}
+
+/* ── Relationship chips ───────────────────────────────── */
+
+.relChips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.relChip {
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  font-size: 11.5px;
+  cursor: pointer;
+  color: var(--ink-3);
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.relChip:hover { background: var(--surface); color: var(--ink-2); }
+
+.relChip[data-rel="ally"].relChipActive    { background: oklch(0.40 0.12 145 / 0.9); border-color: oklch(0.56 0.14 145); color: oklch(0.92 0.05 145); }
+.relChip[data-rel="neutral"].relChipActive { background: oklch(0.36 0.04 258 / 0.9); border-color: oklch(0.52 0.05 258); color: oklch(0.88 0.02 258); }
+.relChip[data-rel="wary"].relChipActive    { background: oklch(0.42 0.10 80  / 0.9); border-color: oklch(0.58 0.12 80);  color: oklch(0.92 0.06 80); }
+.relChip[data-rel="hostile"].relChipActive { background: oklch(0.38 0.14 22  / 0.9); border-color: oklch(0.54 0.16 22);  color: oklch(0.92 0.06 22); }
+
+/* ── Ollama model select ──────────────────────────────── */
+
+.modelSelect {
+  width: 100%;
+  padding: 6px 28px 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23888'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  box-sizing: border-box;
+}
+
+.modelSelect:focus { border-color: var(--accent); }
+
+.hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--ink-4);
+  font-style: italic;
+  text-align: center;
+}
+
+/* ── Action buttons ───────────────────────────────────── */
+
+.actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.regenAllBtn {
+  flex: 1;
+  padding: 8px 0;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.regenAllBtn:hover:not(:disabled) {
+  background: var(--surface-3, var(--surface-2));
+  border-color: var(--accent-line, var(--accent));
+}
+
+.regenAllBtn:disabled { opacity: 0.4; cursor: default; }
+
+.saveBtn {
+  flex: 1;
+  padding: 8px 0;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: oklch(0.12 0.01 258);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.12s, background 0.12s;
+}
+
+.saveBtn:hover:not(:disabled) { filter: brightness(1.1); }
+.saveBtn:disabled { opacity: 0.35; cursor: default; }
+
+.saveBtnSaved {
+  background: oklch(0.45 0.14 145);
+}
+
+.saveBtnError {
+  background: oklch(0.45 0.18 22);
+}
+
+/* ── Combat stats ────────────────────────────────────────── */
+
+.statsHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.statsToggle {
+  width: 28px;
+  height: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  padding: 0;
+}
+
+.statsToggleThumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  transition: transform 0.15s, background 0.15s;
+}
+
+.statsToggleOn { background: var(--accent); border-color: var(--accent); }
+.statsToggleOn .statsToggleThumb { transform: translateX(12px); background: oklch(0.12 0.01 258); }
+
+.statsBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.statsTopRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.statPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-2);
+}
+
+.statsReroll {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.statsReroll:hover { background: var(--surface); color: var(--ink); }
+
+.abilityGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3px;
+}
+
+.abilityCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 4px 2px;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.abilityName {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--ink-4);
+}
+
+.abilityScore {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.abilityMod {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.actionList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.actionRow {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 6px;
+  border-left: 2px solid var(--accent);
+  background: var(--surface);
+  border-radius: 0 4px 4px 0;
+}
+
+.actionName {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.actionDesc {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  line-height: 1.35;
+}
+
+/* ── Campaign context textarea ───────────────────────────── */
+
+.contextTextarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 11.5px;
+  line-height: 1.4;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.contextTextarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.contextTextarea::placeholder {
+  color: var(--ink-4);
+}

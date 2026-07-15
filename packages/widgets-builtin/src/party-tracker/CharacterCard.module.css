@@ -1,0 +1,431 @@
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* ── Header ─────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: oklch(1 0 0 / 0.88);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  -webkit-user-drag: element;
+}
+
+.avatarDragHint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: oklch(0 0 0 / 0.55);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: oklch(1 0 0 / 0.9);
+  font-size: 9px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.avatar:hover .avatarDragHint {
+  opacity: 1;
+}
+
+.avatarImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.nameGroup {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subtitle {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 1px;
+}
+
+.castBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--accent-line);
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+}
+.card:hover .castBtn { opacity: 1; }
+.castBtn:hover { background: oklch(from var(--accent) l c h / 0.12); }
+
+.sheetBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.sheetBtn:hover { background: var(--surface-2); color: var(--accent); border-color: var(--accent); }
+
+.acGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.shieldIcon {
+  color: var(--ink-3);
+}
+
+.acValue {
+  width: 34px;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+  padding: 0;
+}
+
+.acValue::-webkit-outer-spin-button,
+.acValue::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+.acValue:focus {
+  color: var(--accent);
+}
+
+/* ── Stat boxes ──────────────────────────────────────── */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.statBox {
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  padding: 6px 7px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--bg);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.statLabel {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.statValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+}
+
+.statValue {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  font-size: 19px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  outline: none;
+  padding: 0;
+  line-height: 1.15;
+}
+
+.statValue::-webkit-outer-spin-button,
+.statValue::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+.statMax {
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.statBar {
+  height: 3px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  margin-top: 5px;
+  margin-bottom: 5px;
+}
+
+.statBarFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.2s;
+}
+
+/* ── Notes ───────────────────────────────────────────── */
+
+.notesSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notesLabel {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: var(--ink-3);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  text-transform: uppercase;
+}
+
+.notes {
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+  line-height: 1.45;
+}
+
+.notes:focus {
+  border-color: var(--accent);
+}
+
+/* ── Inspiration ─────────────────────────────────────── */
+
+.inspiration {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.inspiration.inspired {
+  background: oklch(0.80 0.115 78 / 0.12);
+  border-color: oklch(0.80 0.115 78 / 0.40);
+  color: var(--accent);
+}
+
+.inspirationStar {
+  font-size: 11px;
+}
+
+.inspirationStatus {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+}
+
+/* ── Death saves ─────────────────────────────────── */
+
+.deathSaves {
+  padding: 6px 12px 4px;
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pipRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pipGroupLabel {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  margin-right: 2px;
+}
+
+.pipSep {
+  color: var(--ink-4);
+  font-size: 11px;
+  margin: 0 2px;
+}
+
+.pip {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.1s, border-color 0.1s;
+  flex-shrink: 0;
+}
+
+.successPip.pipFilled {
+  background: oklch(0.55 0.16 145);
+  border-color: oklch(0.55 0.16 145);
+}
+
+.failurePip.pipFilled {
+  background: oklch(0.50 0.18 22);
+  border-color: oklch(0.50 0.18 22);
+}
+
+.fallenLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: oklch(0.50 0.18 22);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+}
+
+.stabiliseBtn {
+  height: 20px;
+  padding: 0 8px;
+  background: oklch(0.55 0.16 145 / 0.15);
+  border: 1px solid oklch(0.55 0.16 145 / 0.4);
+  border-radius: 4px;
+  color: oklch(0.55 0.16 145);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: background 0.1s;
+  margin-left: auto;
+}
+.stabiliseBtn:hover { background: oklch(0.55 0.16 145 / 0.25); }
+
+/* ── Custom fields ───────────────────────────────── */
+
+.customFields {
+  padding: 4px 12px 6px;
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.customFieldRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.customFieldLabel {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--ink-3);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.customFieldInput {
+  flex: 1;
+  height: 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink);
+  font-size: 12px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  padding: 0 6px;
+  outline: none;
+  min-width: 0;
+}
+.customFieldInput:focus { border-color: var(--accent-line); }

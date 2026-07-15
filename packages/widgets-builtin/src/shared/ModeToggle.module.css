@@ -1,0 +1,30 @@
+.toggle {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: none;
+  color: var(--ink-3);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  color: var(--ink);
+}
+
+.btnActive {
+  background: var(--accent);
+  color: oklch(0.12 0.01 258);
+  font-weight: 600;
+}
+
+.btnActive:hover {
+  color: oklch(0.12 0.01 258);
+}

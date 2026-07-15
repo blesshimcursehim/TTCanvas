@@ -1,0 +1,180 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: oklch(0 0 0 / 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Must sit above the launching modal AND the creature SheetChrome scrim (z-index 9500),
+     since the crop is opened from inside those - otherwise it renders hidden behind them. */
+  z-index: 9999;
+}
+
+.modal {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  max-width: 96vw;
+}
+
+/* ── Header ─────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.closeBtn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+}
+
+.closeBtn:hover {
+  background: oklch(0.70 0.13 22 / 0.15);
+  color: oklch(0.70 0.13 22);
+}
+
+/* ── Image area ──────────────────────────────────────── */
+
+.body {
+  padding: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.imgContainer {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ── Overlay panels (darken outside crop) ────────────── */
+
+.panel {
+  position: absolute;
+  background: oklch(0 0 0 / 0.58);
+  pointer-events: none;
+}
+
+/* ── Crop box ────────────────────────────────────────── */
+
+.cropBox {
+  position: absolute;
+  cursor: move;
+  box-sizing: border-box;
+}
+
+.circleRing {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid oklch(1 0 0 / 0.80);
+  pointer-events: none;
+}
+
+/* ── Resize handles ──────────────────────────────────── */
+
+.handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: oklch(1 0 0 / 0.92);
+  border: 1px solid oklch(0 0 0 / 0.25);
+  border-radius: 2px;
+}
+
+.handleTL { top: -5px; left: -5px; cursor: nw-resize; }
+.handleTR { top: -5px; right: -5px; cursor: ne-resize; }
+.handleBL { bottom: -5px; left: -5px; cursor: sw-resize; }
+.handleBR { bottom: -5px; right: -5px; cursor: se-resize; }
+
+/* ── Hint + footer ───────────────────────────────────── */
+
+.hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--ink-3);
+  margin: 0 0 8px;
+  flex-shrink: 0;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.03em;
+}
+
+.footer {
+  display: flex;
+  gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.cancelBtn {
+  flex: 1;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.1s;
+}
+
+.cancelBtn:hover {
+  background: var(--surface);
+}
+
+.confirmBtn {
+  flex: 1;
+  padding: 9px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: filter 0.15s;
+}
+
+.confirmBtn:hover {
+  filter: brightness(1.1);
+}

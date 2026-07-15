@@ -1,0 +1,50 @@
+.tree {
+  flex: 1;
+  padding: 4px 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+}
+
+.row:hover {
+  background: var(--surface);
+}
+
+.folderRow {
+  color: var(--ink-3);
+  font-weight: 600;
+  font-size: 12px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.toggleIcon {
+  font-size: 8px;
+  width: 10px;
+  flex-shrink: 0;
+  color: var(--ink-4);
+}
+
+.fileRow {
+  color: var(--ink-2);
+  font-size: 12px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.selected {
+  background: var(--bg-2);
+  color: var(--accent);
+  border-left: 2px solid var(--accent);
+}
+
+.selected:hover {
+  background: var(--surface);
+}

@@ -1,0 +1,28 @@
+/* Sits in the same fixed bottom-right cluster as WidgetPicker (right: 24px) and SettingsMenu
+   (right: 80px) - one slot further left. Always rendered, even during peek, so there's always a
+   way back out. */
+.peekToggle {
+  position: absolute;
+  bottom: 24px;
+  right: 136px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--ink-2);
+  cursor: pointer;
+  box-shadow: 0 4px 16px oklch(0 0 0 / 0.4);
+  transition: filter 0.15s, background 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.peekToggle:hover { filter: brightness(1.1); }
+
+.peekToggle[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--bg);
+}

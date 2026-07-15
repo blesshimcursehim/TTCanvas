@@ -1,0 +1,276 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* ── Date/time display ────────────────────────────── */
+
+.display {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.dateRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dateLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playerBtn {
+  width: 26px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-4);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.playerBtn:hover { background: var(--surface); color: var(--ink); }
+.playerBtnOn {
+  background: oklch(0.80 0.115 78 / 0.14);
+  border-color: oklch(0.80 0.115 78 / 0.5);
+  color: oklch(0.68 0.115 78);
+}
+.playerBtnOn:hover { background: oklch(0.80 0.115 78 / 0.22); }
+
+.timeRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.timeLabel {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+.todLabel {
+  font-size: 11px;
+  color: var(--ink-3);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+}
+
+.noDef {
+  font-size: 11px;
+  color: var(--ink-4);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+/* ── Advance buttons ──────────────────────────────── */
+
+.advanceRow {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.advBtn {
+  flex: 1;
+  height: 28px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.advBtn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+  border-color: var(--line);
+}
+.advBtn:disabled { opacity: 0.35; cursor: default; }
+
+/* ── Custom input ─────────────────────────────────── */
+
+.customRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.customInput {
+  width: 56px;
+  height: 26px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 12px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  text-align: center;
+  padding: 0 4px;
+  outline: none;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.customInput::-webkit-outer-spin-button,
+.customInput::-webkit-inner-spin-button { -webkit-appearance: none; }
+.customInput:focus { border-color: var(--accent-line); }
+.customInput:disabled { opacity: 0.35; }
+
+.unitBtn {
+  width: 24px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink-3);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.unitBtn:hover { background: var(--surface); color: var(--ink); }
+.unitActive {
+  background: oklch(0.80 0.115 78 / 0.14);
+  border-color: oklch(0.80 0.115 78 / 0.5);
+  color: oklch(0.68 0.115 78);
+}
+
+.goBtn {
+  flex: 1;
+  height: 26px;
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+.goBtn:hover:not(:disabled) { opacity: 0.85; }
+.goBtn:disabled { opacity: 0.3; cursor: default; }
+
+/* ── History ──────────────────────────────────────── */
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 6px;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+.historyHeader:hover { background: var(--surface); }
+
+.historyToggle {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+}
+
+.historyCount {
+  font-size: 9.5px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  border-radius: 10px;
+  padding: 0 5px;
+}
+
+.historyList {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.historyEmpty {
+  font-size: 11px;
+  color: var(--ink-4);
+  padding: 8px 12px;
+}
+
+.historyItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  transition: background 0.1s;
+}
+.historyItem:hover { background: var(--surface); }
+
+.historyLabel {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--accent);
+  width: 42px;
+  flex-shrink: 0;
+}
+
+.historyDate {
+  flex: 1;
+  font-size: 10px;
+  color: var(--ink-3);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.undoBtn {
+  width: 22px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink-3);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+}
+.undoBtn:hover { background: var(--surface-2); color: var(--ink); }

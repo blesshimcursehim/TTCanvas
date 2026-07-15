@@ -1,0 +1,444 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-2);
+  overflow: hidden;
+}
+
+/* ── Toolbar ────────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+  gap: 10px;
+}
+
+.roundGroup {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.roundLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  text-transform: uppercase;
+}
+
+.round {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.toolButtons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.iconBtn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.iconBtn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.iconBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.playerBtnOn,
+.playerBtnOn:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--bg);
+}
+
+.groupModeOn,
+.groupModeOn:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--bg);
+}
+
+.nextBtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  height: 32px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: filter 0.15s;
+  white-space: nowrap;
+}
+
+.nextBtn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.nextBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Column headers ─────────────────────────────────── */
+
+.colHeaders {
+  display: grid;
+  grid-template-columns: 16px 50px 1fr 88px 44px 26px;
+  padding: 0 12px;
+  height: 26px;
+  align-items: center;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.colPip {
+  /* spacer for pip column */
+}
+
+.colInit,
+.colName,
+.colHp,
+.colAc {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-4);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  text-transform: uppercase;
+}
+
+.colHp,
+.colAc {
+  text-align: center;
+}
+
+/* ── List ───────────────────────────────────────────── */
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80px;
+  color: var(--ink-4);
+  font-size: 13px;
+}
+
+/* ── Add form ───────────────────────────────────────── */
+
+.form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.formName {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  color: var(--ink);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.formName:focus {
+  border-color: var(--accent);
+}
+
+.formNum {
+  width: 46px;
+  padding: 5px 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 13px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  outline: none;
+  font-family: inherit;
+}
+
+.formNum::-webkit-outer-spin-button,
+.formNum::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+.formNum:focus {
+  border-color: var(--accent);
+}
+
+.kindToggle {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.kindPill {
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.kindPill:hover:not(.kindActive) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.kindActive {
+  border-color: transparent;
+}
+
+.formAdd {
+  padding: 5px 12px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.15s;
+}
+
+.formAdd:hover {
+  filter: brightness(1.1);
+}
+
+.formAdd:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.formToggle {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.formToggle:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* ── Selection bar (grouping) ───────────────────────── */
+
+.selectBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.selectHint {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* ── Auto-advance time row ──────────────────────────── */
+
+.timeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.timeToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 11.5px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.timeToggle:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.timeToggleOn,
+.timeToggleOn:hover {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--bg);
+}
+
+.timeSecs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.timeInput {
+  width: 44px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  outline: none;
+  font-family: inherit;
+}
+
+.timeInput::-webkit-outer-spin-button,
+.timeInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+.timeInput:focus {
+  border-color: var(--accent);
+}
+
+.timeInput:disabled {
+  opacity: 0.4;
+}
+
+.timeUnit {
+  font-size: 10.5px;
+  color: var(--ink-4);
+  white-space: nowrap;
+}
+
+/* ── Bottom bar ─────────────────────────────────────── */
+
+.bottom {
+  display: flex;
+  border-top: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.bottomBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  color: var(--ink-3);
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.bottomBtn:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.bottomBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.bottomBtn + .bottomBtn {
+  border-left: 1px solid var(--line-soft);
+}
+
+.dangerBtn:hover:not(:disabled) {
+  background: oklch(0.45 0.18 22 / 0.12);
+  color: oklch(0.70 0.13 22);
+}
+
+.confirmText {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}

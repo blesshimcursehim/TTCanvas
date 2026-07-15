@@ -1,0 +1,119 @@
+.picker {
+  position: fixed;
+  z-index: 4000;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px;
+  box-shadow: var(--shadow);
+  width: 228px;
+}
+
+/* ── Condition chips ─────────────────────────────────── */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  font-size: 9.5px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.chip:hover {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+.chipActive {
+  background: oklch(0.80 0.115 78 / 0.16);
+  border-color: oklch(0.80 0.115 78 / 0.45);
+  color: oklch(0.68 0.115 78);
+}
+
+.chipActive:hover {
+  background: oklch(0.80 0.115 78 / 0.22);
+}
+
+.chipConcActive {
+  background: oklch(0.62 0.19 290 / 0.16);
+  border-color: oklch(0.62 0.19 290 / 0.45);
+  color: oklch(0.68 0.19 290);
+}
+
+.chipConcActive:hover {
+  background: oklch(0.62 0.19 290 / 0.22);
+}
+
+/* ── Divider ─────────────────────────────────────────── */
+
+.divider {
+  height: 1px;
+  background: var(--line-soft);
+  margin: 7px 0;
+}
+
+/* ── Exhausted row ───────────────────────────────────── */
+
+.exhRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.exhLabel {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
+.exhBtn {
+  width: 22px;
+  height: 20px;
+  font-size: 10px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exhBtn:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.exhActive {
+  background: oklch(0.70 0.14 52 / 0.18);
+  border-color: oklch(0.70 0.14 52 / 0.5);
+  color: oklch(0.62 0.14 52);
+}
+
+.exhActive:hover {
+  background: oklch(0.70 0.14 52 / 0.26);
+}

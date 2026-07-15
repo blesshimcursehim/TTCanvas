@@ -1,0 +1,11 @@
+.head {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 6px;
+}

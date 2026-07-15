@@ -1,0 +1,112 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.35 0.014 258 / 0.55) transparent;
+}
+
+.emptyHint { color: var(--ink-4); font-size: 12px; text-align: center; padding: 16px 4px; }
+
+.clockRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+}
+
+.face { flex-shrink: 0; }
+
+.wedgeEmpty { fill: var(--bg-2); stroke: var(--line); stroke-width: 1; }
+.wedgeFilled { fill: var(--accent); stroke: var(--line); stroke-width: 1; }
+
+.clockMain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.clockName {
+  font-size: 13px; color: var(--ink); cursor: text;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.clockCount {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-4);
+}
+
+.clockBtns { display: flex; gap: 3px; flex-shrink: 0; }
+.castBtn {
+  width: 24px; height: 24px; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 5px; color: var(--ink-3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.castBtn:hover { border-color: var(--accent-line); color: var(--accent); }
+.castBtnOn,
+.castBtnOn:hover {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--bg);
+}
+.stepBtn {
+  width: 24px; height: 24px; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 5px; color: var(--ink-2); font-size: 15px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.stepBtn:hover:not(:disabled) { border-color: var(--accent-line); color: var(--accent); }
+.stepBtn:disabled { opacity: 0.35; cursor: default; }
+.deleteBtn {
+  width: 22px; height: 24px; background: transparent; border: 1px solid var(--line-soft);
+  border-radius: 5px; color: var(--ink-4); font-size: 12px; cursor: pointer;
+}
+.deleteBtn:hover { color: oklch(0.70 0.13 22); border-color: oklch(0.55 0.18 25); }
+
+.addRowBtn {
+  flex-shrink: 0; margin: 0 10px 10px; padding: 7px 0; background: var(--surface);
+  border: 1px dashed var(--line); border-radius: 6px; color: var(--ink-3); font-size: 12px; cursor: pointer;
+}
+.addRowBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.addForm {
+  display: flex; flex-direction: column; gap: 8px; padding: 10px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+}
+.nameInput {
+  width: 100%; box-sizing: border-box; background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 5px; padding: 6px 8px; font-size: 13px; color: var(--ink);
+}
+.nameInput:focus { outline: none; border-color: var(--accent); }
+
+.segRow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.segBtn {
+  padding: 4px 9px; background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 5px; color: var(--ink-3); font-size: 12px; cursor: pointer; font-family: var(--font-mono);
+}
+.segBtn:hover { border-color: var(--accent-line); color: var(--ink); }
+.segBtnActive { background: var(--accent); border-color: var(--accent); color: oklch(0.12 0.01 258); font-weight: 600; }
+.segCustom {
+  width: 52px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 5px;
+  padding: 4px 6px; font-size: 12px; color: var(--ink-2); font-family: var(--font-mono);
+}
+.segCustom:focus { outline: none; border-color: var(--accent); }
+
+.addActions { display: flex; gap: 8px; }
+.cancelBtn {
+  flex: 1; padding: 6px 0; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 5px; color: var(--ink-3); font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.cancelBtn:hover { background: var(--surface-3); }
+.saveBtn {
+  flex: 1; padding: 6px 0; background: var(--accent); border: none; border-radius: 5px;
+  color: oklch(0.12 0.01 258); font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.saveBtn:hover:not(:disabled) { filter: brightness(1.1); }
+.saveBtn:disabled { opacity: 0.4; cursor: default; }

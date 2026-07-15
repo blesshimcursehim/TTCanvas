@@ -1,0 +1,349 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Full-screen expand */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: oklch(0.1 0.01 258 / 0.72);
+  backdrop-filter: blur(3px);
+  display: flex;
+  padding: 3vh 3vw;
+  box-sizing: border-box;
+}
+
+.fullWrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.spacer { flex: 1; }
+
+.toolBtn {
+  padding: 5px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.toolBtn:hover:not(:disabled) { background: var(--surface-2); color: var(--accent); border-color: var(--accent-line); }
+.toolBtn:disabled { opacity: 0.4; cursor: default; }
+.toolActive { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+
+/* ── Stage + canvas ──────────────────────────────────────────── */
+
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  cursor: grab;
+  /* Flat fill - a radial-gradient vignette here shows visible banding on dark backgrounds. */
+  background: var(--bg);
+}
+
+.canvas:active { cursor: grabbing; }
+
+.svg { width: 100%; height: 100%; display: block; user-select: none; }
+
+.node { user-select: none; }
+
+.nodeCircle {
+  stroke: oklch(0.12 0.01 258 / 0.55);
+  stroke-width: 1.5;
+  transition: stroke 0.1s, stroke-width 0.1s;
+}
+
+.nodeSelected { stroke: var(--accent); stroke-width: 3; }
+.nodeLinkSrc { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 4 3; }
+
+.nodeInitials {
+  fill: oklch(0.14 0.01 258);
+  font-size: 15px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  pointer-events: none;
+}
+
+.nodeLabel {
+  fill: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.edge { cursor: pointer; }
+
+.edgeLabel {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  stroke: var(--bg);
+  stroke-width: 3px;
+}
+
+/* ── Empty state + hints ─────────────────────────────────────── */
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  pointer-events: none;
+  color: var(--ink-3);
+  padding: 0 24px;
+}
+
+.empty p { margin: 0; font-size: 14px; }
+.emptyHint { font-size: 12px; color: var(--ink-4); max-width: 260px; line-height: 1.4; }
+
+.linkHint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  pointer-events: none;
+}
+
+/* ── Floating panels (add / inspector) ───────────────────────── */
+
+.panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 220px;
+  max-height: calc(100% - 20px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.inspector { left: auto; right: 10px; width: 210px; }
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panelTitle {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.iconBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.iconBtn:hover { background: var(--surface-2); color: var(--ink); }
+
+.tabs { display: flex; gap: 4px; }
+
+.tab {
+  flex: 1;
+  padding: 5px 0;
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+}
+
+.tab:hover { background: var(--surface-2); color: var(--ink); }
+.tabActive { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+
+.input, .select {
+  padding: 6px 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 12px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input:focus, .select:focus { border-color: var(--accent); }
+
+.pickList { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; max-height: 220px; }
+
+.pickRow {
+  text-align: left;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pickRow:hover { background: var(--surface-2); color: var(--ink); }
+.pickEmpty { margin: 2px 0; font-size: 11px; color: var(--ink-4); }
+
+.newForm { display: flex; flex-direction: column; gap: 8px; }
+.kindRow { display: flex; gap: 4px; }
+
+.kindBtn {
+  flex: 1;
+  padding: 5px 0;
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.kindActive { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+
+.addBtn {
+  padding: 6px 0;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: oklch(0.12 0.01 258);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.1s;
+}
+
+.addBtn:hover:not(:disabled) { filter: brightness(1.08); }
+.addBtn:disabled { opacity: 0.4; cursor: default; }
+
+.linkedName { margin: 0; font-size: 14px; color: var(--ink); font-family: var(--font-serif), serif; }
+.linkedNote { font-size: 11px; color: var(--ink-4); font-family: inherit; }
+.edgeEnds { margin: 0; font-size: 12px; color: var(--ink-2); }
+
+.fieldLabel {
+  font-size: 9.5px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin-bottom: -4px;
+}
+
+.deleteBtn {
+  margin-top: 2px;
+  padding: 6px 0;
+  background: transparent;
+  border: 1px solid oklch(0.70 0.13 22 / 0.4);
+  border-radius: var(--radius-sm);
+  color: var(--hp);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.deleteBtn:hover { background: oklch(0.70 0.13 22 / 0.12); }
+
+.confirmRow { display: flex; gap: 4px; margin-top: 2px; }
+
+.confirmYes {
+  flex: 1;
+  padding: 6px 0;
+  background: oklch(0.55 0.18 25);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: oklch(0.98 0 0);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.1s;
+}
+
+.confirmYes:hover { filter: brightness(1.1); }
+
+.confirmNo {
+  flex: 1;
+  padding: 6px 0;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.confirmNo:hover { background: var(--surface-3); color: var(--ink); }

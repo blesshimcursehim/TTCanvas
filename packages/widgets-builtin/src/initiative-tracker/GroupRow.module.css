@@ -1,0 +1,108 @@
+.root {
+  border-bottom: 1px solid var(--line-soft);
+  border-left: 2px solid transparent;
+}
+
+.current {
+  border-left-color: var(--accent);
+  background: oklch(0.80 0.115 78 / 0.06);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--surface);
+}
+
+.initInput {
+  width: 40px;
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  outline: none;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.initInput::-webkit-outer-spin-button,
+.initInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
+
+.initInput:focus {
+  color: var(--ink);
+}
+
+.labelInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nowBadge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 1px 5px;
+  line-height: 1.4;
+}
+
+.turnToggle,
+.ungroupBtn {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.turnToggle:hover,
+.ungroupBtn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.turnToggleOn,
+.turnToggleOn:hover {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--bg);
+}
+
+.members {
+  display: flex;
+  flex-direction: column;
+}
+
+.members > * {
+  padding-left: 10px;
+}

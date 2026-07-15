@@ -1,0 +1,159 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 blesshimcursehim
+//
+// Plugins loaded via the official Plugin SDK are not considered
+// derivative works; see the Plugin Exception in LICENSE.
+
+export interface WidgetInstance {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  state: unknown;
+  hidden?: boolean;
+}
+
+export interface Layout {
+  widgets: WidgetInstance[];
+  /**
+   * Full-screen GM-only backdrop behind the canvas, a filename in the vault's maps/ subfolder
+   * (reuses the existing maps-folder copy machinery rather than a dedicated backgrounds/ folder).
+   */
+  backgroundImage?: string;
+}
+
+/** Absent = "reveal", for back-compat with fog data saved before hide mode existed. */
+export type FogMode = "reveal" | "hide";
+
+export type FogReveal =
+  | { shape: "brush"; cx: number; cy: number; r: number; mode?: FogMode }
+  | { shape: "rect"; x: number; y: number; w: number; h: number; mode?: FogMode };
+
+export interface MapToken {
+  id: string;
+  label: string;
+  color: string;
+  x: number;
+  y: number;
+  size?: number;       // multiplier; 1 = default 26px; stored per-token
+  sourceId?: string;   // links to party member / combatant id for duplicate detection
+  portraitPath?: string; // vault-relative path (e.g. "portraits/uuid.jpg"), or an inline data URL for Bestiary portraits
+  kind?: MapTokenKind;   // grouping for the visibility manager (M4); absent = "npc"
+  onBoard?: boolean;     // visibility "All" toggle (M4); absent = true (on the board)
+  showPlayers?: boolean; // visibility "Players" toggle (M4); absent = true (mirrored)
+  locationRef?: string;  // Gazetteer location filename this pin is linked to, e.g. "locations/x.json"
+}
+
+/** Token grouping in the visibility manager (Player / NPC / Enemy / Location). */
+export type MapTokenKind = "player" | "npc" | "enemy" | "location";
+
+/** Player-safe markup drawn on a map. All geometry is normalised (0-1 of the image). */
+export type AnnotationColor = "amber" | "rose" | "azure" | "sage";
+export type AnnotationType = "ring" | "box" | "arrow" | "highlight";
+
+interface AnnotationBase {
+  id: string;
+  color: AnnotationColor;
+  stroke: 1 | 2 | 3;     // S / M / L
+  label?: string;
+  onBoard?: boolean;     // visibility "All" toggle (M4); absent = true
+  showPlayers?: boolean; // visibility "Players" toggle (M4); absent = true
+}
+
+/** Visual style for a scene's markup - a manual per-scene toggle (no auto-swap). */
+export type MarkupPreset = "ink" | "cartographer";
+
+export type MapAnnotation =
+  | (AnnotationBase & { type: "ring"; x: number; y: number; w: number; h: number })
+  | (AnnotationBase & { type: "box"; x: number; y: number; w: number; h: number })
+  | (AnnotationBase & { type: "arrow"; x1: number; y1: number; x2: number; y2: number })
+  | (AnnotationBase & { type: "highlight"; points: { x: number; y: number }[] });
+
+/** The rectangle-shaped annotation types (share x/y/w/h geometry). */
+export type BoxLikeAnnotation = Extract<MapAnnotation, { type: "ring" | "box" }>;
+
+export interface CharacterPayload {
+  kind: "npc" | "creature" | "pc";
+  name: string;
+  subtitle?: string;
+  portraitSrc?: string;     // data URL - 400×400 crop (fallback)
+  portraitFullSrc?: string; // data URL - full image (≤1920px), preferred
+  accentColor?: string;
+  tags?: string[];
+}
+
+/** A cast location's establishing card - image (optional) over a name, a kind/parent locator, and a
+ * player-safe blurb. The GM notes never travel here; only what players should see. */
+export interface LocationPayload {
+  name: string;
+  subtitle?: string; // e.g. "Tavern - Citadel of Thorns"
+  blurb?: string;    // player-safe line
+  imgSrc?: string;   // data URL of the establishing image, or absent
+}
+
+export interface PlayerScene {
+  type: "idle" | "map" | "handout" | "character" | "text" | "location";
+  inWorldDate?: string; // formatted string; present only when Time Tracker showOnPlayer is true
+  map?: {
+    mapFolder: string;
+    mapFile: string;
+    portraitsFolder?: string; // absolute path to vault/portraits; undefined on older pushes
+    imgW: number;
+    imgH: number;
+    fogEnabled: boolean;
+    fogReveals: FogReveal[];
+    tokens: MapToken[];
+    annotations?: MapAnnotation[]; // player-safe markup; absent on pushes from older builds
+    markupPreset?: MarkupPreset;   // markup style; absent on older pushes -> "cartographer"
+    panX: number;
+    panY: number;
+    scale: number;
+    gmViewW: number;
+    gmViewH: number;
+  };
+  handout?: {
+    imgSrc: string;
+  };
+  text?: { title?: string; body: string }; // routed generator result cast to players
+  character?: CharacterPayload;
+  location?: LocationPayload; // Gazetteer establishing card
+}
+
+export interface AbilityScores {
+  str: number; dex: number; con: number;
+  int: number; wis: number; cha: number;
+}
+
+/** Standard ability-score modifier (score 10-11 = +0). */
+export function abilityModifier(score: number): number {
+  return Math.floor((score - 10) / 2);
+}
+
+export interface NamedEntry {
+  name: string;
+  description: string;
+}
+
+export interface SpellSlots {
+  [level: number]: { total: number; used: number };
+}
+
+export interface SpellcastingBlock {
+  ability: "str" | "dex" | "con" | "int" | "wis" | "cha";
+  saveDC?: number;
+  attackBonus?: number;
+  slots?: SpellSlots;
+  spells?: { level: number; name: string; prepared?: boolean }[];
+}
+
+export interface WorkspaceState {
+  version: 2;
+  activeLayout: string;
+  layouts: Record<string, Layout>;
+  showGrid?: boolean;
+  showVignette?: boolean;
+  singletonStates?: Record<string, unknown>;
+  disabledWidgetTypes?: string[];
+}

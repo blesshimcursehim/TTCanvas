@@ -1,0 +1,542 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg);
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.35 0.014 258 / 0.55) transparent;
+}
+
+/* ── Result hero (result-first) ─────────────────────────────── */
+
+.result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  gap: 4px;
+  min-height: 104px;
+}
+
+.resultHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.resultLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.castBtn {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.castBtn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.castActive {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.resultTotal {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.resultBreakdown {
+  font-size: 12px;
+  color: var(--ink-3);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  text-align: center;
+}
+
+.altNote {
+  color: var(--ink-4);
+}
+
+.flag {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.16em;
+}
+
+.critText { color: var(--sp); }
+.fumbleText { color: var(--hp); }
+
+.resultEmpty {
+  font-size: 13px;
+  color: var(--ink-4);
+}
+
+/* ── Command line ───────────────────────────────────────────── */
+
+.commandRow {
+  display: flex;
+  gap: 6px;
+}
+
+.commandInput {
+  flex: 1;
+  padding: 7px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 13px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  outline: none;
+  min-width: 0;
+}
+
+.commandInput:focus { border-color: var(--accent); }
+.commandInput::placeholder { color: var(--ink-4); }
+
+.rollBtn {
+  padding: 7px 16px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: oklch(0.12 0.01 258);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: filter 0.1s;
+  white-space: nowrap;
+}
+
+.rollBtn:hover:not(:disabled) { filter: brightness(1.08); }
+.rollBtn:disabled { opacity: 0.35; cursor: default; }
+
+.helpBtn {
+  flex-shrink: 0;
+  width: 30px;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.helpBtn:hover { background: var(--surface-2); color: var(--accent); border-color: var(--accent-line); }
+.helpActive { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+
+/* ── Syntax help panel ──────────────────────────────────────── */
+
+.help {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.helpRow {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.helpCode {
+  flex-shrink: 0;
+  min-width: 74px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.helpDesc {
+  margin: 0;
+  font-size: 11px;
+  color: var(--ink-3);
+  line-height: 1.35;
+}
+
+.helpNote {
+  margin: 3px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 11px;
+  color: var(--ink-4);
+  line-height: 1.35;
+}
+
+/* ── Advantage row ──────────────────────────────────────────── */
+
+.advRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.advBtn {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-4);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.advBtn:hover { background: var(--surface-2); color: var(--ink-2); }
+
+.advActive {
+  background: oklch(0.74 0.10 200 / 0.15);
+  border-color: oklch(0.74 0.10 200 / 0.6);
+  color: var(--sp);
+}
+
+.disActive {
+  background: oklch(0.70 0.13 22 / 0.15);
+  border-color: oklch(0.70 0.13 22 / 0.6);
+  color: var(--hp);
+}
+
+.saveMacroBtn {
+  margin-left: auto;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.saveMacroBtn:hover:not(:disabled) { background: var(--surface-2); color: var(--accent); border-color: var(--accent-line); }
+.saveMacroBtn:disabled { opacity: 0.35; cursor: default; }
+
+/* ── Quick dice ─────────────────────────────────────────────── */
+
+.diceRow {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.dieBtn {
+  flex: 1;
+  min-width: 34px;
+  padding: 7px 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  text-align: center;
+}
+
+.dieBtn:hover { background: var(--surface-2); color: var(--accent); border-color: var(--accent-line); }
+.dieBtn:active { background: var(--surface-3); }
+
+/* ── Macros ─────────────────────────────────────────────────── */
+
+.macrosHead {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.macroSearch {
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 12px;
+  outline: none;
+  min-width: 0;
+}
+
+.macroSearch:focus { border-color: var(--accent); }
+.macroSearch::placeholder { color: var(--ink-4); }
+
+.manageBtn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.manageBtn:hover { background: var(--surface-2); color: var(--ink); }
+.manageActive { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+
+.macroGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.macroCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s, border-color 0.1s;
+  overflow: hidden;
+}
+
+.macroCard:hover { background: var(--surface-2); border-color: var(--accent-line); }
+
+.macroCardLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.macroCardExpr {
+  font-size: 10px;
+  color: var(--ink-4);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+}
+
+.macroEmpty {
+  grid-column: 1 / -1;
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--ink-4);
+  line-height: 1.4;
+}
+
+/* ── Macro editor (Manage) ──────────────────────────────────── */
+
+.macroEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.macroEditRow, .macroAddRow {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.macroAddRow {
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.macroEditLabel, .macroEditExpr {
+  padding: 5px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 12px;
+  outline: none;
+  min-width: 0;
+}
+
+.macroEditLabel { flex: 1.3; }
+.macroEditExpr {
+  flex: 1;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+}
+
+.macroEditLabel:focus, .macroEditExpr:focus { border-color: var(--accent); }
+.invalid { border-color: oklch(0.70 0.13 22 / 0.7); }
+
+.iconBtn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.iconBtn:hover { background: var(--surface-2); color: var(--ink); }
+
+.addBtn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: oklch(0.12 0.01 258);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.1s;
+}
+
+.addBtn:hover:not(:disabled) { filter: brightness(1.08); }
+.addBtn:disabled { opacity: 0.35; cursor: default; }
+
+/* ── History ────────────────────────────────────────────────── */
+
+.historySection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.historyHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.historyHeadLabel {
+  font-size: 9.5px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.clearBtn {
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  color: var(--ink-4);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.clearBtn:hover { background: var(--surface-2); color: var(--hp); border-color: oklch(0.70 0.13 22 / 0.5); }
+
+.history {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  margin: 0;
+}
+
+.historyRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+
+.historyRow:hover { background: var(--surface); }
+
+.historyTotal {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-2);
+  min-width: 28px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.historyLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  max-width: 40%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.historyBreakdown {
+  font-size: 11px;
+  color: var(--ink-4);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

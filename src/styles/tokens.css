@@ -1,0 +1,121 @@
+:root {
+  /* Surfaces */
+  --bg:          oklch(0.155 0.012 258);
+  --bg-2:        oklch(0.185 0.014 258);
+  --surface:     oklch(0.215 0.014 258);
+  --surface-2:   oklch(0.245 0.015 258);
+  --surface-3:   oklch(0.285 0.016 258);
+
+  /* Lines */
+  --line:        oklch(0.32 0.014 258 / 0.55);
+  --line-soft:   oklch(0.32 0.014 258 / 0.28);
+
+  /* Ink */
+  --ink:         oklch(0.94 0.005 258);
+  --ink-2:       oklch(0.78 0.008 258);
+  --ink-3:       oklch(0.58 0.010 258);
+  --ink-4:       oklch(0.42 0.012 258);
+
+  /* Accent (muted amber - fixed, no hue slider) */
+  --accent:      oklch(0.80 0.115 78);
+  --accent-soft: oklch(0.80 0.115 78 / 0.16);
+  --accent-line: oklch(0.80 0.115 78 / 0.45);
+
+  /* Stat tones */
+  --hp:          oklch(0.70 0.13 22);
+  --sp:          oklch(0.74 0.10 200);
+  --pp:          oklch(0.74 0.11 305);
+  --gp:          oklch(0.82 0.11 90);
+
+  /* Combatant kind pips */
+  --kind-pc:     var(--accent);
+  --kind-foe:    oklch(0.70 0.13 22);
+  --kind-ally:   oklch(0.74 0.10 200);
+
+  /* Effects */
+  --shadow:
+    0 10px 30px -12px oklch(0 0 0 / 0.55),
+    0 2px 0 oklch(1 0 0 / 0.02) inset;
+  --radius:      10px;
+  --radius-sm:   6px;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+/* ── Accent overrides ─────────────────────────────── */
+
+[data-accent="amber"] {
+  --accent:      oklch(0.80 0.115 78);
+  --accent-soft: oklch(0.80 0.115 78 / 0.16);
+  --accent-line: oklch(0.80 0.115 78 / 0.45);
+}
+
+[data-accent="plum"] {
+  --accent:      oklch(0.72 0.155 290);
+  --accent-soft: oklch(0.72 0.155 290 / 0.16);
+  --accent-line: oklch(0.72 0.155 290 / 0.45);
+}
+
+[data-accent="moss"] {
+  --accent:      oklch(0.74 0.13 145);
+  --accent-soft: oklch(0.74 0.13 145 / 0.16);
+  --accent-line: oklch(0.74 0.13 145 / 0.45);
+}
+
+[data-accent="ink"] {
+  --accent:      oklch(0.72 0.04 258);
+  --accent-soft: oklch(0.72 0.04 258 / 0.16);
+  --accent-line: oklch(0.72 0.04 258 / 0.45);
+}
+
+/* ── Theme overrides ──────────────────────────────── */
+
+/* dark-vellum is the :root default above - nothing to override */
+
+[data-theme="dark-amber"] {
+  --bg:          oklch(0.155 0.020 60);
+  --bg-2:        oklch(0.185 0.022 60);
+  --surface:     oklch(0.215 0.022 60);
+  --surface-2:   oklch(0.245 0.024 60);
+  --surface-3:   oklch(0.285 0.025 60);
+  --line:        oklch(0.35 0.018 60 / 0.55);
+  --line-soft:   oklch(0.35 0.018 60 / 0.28);
+  --ink:         oklch(0.94 0.010 70);
+  --ink-2:       oklch(0.78 0.014 70);
+  --ink-3:       oklch(0.58 0.014 70);
+  --ink-4:       oklch(0.42 0.016 70);
+}
+
+/* ── Density overrides ────────────────────────────── */
+
+[data-density="compact"] {
+  --density-pad: 8px;
+  --density-gap: 6px;
+}
+
+[data-density="comfortable"] {
+  --density-pad: 12px;
+  --density-gap: 10px;
+}
+
+[data-density="spacious"] {
+  --density-pad: 18px;
+  --density-gap: 16px;
+}
+
+/* ── Reduce motion ────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+[data-reduce-motion="true"] * {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}

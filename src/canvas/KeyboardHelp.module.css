@@ -1,0 +1,81 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: oklch(0 0 0 / 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5000;
+}
+
+.modal {
+  background: var(--bg-2, #1e1e1e);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  width: 380px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink, #e0e0e0);
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--ink-3, #888);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.closeBtn:hover { color: var(--ink, #e0e0e0); }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  padding: 8px 0;
+  display: block;
+  padding: 6px 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+.row:hover { background: var(--bg-3, rgba(255, 255, 255, 0.04)); }
+
+.keyCell {
+  padding: 6px 12px 6px 16px;
+  white-space: nowrap;
+  min-width: 160px;
+}
+
+.kbd {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-2, #bbb);
+  background: var(--bg-3, #2a2a2a);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: 4px;
+  padding: 2px 7px;
+  display: inline-block;
+}
+
+.actionCell {
+  padding: 6px 16px 6px 4px;
+  font-size: 12px;
+  color: var(--ink-2, #bbb);
+  flex: 1;
+}

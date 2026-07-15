@@ -1,0 +1,366 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Toolbar ─────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.count {
+  flex: 1;
+  font-size: 10px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--ink-4);
+  letter-spacing: 0.04em;
+}
+
+.exportBtn {
+  height: 24px;
+  padding: 0 10px;
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: opacity 0.1s;
+  white-space: nowrap;
+}
+.exportBtn:hover:not(:disabled) { opacity: 0.85; }
+.exportBtn:disabled { opacity: 0.3; cursor: default; }
+.exportBtnSaved {
+  background: oklch(0.55 0.16 145);
+}
+
+.clearBtn {
+  height: 24px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.clearBtn:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+.clearBtn:disabled { opacity: 0.3; cursor: default; }
+
+.summariseBtn {
+  height: 24px;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid var(--accent-line);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+}
+.summariseBtn:hover:not(:disabled) { background: var(--accent); color: #fff; }
+.summariseBtn:disabled { opacity: 0.3; cursor: default; }
+
+/* ── Entry list ──────────────────────────────────── */
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.empty {
+  padding: 16px 14px;
+  font-size: 11px;
+  color: var(--ink-4);
+  line-height: 1.5;
+}
+
+.entry {
+  padding: 6px 12px 5px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.entry:last-child { border-bottom: none; }
+
+.entryMain {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.inGameTime {
+  font-size: 9.5px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.entryText {
+  font-size: 12px;
+  color: var(--ink);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.entryWall {
+  font-size: 9.5px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--ink-4);
+  margin-top: 2px;
+}
+
+/* ── Input row ───────────────────────────────────── */
+
+.inputRow {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  height: 30px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 12px;
+  padding: 0 8px;
+  outline: none;
+  min-width: 0;
+}
+.input::placeholder { color: var(--ink-4); }
+.input:focus { border-color: var(--accent-line); }
+
+.logBtn {
+  height: 30px;
+  padding: 0 14px;
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: opacity 0.1s;
+  flex-shrink: 0;
+}
+.logBtn:hover:not(:disabled) { opacity: 0.85; }
+.logBtn:disabled { opacity: 0.3; cursor: default; }
+
+/* ── Summary panel ───────────────────────────────── */
+
+.summaryPanel {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line-soft);
+  max-height: 160px;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+
+.summaryHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 4px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.summaryLabel {
+  flex: 1;
+  font-size: 9.5px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.summaryActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.saveSummaryBtn {
+  height: 20px;
+  padding: 0 8px;
+  background: var(--accent);
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: opacity 0.1s;
+  white-space: nowrap;
+}
+.saveSummaryBtn:hover { opacity: 0.85; }
+.saveSummaryBtnSaved { background: oklch(0.55 0.16 145); }
+
+.summaryDismiss {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink-3);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.summaryDismiss:hover { background: var(--surface-2); color: var(--ink); }
+
+.summaryText {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  color: var(--ink);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.summaryPlaceholder {
+  color: var(--ink-4);
+}
+
+.summaryError {
+  padding: 8px 12px;
+  font-size: 11px;
+  color: oklch(0.62 0.18 25);
+  line-height: 1.4;
+}
+
+/* ── Recap panel ─────────────────────────────────── */
+/* Same shape as the summary panel above, but the body is an editable textarea -
+   this text is meant to be cast to players, so the GM can redact it first. */
+
+.recapPanel {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line-soft);
+  max-height: 160px;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+
+.recapHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 4px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+
+.recapLabel {
+  flex: 1;
+  font-size: 9.5px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.recapActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.castRecapBtn {
+  height: 20px;
+  width: 20px;
+}
+
+.saveRecapBtn {
+  height: 20px;
+  padding: 0 8px;
+  background: var(--accent);
+  border: none;
+  border-radius: 3px;
+  color: oklch(0.12 0.01 258);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: opacity 0.1s;
+  white-space: nowrap;
+}
+.saveRecapBtn:hover { opacity: 0.85; }
+.saveRecapBtnSaved { background: oklch(0.55 0.16 145); }
+
+.recapDismiss {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink-3);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.recapDismiss:hover { background: var(--surface-2); color: var(--ink); }
+
+.recapBody {
+  flex: 1;
+  min-height: 70px;
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  font-family: inherit;
+  color: var(--ink);
+  line-height: 1.55;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+}
+.recapBody::placeholder { color: var(--ink-4); }
+
+.recapError {
+  padding: 8px 12px;
+  font-size: 11px;
+  color: oklch(0.62 0.18 25);
+  line-height: 1.4;
+}

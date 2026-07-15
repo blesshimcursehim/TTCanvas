@@ -1,0 +1,79 @@
+.container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: var(--bg);
+  cursor: default;
+  user-select: none;
+}
+
+.container.panning {
+  cursor: grabbing;
+}
+
+.panMode {
+  cursor: grab;
+}
+
+.panMode.panning {
+  cursor: grabbing;
+}
+
+/* Marquee selection rectangle */
+.marquee {
+  position: absolute;
+  pointer-events: none;
+  border: 1px dashed var(--accent);
+  background: oklch(0.80 0.115 78 / 0.07);
+  z-index: 1000;
+}
+
+/* Dot grid - applied only when .hasGrid is set */
+.hasGrid {
+  background-image: radial-gradient(
+    circle,
+    oklch(0.40 0.014 258 / 0.42) 1px,
+    transparent 1.4px
+  );
+}
+
+/* Vignette overlay - applied only when .hasVignette is set.
+   Six stops instead of two reduces WebKit gradient banding significantly
+   without the GPU compositing cost of filter: blur(). */
+.hasVignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent 38%,
+    oklch(0 0 0 / 0.07) 52%,
+    oklch(0 0 0 / 0.16) 65%,
+    oklch(0 0 0 / 0.25) 78%,
+    oklch(0 0 0 / 0.35) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* Full-bleed per-layout backdrop, fixed regardless of pan/zoom (unlike .world) - a mood-setting
+   image behind the whole workspace, not something you pan/zoom into like a map. `contain` (not
+   `cover`) so the whole image is always visible - a portrait image fits to height and letterboxes
+   left/right, a landscape one fits to width and letterboxes top/bottom, against .container's own
+   background-color rather than cropping either orientation. */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}

@@ -1,0 +1,270 @@
+/* Mono stack is inlined (the app never declares --font-mono); serif uses the global --font-serif. */
+
+.root {
+  display: flex;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+/* ── No vault ── */
+.noVault {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; gap: 14px; padding: 24px; background: var(--bg);
+}
+.noVaultText { color: var(--ink-4); font-size: 14px; margin: 0; }
+.selectVaultBtn {
+  padding: 8px 20px; background: var(--accent); border: none; border-radius: 6px;
+  color: var(--bg); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.selectVaultBtn:hover { filter: brightness(1.1); }
+
+/* ── Left pane: tree ── */
+.left {
+  width: 44%; min-width: 180px; max-width: 300px;
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--line-soft); overflow: hidden;
+}
+.searchRow { display: flex; gap: 5px; padding: 8px 8px 5px; flex-shrink: 0; }
+.search {
+  flex: 1; padding: 5px 8px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 5px; color: var(--ink); font-size: 12px; outline: none; min-width: 0;
+}
+.search:focus { border-color: var(--accent); }
+.search::placeholder { color: var(--ink-4); }
+.addBtn {
+  width: 26px; height: 26px; flex-shrink: 0; background: var(--surface-2);
+  border: none; border-radius: 5px; color: var(--ink-3); font-size: 18px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
+}
+.addBtn:hover { background: var(--surface-3); color: var(--accent); }
+
+.treeScroll {
+  flex: 1; overflow-y: auto; padding: 3px 0 6px;
+  scrollbar-width: thin; scrollbar-color: oklch(0.35 0.014 258 / 0.55) transparent;
+}
+.treeScroll::-webkit-scrollbar { width: 3px; }
+.treeScroll::-webkit-scrollbar-thumb { background: oklch(0.35 0.014 258 / 0.55); border-radius: 2px; }
+.emptyList { padding: 18px 12px; color: var(--ink-4); font-size: 12px; text-align: center; }
+
+.row {
+  display: flex; align-items: center; gap: 4px; width: 100%;
+  position: relative; padding-right: 8px;
+}
+.row:hover { background: var(--surface); }
+.rowActive { background: var(--bg-2); }
+.rowActive::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent); }
+
+.twist {
+  width: 16px; height: 22px; flex-shrink: 0; padding: 0; background: none; border: none;
+  color: var(--ink-4); cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.twist svg { width: 12px; height: 12px; transition: transform 0.14s ease; }
+.twistOpen svg { transform: rotate(90deg); }
+
+.rowMain {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px;
+  background: none; border: none; padding: 5px 0; text-align: left; cursor: pointer; color: var(--ink-2);
+}
+.rowActive .rowMain { color: var(--ink); }
+.kindBox {
+  width: 20px; height: 20px; flex-shrink: 0; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-2); border: 1px solid var(--line-soft); color: var(--accent);
+}
+.glyph { width: 12px; height: 12px; }
+.rowName { flex: 1; min-width: 0; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.count { font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace; font-size: 10px; color: var(--ink-4); }
+
+.footer {
+  padding: 6px 8px 6px 12px; font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 10px; color: var(--ink-4); border-top: 1px solid var(--line-soft); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 4px;
+}
+.footerBtns { display: flex; gap: 3px; }
+.fbtn {
+  padding: 2px 7px; background: transparent; border: 1px solid var(--line); border-radius: 4px;
+  color: var(--ink-3); font-size: 10px; cursor: pointer; font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+}
+.fbtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.fbtn:disabled { opacity: 0.4; cursor: default; }
+.importError {
+  padding: 4px 8px; font-size: 10px; cursor: pointer; flex-shrink: 0;
+  background: oklch(0.38 0.14 22 / 0.18); border-top: 1px solid oklch(0.38 0.14 22 / 0.35); color: oklch(0.80 0.12 22);
+}
+
+/* ── Right pane ── */
+.right {
+  flex: 1; overflow-y: auto; min-width: 0;
+  scrollbar-width: thin; scrollbar-color: oklch(0.35 0.014 258 / 0.55) transparent;
+}
+.right::-webkit-scrollbar { width: 4px; }
+.right::-webkit-scrollbar-thumb { background: oklch(0.35 0.014 258 / 0.55); border-radius: 2px; }
+.emptyDetail { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--ink-4); font-size: 12px; padding: 20px; text-align: center; }
+
+.detail { padding: 12px 14px 18px; display: flex; flex-direction: column; gap: 12px; }
+
+.crumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-3); }
+.crumbLink { background: none; border: none; padding: 0; color: var(--ink-3); cursor: pointer; font: inherit; }
+.crumbLink:hover { color: var(--accent); }
+.crumbSep { color: var(--ink-4); margin: 0 3px; }
+.crumbHere { color: var(--ink-2); }
+
+.titleRow { display: flex; align-items: flex-start; gap: 10px; }
+.locName { flex: 1; min-width: 0; font-family: var(--font-serif); font-size: 22px; line-height: 1.15; color: var(--ink); }
+.nameInput {
+  flex: 1; min-width: 0; font-family: var(--font-serif); font-size: 20px; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px; outline: none;
+}
+.nameInput:focus { border-color: var(--accent); }
+.editToggle {
+  height: 26px; padding: 0 11px; border-radius: 5px; border: 1px solid var(--line);
+  background: transparent; color: var(--ink-2); font-size: 12px; cursor: pointer; flex-shrink: 0;
+}
+.editToggle:hover { background: var(--surface-2); }
+.editToggleActive { background: var(--accent); border-color: var(--accent); color: oklch(0.12 0.01 258); font-weight: 500; }
+.editToggleActive:hover { opacity: 0.88; }
+
+.kindLine { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kindBadge {
+  display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 11px;
+  background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--accent);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace; font-size: 11px; letter-spacing: 0.03em;
+}
+.parentPick { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-3); }
+.inlineSelect, .inlineInput {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 5px;
+  padding: 3px 7px; font-size: 12px; color: var(--ink); outline: none; max-width: 100%;
+}
+.inlineSelect:focus, .inlineInput:focus { border-color: var(--accent); }
+.inlineInput { width: 100%; box-sizing: border-box; }
+
+/* Establishing image */
+.estab { position: relative; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
+.estabImg { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.estabEmpty {
+  width: 100%; aspect-ratio: 16 / 9; background: transparent; border: none; cursor: pointer;
+  color: var(--ink-4); font-size: 12.5px; display: flex; align-items: center; justify-content: center;
+}
+.estabEmpty:hover { background: var(--surface-2); color: var(--accent); }
+.estabActions { position: absolute; top: 8px; left: 8px; display: flex; gap: 5px; }
+.estabAction {
+  height: 24px; padding: 0 9px; border-radius: 5px; border: none; cursor: pointer;
+  background: oklch(0 0 0 / 0.5); color: oklch(0.92 0.01 258 / 0.9); font-size: 11px;
+}
+.estabAction:hover { background: oklch(0 0 0 / 0.7); }
+.castBtn {
+  position: absolute; bottom: 8px; right: 8px; height: 28px; padding: 0 12px; border-radius: 6px;
+  background: var(--accent); border: none; color: oklch(0.16 0.02 78); font-weight: 600; font-size: 12px;
+  cursor: pointer; box-shadow: 0 4px 14px oklch(0 0 0 / 0.4);
+}
+.castBtn:hover { filter: brightness(1.08); }
+
+.fieldBlock { display: flex; flex-direction: column; gap: 6px; }
+.sectionHead {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace; font-size: 9.5px; font-weight: 600;
+  letter-spacing: 0.15em; text-transform: uppercase; color: var(--ink-3);
+  padding-bottom: 3px; border-bottom: 1px solid var(--line-soft);
+}
+.hint { letter-spacing: 0; text-transform: none; color: var(--ink-4); font-weight: 400; }
+
+/* Chips */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px 0 4px; border-radius: 13px;
+  background: var(--surface); border: 1px solid var(--line); font-size: 12px; color: var(--ink-2);
+}
+.chipChild { background: transparent; border-style: dashed; color: var(--ink-3); cursor: pointer; padding: 0 11px; gap: 6px; }
+.chipChild:hover { border-color: var(--accent-line); color: var(--ink-2); }
+.chipChild .glyph { color: var(--accent); }
+.chipBody {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit;
+}
+button.chipBody { cursor: pointer; }
+button.chipBody:hover { color: var(--accent); }
+.chipAv {
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace; font-size: 8.5px; font-weight: 700; color: oklch(0.14 0.01 258);
+}
+.chipFaction .chipAv { border-radius: 5px; }
+.chipRemove { background: none; border: none; padding: 0 2px; margin-left: 2px; color: var(--ink-4); font-size: 11px; cursor: pointer; }
+.chipRemove:hover { color: oklch(0.70 0.13 22); }
+.chipAdd {
+  height: 26px; width: 26px; border-radius: 13px; border: 1px dashed var(--line); background: transparent;
+  color: var(--ink-4); font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+}
+.chipAdd:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Link picker */
+.picker { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--surface); }
+.pickerTabs { display: flex; gap: 4px; }
+.pickerTab { height: 22px; padding: 0 10px; border-radius: 11px; border: 1px solid var(--line-soft); background: transparent; color: var(--ink-3); font-size: 11px; cursor: pointer; }
+.pickerTabActive { background: var(--surface-2); border-color: var(--accent); color: var(--ink); }
+.pickerList { max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; }
+.pickerRow { text-align: left; background: none; border: none; padding: 5px 6px; color: var(--ink-2); font-size: 12px; cursor: pointer; border-radius: 4px; }
+.pickerRow:hover { background: var(--surface-2); color: var(--ink); }
+.pickerEmpty { padding: 8px 6px; color: var(--ink-4); font-size: 11.5px; margin: 0; }
+
+.textarea {
+  width: 100%; box-sizing: border-box; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 5px; padding: 6px 8px; font-size: 12.5px; color: var(--ink); resize: vertical; line-height: 1.5; outline: none;
+  font-family: inherit;
+}
+.textarea:focus { border-color: var(--accent); }
+
+.prose { font-size: 12.5px; color: var(--ink-2); line-height: 1.6; }
+.prose :global(p) { margin: 0 0 8px; }
+.prose :global(strong) { color: var(--ink); }
+.prose :global(em) { color: var(--ink); }
+.prose :global(ul), .prose :global(ol) { margin: 0 0 8px; padding-left: 18px; }
+.prose :global(li) { margin: 2px 0; }
+.prose :global(.wikilink) { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent-line); cursor: pointer; }
+.prose :global(.wikilink:hover) { border-bottom-style: solid; }
+.prose :global(code) { font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace; font-size: 11.5px; color: var(--accent); background: var(--accent-soft); padding: 1px 4px; border-radius: 4px; }
+.emptyVal { font-size: 12px; color: var(--ink-4); margin: 0; }
+
+.mapHook {
+  display: flex; align-items: center; gap: 9px; padding: 8px 11px; border-radius: var(--radius-sm);
+  border: 1px dashed var(--line); background: oklch(0.20 0.014 258 / 0.4); color: var(--ink-3); font-size: 11.5px;
+  width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+}
+.mapHook:hover { border-color: var(--accent-line); color: var(--ink); background: oklch(0.22 0.016 258 / 0.5); }
+
+.detailFooter { padding-top: 6px; border-top: 1px solid var(--line-soft); }
+.deleteBtn { background: transparent; border: none; color: var(--ink-3); font-size: 12px; cursor: pointer; padding: 0; }
+.deleteBtn:hover { color: oklch(0.70 0.13 22); }
+.confirmRow { display: inline-flex; gap: 6px; align-items: center; }
+.confirmYes { background: oklch(0.38 0.14 22 / 0.5); border: 1px solid oklch(0.54 0.16 22 / 0.6); color: oklch(0.92 0.06 22); border-radius: 4px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
+.confirmNo { background: transparent; border: 1px solid var(--line); color: var(--ink-3); border-radius: 4px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
+
+/* ── Add form ── */
+.addForm { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.addFormTitle {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.15em; color: var(--ink-3); margin-bottom: 4px;
+}
+.addLabel {
+  display: flex; flex-direction: column; gap: 3px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace; font-size: 9.5px; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--ink-3);
+}
+.addInput {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 5px;
+  padding: 5px 8px; font-size: 13px; color: var(--ink); box-sizing: border-box; outline: none;
+}
+.addInput:focus { border-color: var(--accent); }
+.addActions { display: flex; gap: 8px; margin-top: 4px; }
+.cancelBtn {
+  flex: 1; padding: 7px 0; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 5px; color: var(--ink-3); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.cancelBtn:hover { background: var(--surface-3); }
+.saveBtn {
+  flex: 1; padding: 7px 0; background: var(--accent); border: none; border-radius: 5px;
+  color: oklch(0.12 0.01 258); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.saveBtn:hover:not(:disabled) { filter: brightness(1.1); }
+.saveBtn:disabled { opacity: 0.4; cursor: default; }

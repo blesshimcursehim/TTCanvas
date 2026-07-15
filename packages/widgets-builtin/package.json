@@ -1,0 +1,16 @@
+{
+  "name": "@ttcanvas/widgets-builtin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./map-display": "./src/map-display/MapDisplay.tsx"
+  },
+  "peerDependencies": {
+    "react": "^19.1.0"
+  },
+  "dependencies": {
+    "@ttcanvas/core": "workspace:*"
+  }
+}

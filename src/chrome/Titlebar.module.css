@@ -1,0 +1,358 @@
+.bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: linear-gradient(
+    oklch(0.215 0.014 258),
+    oklch(0.185 0.014 258)
+  );
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+}
+
+/* ── Brand ──────────────────────────────────────────────────── */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-style: italic;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.appName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+}
+
+.version {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-4);
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+}
+
+/* ── Vault crumb (centred) ──────────────────────────────────── */
+
+.crumbWrap {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s;
+  max-width: 320px;
+  font-family: inherit;
+  color: inherit;
+}
+
+.crumb:hover {
+  background: var(--surface);
+}
+
+.vaultOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+}
+
+.vaultDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 51;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 6px;
+  min-width: 200px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vaultDropdownLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  padding: 2px 6px 4px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  text-transform: uppercase;
+}
+
+.vaultItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vaultItem:hover {
+  background: var(--surface-2);
+}
+
+.vaultDivider {
+  height: 1px;
+  background: var(--line-soft);
+  margin: 4px 0;
+}
+
+.vaultNewBtn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.vaultNewBtn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.crumbName {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.crumbChev {
+  color: var(--ink-4);
+  flex-shrink: 0;
+}
+
+/* ── Right tools ────────────────────────────────────────────── */
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.sessionPill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sessionPill_stopped {
+  color: var(--fg-muted);
+  opacity: 0.5;
+}
+
+.sessionPill_stopped:hover {
+  opacity: 1;
+  background: oklch(0.30 0.01 260 / 0.5);
+}
+
+.sessionPill_running {
+  color: var(--ink-3);
+}
+
+.sessionPill_running:hover {
+  background: oklch(0.30 0.01 260 / 0.5);
+}
+
+.sessionPill_paused {
+  color: var(--fg-muted);
+}
+
+.sessionPill_paused:hover {
+  background: oklch(0.30 0.01 260 / 0.5);
+  color: var(--ink-3);
+}
+
+.divider {
+  width: 1px;
+  height: 18px;
+  background: var(--line);
+  margin: 0 4px;
+}
+
+.iconBtn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.iconBtn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.iconBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ── Player screen button ───────────────────────────────────── */
+
+.playerBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  color: var(--ink-4);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  margin: 0 4px;
+}
+
+.playerBtn:hover {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.playerBtnActive {
+  border-color: oklch(0.74 0.15 145 / 0.5);
+  color: oklch(0.74 0.15 145);
+  background: oklch(0.74 0.15 145 / 0.08);
+}
+
+.playerBtnActive:hover {
+  background: oklch(0.74 0.15 145 / 0.14);
+  color: oklch(0.74 0.15 145);
+}
+
+.playerLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+}
+
+.playerDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: oklch(0.74 0.15 145);
+  flex-shrink: 0;
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+.clearBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.clearBtn:hover {
+  background: oklch(0.30 0.01 260 / 0.6);
+  color: var(--fg);
+}
+
+.clearBtnActive {
+  color: var(--accent);
+}
+
+
+/* ── Pulsing dot (shared) ───────────────────────────────────── */
+
+.pulsingDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: oklch(0.74 0.15 145);
+  flex-shrink: 0;
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}

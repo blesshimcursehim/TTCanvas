@@ -1,0 +1,141 @@
+name: Release
+
+# Triggered by pushing a version tag: git tag v0.8.0 && git push --tags
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+
+jobs:
+  # ── Build installers on Linux and Windows ───────────────────────────────────
+  # macOS builds are disabled until a signed Developer account is available.
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            args: ''
+          - platform: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ''
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WEBKIT_DISABLE_COMPOSITING_MODE: 1
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'TTCanvas ${{ github.ref_name }}'
+          releaseBody: |
+            See [CHANGELOG](https://github.com/blesshimcursehim/TTCanvas/blob/main/CHANGELOG.md) for details.
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  # ── Build landing page + publish to GitHub Pages ────────────────────────────
+  # Runs after all platform builds complete so the release exists to link to.
+  publish-site:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Install site dependencies
+        run: npm install
+        working-directory: site
+
+      - name: Build Astro site
+        run: npm run build
+        working-directory: site
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: 'site/dist'
+
+      - id: deploy
+        uses: actions/deploy-pages@v5
+
+      - name: Announce release on Discord
+        if: ${{ env.DISCORD_WEBHOOK_URL != '' }}
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          curl -s -X POST "$DISCORD_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"TTCanvas $TAG released\",
+                \"description\": \"A new version of TTCanvas is available. Download it from GitHub Releases.\",
+                \"url\": \"https://github.com/blesshimcursehim/TTCanvas/releases/tag/$TAG\",
+                \"color\": 14251782,
+                \"fields\": [
+                  {
+                    \"name\": \"Download\",
+                    \"value\": \"[GitHub Releases](https://github.com/blesshimcursehim/TTCanvas/releases/tag/$TAG)\",
+                    \"inline\": true
+                  },
+                  {
+                    \"name\": \"Changelog\",
+                    \"value\": \"[CHANGELOG.md](https://github.com/blesshimcursehim/TTCanvas/blob/main/CHANGELOG.md)\",
+                    \"inline\": true
+                  }
+                ]
+              }]
+            }"

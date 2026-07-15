@@ -1,0 +1,12 @@
+{
+  "name": "@ttcanvas/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "react": "^19.1.0"
+  }
+}

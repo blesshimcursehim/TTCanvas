@@ -1,0 +1,642 @@
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #0a0a0a;
+  overflow: hidden;
+}
+
+.root {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: #0a0a0a;
+  color: #2a2a2a;
+  user-select: none;
+}
+
+/* ── Idle screen ── */
+
+.wordmark {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #1e1e1e;
+}
+
+.dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #1e1e1e;
+}
+
+/* ── Map scene ── */
+
+.playerViewport {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.playerMapWrapper {
+  position: relative;
+  transform-origin: center center;
+}
+
+.playerMapImg {
+  display: block;
+  max-width: none;
+  max-height: none;
+}
+
+.playerFog {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ── Tokens ── */
+
+.playerToken {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The linked combatant currently has the initiative turn (mirrors MapDisplay's .tokenSpotlight) */
+.playerTokenSpotlight {
+  animation: playerTokenSpotlightPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes playerTokenSpotlightPulse {
+  0%, 100% { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 0 2px oklch(0.82 0.17 80 / 0.9); }
+  50%      { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 0 8px oklch(0.82 0.17 80 / 0.35); }
+}
+
+.playerTokenPortrait {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.playerTokenLabel {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* ── Alt-click ping (mirrors MapDisplay's GM-side .ping/pingPulse) ── */
+
+.playerPing {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px; /* centres on (left, top) without transform, which the animation owns */
+  border-radius: 50%;
+  border: 2px solid oklch(0.82 0.17 80);
+  pointer-events: none;
+  animation: playerPingPulse 1.1s ease-out forwards;
+}
+
+@keyframes playerPingPulse {
+  from { transform: scale(0.3); opacity: 0.9; }
+  to   { transform: scale(2.4); opacity: 0; }
+}
+
+/* ── Handout scene ── */
+
+.handoutImg {
+  max-width: 100vw;
+  max-height: 100vh;
+  object-fit: contain;
+  display: block;
+}
+
+/* ── Text reveal scene (routed generator result) ── */
+
+.textRevealRoot {
+  padding: 6vh 8vw;
+}
+
+.textRevealCard {
+  max-width: min(80vw, 900px);
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: clamp(24px, 5vh, 56px) clamp(28px, 5vw, 64px);
+  border-radius: 12px;
+  background: #14110c;
+  border: 1px solid rgba(200, 160, 90, 0.25);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+
+.textRevealTitle {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: oklch(0.72 0.13 70);
+  margin-bottom: 20px;
+}
+
+.textRevealBody {
+  font-family: "EB Garamond", "Garamond", "Georgia", serif;
+  font-size: clamp(22px, 4vh, 38px);
+  line-height: 1.4;
+  color: #e8e0d0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Location scene (Gazetteer establishing card) ── */
+
+.locationRoot {
+  padding: 6vh 8vw;
+}
+
+.locationCard {
+  width: min(80vw, 720px);
+  max-height: 88vh;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #14110c;
+  border: 1px solid rgba(200, 160, 90, 0.28);
+  box-shadow: 0 14px 48px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+}
+
+.locationCardNoArt {
+  width: min(70vw, 620px);
+}
+
+.locationArt {
+  display: block;
+  width: 100%;
+  max-height: 62vh;
+  object-fit: cover;
+}
+
+.locationBody {
+  padding: clamp(20px, 3.5vh, 40px) clamp(24px, 4vw, 56px) clamp(24px, 4vh, 44px);
+  text-align: center;
+}
+
+.locationEyebrow {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: oklch(0.72 0.13 70);
+  margin-bottom: 14px;
+}
+
+.locationName {
+  font-family: "EB Garamond", "Garamond", "Georgia", serif;
+  font-size: clamp(30px, 5vh, 48px);
+  line-height: 1.1;
+  color: #f0e7d5;
+}
+
+.locationBlurb {
+  font-family: "EB Garamond", "Garamond", "Georgia", serif;
+  font-style: italic;
+  font-size: clamp(18px, 2.6vh, 26px);
+  line-height: 1.5;
+  color: #cfc4ae;
+  margin-top: 16px;
+  max-width: 46ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Progress Clock overlay (bottom-right) ── */
+
+.clockOverlay {
+  position: fixed;
+  bottom: 20px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px 14px;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  z-index: 9000;
+}
+
+.clockOverlayWedgeEmpty { fill: rgba(255, 255, 255, 0.06); stroke: rgba(255, 255, 255, 0.15); stroke-width: 1; }
+.clockOverlayWedgeFilled { fill: oklch(0.82 0.18 80); stroke: rgba(255, 255, 255, 0.15); stroke-width: 1; }
+
+.clockOverlayText { display: flex; flex-direction: column; gap: 2px; }
+
+.clockOverlayName {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clockOverlayCount {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Dice result overlay (lower-middle) ── */
+
+.diceOverlay {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 120px;
+  background: rgba(0, 0, 0, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 12px 22px;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  z-index: 9000;
+}
+
+.diceOverlayLabel {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: oklch(0.72 0.13 70);
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diceOverlayTotal {
+  font-family: "EB Garamond", "Garamond", "Georgia", serif;
+  font-size: 52px;
+  font-weight: 600;
+  line-height: 1.05;
+  color: #e8e0d0;
+  font-variant-numeric: tabular-nums;
+}
+
+.diceOverlayCrit { color: oklch(0.80 0.13 200); }
+.diceOverlayFumble { color: oklch(0.72 0.16 22); }
+
+.diceOverlayBreakdown {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.diceOverlayFlag {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  margin-top: 2px;
+}
+
+/* ── Borderless drag region ── */
+
+.dragRegion {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  z-index: 9999;
+  cursor: grab;
+}
+
+/* ── Window-controls toggle (reveals the OS frame for move/resize) ── */
+
+.windowControlsToggle {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(20, 20, 20, 0.8);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  opacity: 0.2;
+  transition: opacity 0.15s;
+}
+
+/* Faint by default (a discreet hint), full on hover anywhere in the window
+   (root spans the viewport). Stays visible while the frame is shown so the
+   user can find it to toggle back off. */
+.root:hover .windowControlsToggle,
+.windowControlsToggle:focus-visible,
+.windowControlsToggle[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.windowControlsToggle:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ── Character cast scene ── */
+
+.characterRoot {
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  background: #080808;
+  overflow: hidden;
+}
+
+.characterRoot.centred {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.charPortraitCol {
+  position: relative;
+  flex: 0 0 55%;
+  overflow: hidden;
+}
+
+.charPortraitFull {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+.charVignette {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, transparent 55%, #080808 100%);
+  pointer-events: none;
+}
+
+.charInfoCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px 48px 48px 32px;
+  gap: 14px;
+}
+
+.charName {
+  font-family: "EB Garamond", "Garamond", "Georgia", serif;
+  font-size: clamp(32px, 4vw, 60px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+}
+
+.centredName {
+  font-size: clamp(28px, 5vw, 56px);
+  text-align: center;
+}
+
+.charSubtitle {
+  font-family: "EB Garamond", "Garamond", "Georgia", serif;
+  font-size: clamp(14px, 1.6vw, 22px);
+  font-style: italic;
+  color: rgba(232, 224, 208, 0.55);
+  letter-spacing: 0.02em;
+}
+
+.centredSubtitle {
+  text-align: center;
+}
+
+.charTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.charTag {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid;
+  border-radius: 3px;
+  padding: 3px 8px;
+}
+
+.charDate {
+  margin-top: 20px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  padding: 4px 10px;
+  align-self: flex-start;
+}
+
+.charPortraitCrop {
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+}
+
+.charPortraitInitial {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "EB Garamond", "Garamond", "Georgia", serif;
+  font-size: 80px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+/* ── In-world date overlay ── */
+
+.dateOverlay {
+  position: fixed;
+  bottom: 20px;
+  left: 24px;
+  font-size: 11px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 4px 10px;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+/* ── Initiative order overlay (top-right) ── */
+
+.itOverlay {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  min-width: 180px;
+  max-width: 280px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 12px 14px;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  z-index: 9000;
+}
+
+.itRound {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 8px;
+}
+
+.itList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.itRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-family: "EB Garamond", "Garamond", "Georgia", serif;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.itCurrent {
+  background: rgba(255, 255, 255, 0.06);
+  border-left: 2px solid oklch(0.65 0.16 60);
+  padding-left: 6px;
+  color: #f0e8d8;
+  font-weight: 600;
+}
+
+.itNext:not(.itCurrent) {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.itDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.itName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itTag {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: oklch(0.65 0.16 60);
+  color: #1a1410;
+  flex-shrink: 0;
+}
+
+.itTagNext {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

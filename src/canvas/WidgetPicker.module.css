@@ -1,0 +1,132 @@
+.root {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  z-index: 1000;
+}
+
+.panel {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+  min-width: 200px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.groupLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  padding: 4px 4px;
+  margin-bottom: 2px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  text-transform: uppercase;
+}
+
+.groupLabel:hover {
+  color: var(--ink);
+}
+
+.widgetBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.widgetBtn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.widgetBtnOpen {
+  color: var(--accent);
+}
+.widgetBtnOpen:hover {
+  color: var(--accent);
+}
+
+.widgetName {
+  flex: 1;
+}
+
+.openPill {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.footer {
+  border-top: 1px solid var(--line-soft);
+  padding: 8px 10px 2px;
+}
+
+.footerCount {
+  font-size: 10px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  color: var(--ink-4);
+}
+
+.toggleBtn {
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg);
+  cursor: pointer;
+  box-shadow: 0 4px 16px oklch(0 0 0 / 0.4);
+  transition: filter 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.toggleBtn:hover {
+  filter: brightness(1.1);
+}
+
+.toggleBtn.open {
+  background: var(--surface-3);
+  color: var(--ink);
+}

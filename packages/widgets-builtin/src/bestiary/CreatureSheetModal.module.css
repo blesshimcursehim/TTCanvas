@@ -1,0 +1,582 @@
+/* ── Tab pane ──────────────────────────────────────────── */
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Hero block ────────────────────────────────────────── */
+
+.hero {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+.portrait {
+  width: 76px;
+  height: 76px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.portraitBtn {
+  width: 76px;
+  height: 76px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.portraitBtn:hover { border-color: var(--accent); }
+
+.portraitImg  { width: 100%; height: 100%; object-fit: cover; }
+
+.portraitFallback {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+
+.portraitPlaceholder {
+  font-size: 20px;
+  opacity: 0.5;
+}
+
+.identityBlock {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.heroName {
+  font-family: var(--font-serif, "EB Garamond Variable", serif);
+  font-size: 22px;
+  color: var(--ink);
+  line-height: 1.1;
+}
+
+.heroSub {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.identityRow {
+  display: flex;
+  gap: 5px;
+}
+
+/* ── Inputs ────────────────────────────────────────────── */
+
+.nameInput {
+  width: 100%;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line-soft);
+  padding: 2px 0;
+  font-family: var(--font-serif, "EB Garamond Variable", serif);
+  font-size: 20px;
+  color: var(--ink);
+  outline: none;
+  line-height: 1.2;
+}
+.nameInput:focus { border-bottom-color: var(--accent); }
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+.input:focus { border-color: var(--accent); }
+
+.select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 22px 4px 7px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23888'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+}
+.select:focus { border-color: var(--accent); }
+
+/* ── Stats grid ────────────────────────────────────────── */
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.statCell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.statLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.statValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.statInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.statInput::-webkit-outer-spin-button,
+.statInput::-webkit-inner-spin-button { -webkit-appearance: none; }
+.statInput:focus { border-color: var(--accent); }
+
+/* ── Field groups ──────────────────────────────────────── */
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fieldLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.fieldValue {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.fieldInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-family: inherit;
+  outline: none;
+  line-height: 1.4;
+  resize: vertical;
+}
+.fieldInput:focus { border-color: var(--accent); color: var(--ink); }
+
+.hint {
+  font-size: 10px;
+  color: var(--ink-4);
+  font-style: italic;
+}
+
+/* ── Tags ──────────────────────────────────────────────── */
+
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag {
+  font-size: 10.5px;
+  background: oklch(from var(--accent) l c h / 0.12);
+  border: 1px solid oklch(from var(--accent) l c h / 0.3);
+  border-radius: 3px;
+  padding: 1px 6px;
+  color: var(--accent);
+}
+
+.empty {
+  font-size: 12px;
+  color: var(--ink-4);
+  font-style: italic;
+  margin: 0;
+}
+
+/* ── Saving throws ─────────────────────────────────────── */
+
+.savesGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 5px;
+}
+
+.saveCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.saveLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+.saveValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.saveInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 3px 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.saveInput::-webkit-outer-spin-button,
+.saveInput::-webkit-inner-spin-button { -webkit-appearance: none; }
+.saveInput:focus { border-color: var(--accent); }
+
+/* ── Spellcasting ──────────────────────────────────────── */
+
+.spellHeader {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.slotTable {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.slotRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slotLevel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink-4);
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.slotInput {
+  width: 44px;
+  padding: 3px 5px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.slotInput::-webkit-outer-spin-button,
+.slotInput::-webkit-inner-spin-button { -webkit-appearance: none; }
+.slotInput:focus { border-color: var(--accent); }
+
+.slotOf {
+  font-size: 11px;
+  color: var(--ink-4);
+}
+
+.slotPips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.slotPip {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.1s, border-color 0.1s;
+}
+.slotPip:hover { border-color: var(--accent); }
+
+.slotPipUsed {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.spellList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spellLevelGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.spellLevelLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: 2px;
+  margin-bottom: 2px;
+}
+
+.spellEntry {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spellName {
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.spellNameInput {
+  flex: 1;
+  padding: 3px 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+.spellNameInput:focus { border-color: var(--accent); }
+
+.spellRemoveBtn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--ink-4);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0;
+  flex-shrink: 0;
+}
+.spellRemoveBtn:hover { background: var(--surface-2); color: var(--ink); }
+
+.addSmallBtn {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  color: var(--ink-4);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  margin-top: 2px;
+  transition: border-color 0.12s, color 0.12s;
+}
+.addSmallBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Notes ─────────────────────────────────────────────── */
+
+.notesTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 320px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-family: inherit;
+  line-height: 1.5;
+  outline: none;
+  resize: vertical;
+}
+.notesTextarea:focus { border-color: var(--accent); }
+
+.notesRendered {
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+.notesRendered h1, .notesRendered h2, .notesRendered h3 {
+  color: var(--ink);
+  margin: 10px 0 4px;
+  font-size: 14px;
+}
+.notesRendered p  { margin: 4px 0; }
+.notesRendered ul, .notesRendered ol { margin: 4px 0; padding-left: 18px; }
+.notesRendered code {
+  background: var(--surface);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-size: 11px;
+}
+.notesRendered hr { border: none; border-top: 1px solid var(--line-soft); margin: 8px 0; }
+
+/* ── Danger zone ───────────────────────────────────────── */
+
+.dangerZone {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deleteBtn {
+  background: transparent;
+  border: 1px solid oklch(0.45 0.18 22 / 0.5);
+  border-radius: 5px;
+  color: oklch(0.62 0.16 22);
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.deleteBtn:hover { background: oklch(0.45 0.18 22 / 0.1); border-color: oklch(0.45 0.18 22); }
+
+/* Keeps the confirm row's children as direct flex items of .dangerZone, matching the
+   fragment (no wrapper) that used to sit there. */
+.confirmRow { display: contents; }
+
+.confirmText { font-size: 12px; color: var(--ink-3); flex: 1; }
+
+.confirmYes {
+  background: oklch(0.45 0.18 22);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.confirmYes:hover { filter: brightness(1.1); }
+
+.confirmNo {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-3);
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.confirmNo:hover { background: var(--surface); }
+
+/* ── Footer IT button ──────────────────────────────────── */
+
+.itBtn {
+  width: 100%;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink-3);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.itBtn:hover {
+  background: oklch(from var(--accent) l c h / 0.1);
+  border-color: oklch(from var(--accent) l c h / 0.4);
+  color: var(--accent);
+}
+
+.castBtn {
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid var(--accent-line);
+  border-radius: 6px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.castBtn:hover {
+  background: oklch(from var(--accent) l c h / 0.1);
+}

@@ -1,0 +1,574 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border, rgba(255,255,255,0.07));
+  flex-shrink: 0;
+}
+
+.searchWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-3, rgba(255,255,255,0.05));
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-radius: 5px;
+  padding: 4px 8px;
+}
+
+.searchIcon { color: var(--ink-4, #555); flex-shrink: 0; }
+
+.search {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  color: var(--ink, #e0e0e0);
+}
+.search::placeholder { color: var(--ink-4, #555); }
+
+.addBtn {
+  background: var(--accent, #7c6ef7);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.addBtn:hover { filter: brightness(1.12); }
+
+.importBtn {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  transition: background 0.1s, color 0.1s;
+}
+.importBtn:hover { background: var(--surface-2); color: var(--ink); }
+
+/* ── Body ── */
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 6px 6px;
+}
+
+/* ── Folder section ── */
+
+.folderSection {
+  margin-bottom: 4px;
+}
+
+.folderHeader {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px 3px 2px;
+  border-radius: 4px;
+}
+.folderHeader:hover .folderIconBtn { opacity: 1; }
+
+.collapseBtn {
+  background: none;
+  border: none;
+  color: var(--ink-4, #666);
+  font-size: 10px;
+  padding: 2px 4px;
+  cursor: pointer;
+  line-height: 1;
+  border-radius: 3px;
+}
+.collapseBtn:hover { background: var(--surface-2); color: var(--ink); }
+
+.folderName {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3, #aaa);
+  flex: 1;
+  cursor: default;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.renameInput {
+  flex: 1;
+  background: var(--bg-3, rgba(255,255,255,0.06));
+  border: 1px solid var(--accent, #7c6ef7);
+  border-radius: 3px;
+  color: var(--ink, #e0e0e0);
+  font-size: 11px;
+  padding: 1px 5px;
+  outline: none;
+}
+
+.folderCount {
+  font-size: 10px;
+  color: var(--ink-4, #555);
+  min-width: 14px;
+  text-align: right;
+}
+
+.folderIconBtn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--ink-4);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s, color 0.1s, border-color 0.1s;
+  flex-shrink: 0;
+}
+.folderIconBtn:hover {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--ink);
+  opacity: 1;
+}
+
+.folderIconBtnSaved {
+  color: oklch(0.55 0.16 145) !important;
+  border-color: oklch(0.55 0.16 145 / 0.4) !important;
+  background: oklch(0.55 0.16 145 / 0.12) !important;
+  opacity: 1 !important;
+}
+
+.newFolderBtn {
+  background: none;
+  border: none;
+  color: var(--ink-4, #666);
+  font-size: 11px;
+  padding: 6px 6px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+.newFolderBtn:hover { color: var(--ink-2, #bbb); }
+
+/* ── Card grid ── */
+
+.cardGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 4px 8px;
+}
+
+.cardWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.cardExportBtn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-3);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s, color 0.1s, border-color 0.1s;
+  z-index: 1;
+}
+.cardWrap:hover .cardExportBtn { opacity: 1; }
+.cardExportBtn:hover {
+  background: var(--surface-2);
+  border-color: var(--accent-line);
+  color: var(--ink);
+}
+
+.card {
+  background: var(--bg-3, rgba(255,255,255,0.04));
+  border: 1px solid var(--border, rgba(255,255,255,0.07));
+  border-radius: 6px;
+  width: 90px;
+  padding: 6px 6px 5px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+.card:hover {
+  border-color: var(--accent, #7c6ef7);
+  background: rgba(124, 110, 247, 0.08);
+}
+
+.cardPortrait {
+  width: 60px;
+  height: 60px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-2, #252525);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  cursor: grab;
+  -webkit-user-drag: element;
+}
+
+.dragHint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: oklch(0 0 0 / 0.55);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.15s;
+  color: oklch(1 0 0 / 0.9);
+  font-size: 8px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.cardPortrait:hover .dragHint,
+.flatRowPortrait:hover .dragHint {
+  opacity: 1;
+}
+
+.cardPortraitImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cardPortraitFallback {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink-3, #888);
+}
+
+.cardName {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink, #e0e0e0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.cardStats {
+  display: flex;
+  gap: 4px;
+  font-size: 9px;
+  color: var(--ink-4, #666);
+}
+
+.cardExportBtnSaved {
+  color: oklch(0.55 0.16 145) !important;
+  border-color: oklch(0.55 0.16 145 / 0.4) !important;
+  background: oklch(0.55 0.16 145 / 0.12) !important;
+  opacity: 1 !important;
+}
+
+/* ── Type filter chips ── */
+
+.typeChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 6px 2px;
+  flex-shrink: 0;
+}
+
+.typeChip {
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  font-size: 10px;
+  cursor: pointer;
+  color: var(--ink-4);
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+  white-space: nowrap;
+}
+.typeChip:hover { background: var(--surface); color: var(--ink-2); }
+
+.typeChipActive {
+  background: oklch(from var(--accent) l c h / 0.15);
+  border-color: oklch(from var(--accent) l c h / 0.5);
+  color: var(--accent);
+}
+.typeChipActive:hover {
+  background: oklch(from var(--accent) l c h / 0.22);
+}
+
+/* ── CR filter ── */
+
+.crFilter {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px 6px;
+  flex-shrink: 0;
+}
+
+.crLabel {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  flex-shrink: 0;
+}
+
+.crInput {
+  width: 42px;
+  padding: 3px 5px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-2);
+  font-size: 11px;
+  font-family: inherit;
+  outline: none;
+  text-align: center;
+}
+.crInput:focus { border-color: var(--accent); }
+
+.crDash {
+  color: var(--ink-4);
+  font-size: 11px;
+}
+
+.clearBtn {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-4);
+  font-size: 10px;
+  padding: 2px 7px;
+  cursor: pointer;
+  margin-left: 4px;
+  transition: background 0.1s, color 0.1s;
+}
+.clearBtn:hover { background: var(--surface-2); color: var(--ink-2); }
+
+/* ── Flat list (filtered mode) ── */
+
+.emptyFilter {
+  padding: 24px 12px;
+  font-size: 12px;
+  color: var(--ink-4);
+  text-align: center;
+  font-style: italic;
+}
+
+.flatList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.flatRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.flatRowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s, border-color 0.1s;
+}
+.flatRowMain:hover {
+  background: var(--bg-3, rgba(255,255,255,0.04));
+  border-color: var(--border, rgba(255,255,255,0.07));
+}
+
+.flatRowPortrait {
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-2, #252525);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  cursor: grab;
+  -webkit-user-drag: element;
+}
+
+.flatRowPortraitImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.flatRowInitial {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+
+.flatRowInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.flatRowName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flatRowMeta {
+  font-size: 10px;
+  color: var(--ink-4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flatRowStats {
+  display: flex;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--ink-4);
+  flex-shrink: 0;
+}
+
+.flatRowExport {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--ink-4);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s, color 0.1s, border-color 0.1s;
+  flex-shrink: 0;
+}
+.flatRow:hover .flatRowExport { opacity: 1; }
+.flatRowExport:hover { background: var(--surface-2); border-color: var(--line); color: var(--ink); }
+
+.flatRowExportSaved {
+  opacity: 1 !important;
+  color: oklch(0.55 0.16 145) !important;
+  border-color: oklch(0.55 0.16 145 / 0.4) !important;
+  background: oklch(0.55 0.16 145 / 0.12) !important;
+}
+
+.cardCastBtn {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+  z-index: 1;
+}
+.cardWrap:hover .cardCastBtn { opacity: 1; }
+.cardCastBtn:hover { background: var(--surface-2); }
+
+.flatRowCast {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+  flex-shrink: 0;
+}
+.flatRow:hover .flatRowCast { opacity: 1; }
+.flatRowCast:hover { background: var(--surface-2); border-color: var(--line); }
+.importError {
+  padding: 4px 8px; font-size: 10px; cursor: pointer;
+  background: oklch(0.38 0.14 22 / 0.18); border-bottom: 1px solid oklch(0.38 0.14 22 / 0.35);
+  color: oklch(0.80 0.12 22);
+}

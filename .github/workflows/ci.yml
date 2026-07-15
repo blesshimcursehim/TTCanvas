@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+
+jobs:
+  # ── Fast checks ─────────────────────────────────────────────────────────────
+  # No system dependencies needed — runs on any platform quickly.
+  frontend:
+    name: Frontend (typecheck + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Type check
+        run: pnpm tsc --noEmit
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Tests
+        run: pnpm test
+
+  # ── Rust checks ─────────────────────────────────────────────────────────────
+  # cargo check + cargo test without a full production build.
+  # Needs webkit libs because Tauri's Rust deps include WebKit bindings.
+  backend:
+    name: Rust (check + tests)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Cargo fmt check
+        run: cargo fmt --check
+        working-directory: src-tauri
+
+      - name: Cargo check
+        run: cargo check
+        working-directory: src-tauri
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: src-tauri
+
+      - name: Cargo test
+        run: cargo test
+        working-directory: src-tauri
+
+  # ── Full build ───────────────────────────────────────────────────────────────
+  # Only runs on pushes to main (not on PRs) and only if both checks pass.
+  # Calls the Tauri CLI directly to avoid the local-machine env vars in the
+  # npm "tauri" script (LD_PRELOAD, GDK_BACKEND, etc.).
+  build:
+    name: Tauri build (Linux)
+    needs: [frontend, backend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm exec tauri build
+        env:
+          WEBKIT_DISABLE_COMPOSITING_MODE: 1

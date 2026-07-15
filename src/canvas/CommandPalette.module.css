@@ -1,0 +1,113 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: oklch(0 0 0 / 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14vh;
+  z-index: 5000;
+}
+
+.panel {
+  background: var(--bg-2, #1e1e1e);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 10px;
+  width: 540px;
+  max-height: 480px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Input row ── */
+
+.inputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.searchIcon {
+  color: var(--ink-3, #666);
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--ink, #e0e0e0);
+  caret-color: var(--accent, #7c6ef7);
+}
+.input::placeholder { color: var(--ink-4, #555); }
+
+.escHint {
+  font-size: 10px;
+  color: var(--ink-4, #555);
+  background: var(--bg-3, #2a2a2a);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 3px;
+  padding: 2px 5px;
+  flex-shrink: 0;
+}
+
+/* ── Results ── */
+
+.results {
+  overflow-y: auto;
+  padding: 4px 0 6px;
+}
+
+.empty {
+  padding: 24px 16px;
+  font-size: 13px;
+  color: var(--ink-4, #555);
+  text-align: center;
+}
+
+.group {
+  margin-top: 4px;
+}
+
+.groupLabel {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-4, #555);
+  padding: 6px 14px 3px;
+}
+
+.item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 14px;
+  cursor: default;
+  border-radius: 4px;
+  margin: 0 4px;
+}
+.item:hover,
+.itemOn {
+  background: var(--bg-3, rgba(255, 255, 255, 0.06));
+}
+
+.itemLabel {
+  font-size: 13px;
+  color: var(--ink, #e0e0e0);
+  flex-shrink: 0;
+}
+
+.itemSub {
+  font-size: 11px;
+  color: var(--ink-4, #555);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
