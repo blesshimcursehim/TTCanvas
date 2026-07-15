@@ -4,6 +4,11 @@ All notable changes are documented here.
 
 ## Unreleased
 
+### Fixes
+
+- **NPC Generator no longer overwrites an existing NPC with the same name** - saving used to write straight to a name-derived filename, so a second NPC sharing a name silently clobbered the first one's file. Saving now checks the library first and, on a collision, offers "Save as new copy" or "Cancel" instead of overwriting.
+- **NPC Library - deleting an NPC now asks for confirmation** - the Remove button used to delete on a single click. It now behaves like every other delete action in the app, needing a second "Yes, delete" click before anything is removed.
+
 ## v0.15.0 - 2026-07-15
 
 ### Features

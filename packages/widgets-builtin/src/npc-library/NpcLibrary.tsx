@@ -10,12 +10,13 @@ import { CropModal } from "../party-tracker/CropModal";
 import type { NpcLibraryState, ParsedNpc, NpcRelationship } from "./types";
 import {
   parseNpcJson, parseLegacyMd, serializeNpcJson,
-  nameToFilename, mdFilenameToJson, slugFromFilename,
+  uniqueNpcFilename, mdFilenameToJson,
   makeBlankNpc, autoAccentColor, npcInitials,
 } from "./npcFormat";
 import { setActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { mimeForImageExt } from "../shared/mime";
+import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { NPCSheetModal } from "../shared/NPCSheetModal";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { dedupe, hashContent, parseImportFile, exportCollection, type DedupeResult } from "../shared/importExport";
@@ -129,6 +130,7 @@ export function NpcLibrary({ state, onChange }: Props) {
   const [addForm, setAddForm] = useState(EMPTY_ADD);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ParsedNpc | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   // Raw text for the Tags input, kept separate from draft.tags so the input reflects exactly what
   // was typed - deriving it from the parsed array on every keystroke strips a trailing comma before
   // the user can finish typing the next tag.
@@ -217,6 +219,7 @@ export function NpcLibrary({ state, onChange }: Props) {
     setEditing(false);
     setDraft(null);
     setAdding(false);
+    setConfirmDelete(false);
     onChange({ selectedFile: npc.filename });
   }
 
@@ -282,15 +285,7 @@ export function NpcLibrary({ state, onChange }: Props) {
   async function handleAdd() {
     const name = addForm.name.trim();
     if (!name) return;
-    const filename = nameToFilename(name);
-    const slug = slugFromFilename(filename);
-
-    // avoid duplicate filenames
-    let finalFilename = filename;
-    let suffix = 1;
-    while (npcs.find((n) => n.filename === finalFilename)) {
-      finalFilename = `npcs/${slug}-${suffix++}.json`;
-    }
+    const finalFilename = uniqueNpcFilename(name, npcs.map((n) => n.filename));
 
     const npc: ParsedNpc = {
       filename: finalFilename,
@@ -321,6 +316,7 @@ export function NpcLibrary({ state, onChange }: Props) {
     onChange({ selectedFile: remaining[0]?.filename ?? null });
     setEditing(false);
     setDraft(null);
+    setConfirmDelete(false);
   }
 
   async function handleShowPlayers(npc: ParsedNpc) {
@@ -427,13 +423,9 @@ export function NpcLibrary({ state, onChange }: Props) {
           if (existing) await vault.writeFile(existing.filename, serializeNpcJson({ ...npc, filename: existing.filename }));
         }
       }
-      const usedFilenames = new Set<string>();
+      const usedFilenames = new Set(npcs.map((n) => n.filename));
       for (const npc of result.clean) {
-        let finalFilename = nameToFilename(npc.name);
-        let suffix = 1;
-        while (npcs.some((n) => n.filename === finalFilename) || usedFilenames.has(finalFilename)) {
-          finalFilename = nameToFilename(npc.name).replace(".json", `-${suffix++}.json`);
-        }
+        const finalFilename = uniqueNpcFilename(npc.name, usedFilenames);
         usedFilenames.add(finalFilename);
         await vault.writeFile(finalFilename, serializeNpcJson({ ...npc, filename: finalFilename }));
       }
@@ -717,7 +709,20 @@ export function NpcLibrary({ state, onChange }: Props) {
 
             {/* Footer */}
             <div className={styles.detailFooter}>
-              <button className={styles.removeBtn} onClick={handleDelete}>🗑 Remove</button>
+              <ConfirmDeleteButton
+                confirming={confirmDelete}
+                trigger="🗑 Remove"
+                confirmQuestion={`Delete "${displayNpc.name}"?`}
+                confirmLabel="Yes, delete"
+                className={styles.removeBtn}
+                rowClassName={styles.confirmRow}
+                questionClassName={styles.confirmText}
+                confirmClassName={styles.confirmYes}
+                cancelClassName={styles.confirmNo}
+                onRequestConfirm={() => setConfirmDelete(true)}
+                onConfirm={handleDelete}
+                onCancel={() => setConfirmDelete(false)}
+              />
             </div>
           </div>
         ) : (

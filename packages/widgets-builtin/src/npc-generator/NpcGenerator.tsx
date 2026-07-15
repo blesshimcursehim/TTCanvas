@@ -12,7 +12,7 @@ import {
   GENDER_LABELS, GENDER_TYPES, RACES, DND_CLASSES, DND_CLASS_LABELS, createDefaultNpcGeneratorState,
 } from "./tables";
 import { generateStats } from "./stats";
-import { nameToFilename, serializeNpcJson, autoAccentColor, npcInitials, ACCENT_PRESETS } from "../npc-library/npcFormat";
+import { nameToFilename, uniqueNpcFilename, serializeNpcJson, autoAccentColor, npcInitials, ACCENT_PRESETS } from "../npc-library/npcFormat";
 import type { ParsedNpc } from "../npc-library/types";
 import styles from "./NpcGenerator.module.css";
 
@@ -100,6 +100,7 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   const [generating, setGenerating] = useState<false | "all" | "trait" | "hook" | "voice">(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const [nameCollision, setNameCollision] = useState(false);
   const streamBuf = useRef("");
   const cancelGenRef = useRef<(() => void) | null>(null);
   useEffect(() => () => { cancelGenRef.current?.(); }, []);
@@ -201,38 +202,47 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
     }
   }
 
-  const handleSave = async () => {
+  // `asNewCopy`: bypass the collision check and save under a suffixed filename regardless -
+  // used by the "Save as new copy" confirm button once the user has seen the warning.
+  const handleSave = async (asNewCopy = false) => {
     if (!vault?.vaultPath) return;
-    const filename = nameToFilename(state.name);
     const includeStats = state.generateStats && !!state.stats;
-    const npc: ParsedNpc = {
-      filename,
-      id: crypto.randomUUID(),
-      name: state.name,
-      race: state.race === "Any" ? "" : state.race,
-      occupation: state.occupation,
-      class: state.dndClass || undefined,
-      level: state.level ?? undefined,
-      age: state.age ?? undefined,
-      gender: state.gender !== "any" ? state.gender : undefined,
-      accentColor: state.accentColor,
-      trait: state.trait || undefined,
-      hook: state.hook || undefined,
-      voice: state.voice || undefined,
-      relationship: state.relationship ?? undefined,
-      ...(includeStats && state.stats ? {
-        cr: state.stats.cr,
-        hp: state.stats.hp,
-        hpMax: state.stats.hpMax,
-        hpFormula: state.stats.hpFormula,
-        ac: state.stats.ac,
-        speed: state.stats.speed,
-        abilityScores: state.stats.abilityScores,
-        actions: state.stats.actions,
-      } : {}),
-    };
     try {
+      const existing = (await vault.listFiles("json")).filter((f) => f.startsWith("npcs/"));
+      const base = nameToFilename(state.name);
+      if (!asNewCopy && existing.includes(base)) {
+        setNameCollision(true);
+        return;
+      }
+      const filename = asNewCopy ? uniqueNpcFilename(state.name, existing) : base;
+      const npc: ParsedNpc = {
+        filename,
+        id: crypto.randomUUID(),
+        name: state.name,
+        race: state.race === "Any" ? "" : state.race,
+        occupation: state.occupation,
+        class: state.dndClass || undefined,
+        level: state.level ?? undefined,
+        age: state.age ?? undefined,
+        gender: state.gender !== "any" ? state.gender : undefined,
+        accentColor: state.accentColor,
+        trait: state.trait || undefined,
+        hook: state.hook || undefined,
+        voice: state.voice || undefined,
+        relationship: state.relationship ?? undefined,
+        ...(includeStats && state.stats ? {
+          cr: state.stats.cr,
+          hp: state.stats.hp,
+          hpMax: state.stats.hpMax,
+          hpFormula: state.stats.hpFormula,
+          ac: state.stats.ac,
+          speed: state.stats.speed,
+          abilityScores: state.stats.abilityScores,
+          actions: state.stats.actions,
+        } : {}),
+      };
       await vault.writeFile(filename, serializeNpcJson(npc));
+      setNameCollision(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
@@ -271,7 +281,7 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
             <input
               className={styles.nameInput}
               value={state.name}
-              onChange={(e) => patch({ name: e.target.value })}
+              onChange={(e) => { patch({ name: e.target.value }); setNameCollision(false); }}
             />
             <button
               className={`${styles.lockBtn} ${state.locked.name ? styles.locked : ""}`}
@@ -438,6 +448,14 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
         <p className={styles.hint}>Start Ollama to enable AI re-roll</p>
       )}
 
+      {nameCollision && (
+        <div className={styles.collisionRow}>
+          <span className={styles.collisionText}>An NPC named "{state.name}" already exists.</span>
+          <button className={styles.collisionConfirm} onClick={() => handleSave(true)}>Save as new copy</button>
+          <button className={styles.collisionCancel} onClick={() => setNameCollision(false)}>Cancel</button>
+        </div>
+      )}
+
       {/* ── Actions ──────────────────────────────── */}
       <div className={styles.actions}>
         <button
@@ -449,8 +467,8 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
         </button>
         <button
           className={`${styles.saveBtn} ${saved ? styles.saveBtnSaved : ""} ${saveError ? styles.saveBtnError : ""}`}
-          onClick={handleSave}
-          disabled={!vault?.vaultPath || !state.name.trim()}
+          onClick={() => handleSave()}
+          disabled={!vault?.vaultPath || !state.name.trim() || nameCollision}
           title={!vault?.vaultPath ? "Open a vault first" : undefined}
         >
           {saved ? "Saved ✓" : saveError ? "Save failed" : "Save to library"}

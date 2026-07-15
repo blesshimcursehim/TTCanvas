@@ -92,6 +92,21 @@ export function slugFromFilename(filename: string): string {
   return filename.split("/").pop()?.replace(/\.(json|md)$/, "") ?? filename;
 }
 
+/** Name-derived filename, suffixed (-1, -2, …) until it avoids every path in `existing`. */
+export function uniqueNpcFilename(name: string, existing: Iterable<string>): string {
+  const taken = existing instanceof Set ? existing : new Set(existing);
+  const base = nameToFilename(name);
+  if (!taken.has(base)) return base;
+  const slug = slugFromFilename(base);
+  let suffix = 1;
+  let candidate = `npcs/${slug}-${suffix}.json`;
+  while (taken.has(candidate)) {
+    suffix += 1;
+    candidate = `npcs/${slug}-${suffix}.json`;
+  }
+  return candidate;
+}
+
 // ── Utilities ──────────────────────────────────────────────────────────────
 
 export function makeBlankNpc(filename: string): ParsedNpc {
