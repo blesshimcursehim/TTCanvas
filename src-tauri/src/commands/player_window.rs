@@ -80,20 +80,19 @@ pub async fn open_player_window(
     let win_handle = win.clone();
     win.on_window_event(move |event| match event {
         tauri::WindowEvent::CloseRequested { .. } => {
-            if let Some(main) = app_handle.get_webview_window("main") {
-                if let (Ok(pos), Ok(size)) = (win_handle.outer_position(), win_handle.outer_size())
-                {
-                    main.emit(
-                        "player-window-bounds",
-                        PlayerWindowBounds {
-                            x: pos.x,
-                            y: pos.y,
-                            w: size.width,
-                            h: size.height,
-                        },
-                    )
-                    .ok();
-                }
+            if let Some(main) = app_handle.get_webview_window("main")
+                && let (Ok(pos), Ok(size)) = (win_handle.outer_position(), win_handle.outer_size())
+            {
+                main.emit(
+                    "player-window-bounds",
+                    PlayerWindowBounds {
+                        x: pos.x,
+                        y: pos.y,
+                        w: size.width,
+                        h: size.height,
+                    },
+                )
+                .ok();
             }
         }
         tauri::WindowEvent::Destroyed => {

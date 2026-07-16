@@ -116,10 +116,10 @@ fn collect_files(
         // Use file_type() (does not follow symlinks) so symlinked dirs don't cause loops.
         if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
             collect_files(base, &path, extension, results)?;
-        } else if path.extension().and_then(|e| e.to_str()) == Some(extension) {
-            if let Ok(rel) = path.strip_prefix(base) {
-                results.push(rel.to_string_lossy().replace('\\', "/"));
-            }
+        } else if path.extension().and_then(|e| e.to_str()) == Some(extension)
+            && let Ok(rel) = path.strip_prefix(base)
+        {
+            results.push(rel.to_string_lossy().replace('\\', "/"));
         }
     }
     Ok(())
@@ -270,10 +270,10 @@ fn collect_image_files(
         let path = entry.path();
         if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
             collect_image_files(base, &path, results)?;
-        } else if is_image_path(&path) {
-            if let Ok(rel) = path.strip_prefix(base) {
-                results.push(rel.to_string_lossy().replace('\\', "/"));
-            }
+        } else if is_image_path(&path)
+            && let Ok(rel) = path.strip_prefix(base)
+        {
+            results.push(rel.to_string_lossy().replace('\\', "/"));
         }
     }
     Ok(())
@@ -301,7 +301,7 @@ pub async fn list_folder_images(
 }
 
 async fn read_base64(folder_path: String, file_name: String) -> Result<String, CommandError> {
-    use base64::{engine::general_purpose, Engine as _};
+    use base64::{Engine as _, engine::general_purpose};
     validate_component(&file_name)?;
     let path = PathBuf::from(&folder_path).join(&file_name);
     tokio::task::spawn_blocking(move || -> Result<String, CommandError> {
@@ -366,7 +366,7 @@ pub async fn write_file_base64(
     file_name: String,
     base64_content: String,
 ) -> Result<(), CommandError> {
-    use base64::{engine::general_purpose, Engine as _};
+    use base64::{Engine as _, engine::general_purpose};
     require_main_window(&window)?;
     validate_component(&file_name)?;
     let bytes = general_purpose::STANDARD
