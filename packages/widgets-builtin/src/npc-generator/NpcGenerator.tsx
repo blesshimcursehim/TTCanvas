@@ -100,7 +100,11 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   const [generating, setGenerating] = useState<false | "all" | "trait" | "hook" | "voice">(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState(false);
-  const [nameCollision, setNameCollision] = useState(false);
+  // The name the collision warning was raised for (not a bare boolean), so any change to the
+  // name - typed, gender re-roll, "Re-roll all" - auto-clears a now-stale warning instead of it
+  // needing every name-changing code path to remember to reset a separate flag.
+  const [collisionName, setCollisionName] = useState<string | null>(null);
+  const nameCollision = collisionName !== null && collisionName === state.name;
   const streamBuf = useRef("");
   const cancelGenRef = useRef<(() => void) | null>(null);
   useEffect(() => () => { cancelGenRef.current?.(); }, []);
@@ -108,6 +112,19 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   useEffect(() => {
     ollamaCheck().then(setOllamaAvailable).catch(() => {});
   }, []);
+
+  // Move focus to the safe action (Cancel) when the collision warning appears, and back to
+  // Save when it's dismissed - same pattern ConfirmDeleteButton uses for its confirm/cancel
+  // swap, since the warning is easy to miss with focus stuck on a now-disabled Save button.
+  const saveBtnRef = useRef<HTMLButtonElement>(null);
+  const collisionCancelRef = useRef<HTMLButtonElement>(null);
+  const wasCollision = useRef(nameCollision);
+  useEffect(() => {
+    if (nameCollision !== wasCollision.current) {
+      (nameCollision ? collisionCancelRef : saveBtnRef).current?.focus();
+      wasCollision.current = nameCollision;
+    }
+  }, [nameCollision]);
 
   const handleRaceChange = (race: string) => {
     const next: Partial<NpcGeneratorState> = { race };
@@ -211,7 +228,7 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
       const existing = (await vault.listFiles("json")).filter((f) => f.startsWith("npcs/"));
       const base = nameToFilename(state.name);
       if (!asNewCopy && existing.includes(base)) {
-        setNameCollision(true);
+        setCollisionName(state.name);
         return;
       }
       const filename = asNewCopy ? uniqueNpcFilename(state.name, existing) : base;
@@ -242,7 +259,7 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
         } : {}),
       };
       await vault.writeFile(filename, serializeNpcJson(npc));
-      setNameCollision(false);
+      setCollisionName(null);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
@@ -281,7 +298,7 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
             <input
               className={styles.nameInput}
               value={state.name}
-              onChange={(e) => { patch({ name: e.target.value }); setNameCollision(false); }}
+              onChange={(e) => patch({ name: e.target.value })}
             />
             <button
               className={`${styles.lockBtn} ${state.locked.name ? styles.locked : ""}`}
@@ -449,10 +466,10 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
       )}
 
       {nameCollision && (
-        <div className={styles.collisionRow}>
+        <div className={styles.collisionRow} role="alert">
           <span className={styles.collisionText}>An NPC named "{state.name}" already exists.</span>
           <button className={styles.collisionConfirm} onClick={() => handleSave(true)}>Save as new copy</button>
-          <button className={styles.collisionCancel} onClick={() => setNameCollision(false)}>Cancel</button>
+          <button ref={collisionCancelRef} className={styles.collisionCancel} onClick={() => setCollisionName(null)}>Cancel</button>
         </div>
       )}
 
@@ -466,6 +483,7 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
           {generating === "all" ? "Generating…" : canAI ? "✦ Re-roll all" : "⟳ Re-roll all"}
         </button>
         <button
+          ref={saveBtnRef}
           className={`${styles.saveBtn} ${saved ? styles.saveBtnSaved : ""} ${saveError ? styles.saveBtnError : ""}`}
           onClick={() => handleSave()}
           disabled={!vault?.vaultPath || !state.name.trim() || nameCollision}

@@ -130,7 +130,10 @@ export function NpcLibrary({ state, onChange }: Props) {
   const [addForm, setAddForm] = useState(EMPTY_ADD);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ParsedNpc | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  // The id (not a bare boolean) the delete confirmation was armed for, so switching the
+  // selection through any path (list click, external open, add, delete) auto-invalidates a
+  // stale confirmation instead of it silently reappearing armed for a different NPC.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   // Raw text for the Tags input, kept separate from draft.tags so the input reflects exactly what
   // was typed - deriving it from the parsed array on every keystroke strips a trailing comma before
   // the user can finish typing the next tag.
@@ -211,6 +214,7 @@ export function NpcLibrary({ state, onChange }: Props) {
   }, [state, npcs, selectedId]);
 
   const selectedNpc = npcs.find((n) => n.id === selectedId) ?? null;
+  const confirmingDelete = !!selectedNpc && confirmDeleteId === selectedNpc.id;
 
   // User-driven selection: also write selectedFile so state tracks the current NPC (keeps the external
   // -open sync above honest, and persists the open NPC across reloads).
@@ -219,7 +223,6 @@ export function NpcLibrary({ state, onChange }: Props) {
     setEditing(false);
     setDraft(null);
     setAdding(false);
-    setConfirmDelete(false);
     onChange({ selectedFile: npc.filename });
   }
 
@@ -316,7 +319,7 @@ export function NpcLibrary({ state, onChange }: Props) {
     onChange({ selectedFile: remaining[0]?.filename ?? null });
     setEditing(false);
     setDraft(null);
-    setConfirmDelete(false);
+    setConfirmDeleteId(null);
   }
 
   async function handleShowPlayers(npc: ParsedNpc) {
@@ -710,7 +713,7 @@ export function NpcLibrary({ state, onChange }: Props) {
             {/* Footer */}
             <div className={styles.detailFooter}>
               <ConfirmDeleteButton
-                confirming={confirmDelete}
+                confirming={confirmingDelete}
                 trigger="🗑 Remove"
                 confirmQuestion={`Delete "${displayNpc.name}"?`}
                 confirmLabel="Yes, delete"
@@ -719,9 +722,9 @@ export function NpcLibrary({ state, onChange }: Props) {
                 questionClassName={styles.confirmText}
                 confirmClassName={styles.confirmYes}
                 cancelClassName={styles.confirmNo}
-                onRequestConfirm={() => setConfirmDelete(true)}
+                onRequestConfirm={() => setConfirmDeleteId(displayNpc.id)}
                 onConfirm={handleDelete}
-                onCancel={() => setConfirmDelete(false)}
+                onCancel={() => setConfirmDeleteId(null)}
               />
             </div>
           </div>
