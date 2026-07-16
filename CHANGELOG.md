@@ -7,8 +7,10 @@ All notable changes are documented here.
 ### Features
 
 - **Pick a 12-hour or 24-hour clock** - Preferences, under Appearance, now has a Clock setting with
-  System, 24-hour and 12-hour. System follows your desktop, which is what the title bar has always
-  done, so nothing changes unless you choose otherwise.
+  System, 24-hour and 12-hour. System follows this app's locale, which is what the title bar has
+  always done, so nothing changes unless you choose otherwise. On Linux, System can land on a
+  different format than your desktop's own 24-hour toggle, since that's a separate setting the
+  app has no reliable way to read - pick 24-hour or 12-hour directly if that happens.
 
 ### Changes
 

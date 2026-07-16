@@ -37,9 +37,9 @@ function renderTimer(state: SessionTimerState, clockFormat: AppClockFormat = "24
   return { onChange };
 }
 
-// Queried by title, not by accessible name: the pill's name is its own text content (the
-// times), which is the point - a screen reader should read the clock, not a label over it.
-const pill = () => screen.getByTitle("Session timer");
+// Title and aria-label are the same dynamic string (both start "Session timer. Clock ..."),
+// so either query works - accessible name is the more robust one to match against.
+const pill = () => screen.getByRole("button", { name: /^Session timer\. Clock/ });
 
 describe("SessionTime readout", () => {
   it("shows the wall clock alone when stopped", () => {
