@@ -12,6 +12,7 @@ import {
   nameToFilename,
   mdFilenameToJson,
   slugFromFilename,
+  uniqueNpcFilename,
   autoAccentColor,
   npcInitials,
 } from "./npcFormat";
@@ -121,6 +122,25 @@ describe("nameToFilename", () => {
   it("handles an empty name without crashing", () => {
     const result = nameToFilename("");
     expect(result).toMatch(/^npcs\/.+\.json$/);
+  });
+});
+
+describe("uniqueNpcFilename", () => {
+  it("returns the plain slug when nothing collides", () => {
+    expect(uniqueNpcFilename("Gornak the Orc", [])).toBe("npcs/gornak-the-orc.json");
+  });
+
+  it("appends -1 when the base filename is already taken", () => {
+    expect(uniqueNpcFilename("Gornak", ["npcs/gornak.json"])).toBe("npcs/gornak-1.json");
+  });
+
+  it("keeps incrementing past multiple existing suffixes", () => {
+    const existing = ["npcs/gornak.json", "npcs/gornak-1.json", "npcs/gornak-2.json"];
+    expect(uniqueNpcFilename("Gornak", existing)).toBe("npcs/gornak-3.json");
+  });
+
+  it("accepts a Set as well as an array", () => {
+    expect(uniqueNpcFilename("Gornak", new Set(["npcs/gornak.json"]))).toBe("npcs/gornak-1.json");
   });
 });
 

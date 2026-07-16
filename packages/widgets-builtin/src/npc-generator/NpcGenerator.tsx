@@ -12,7 +12,7 @@ import {
   GENDER_LABELS, GENDER_TYPES, RACES, DND_CLASSES, DND_CLASS_LABELS, createDefaultNpcGeneratorState,
 } from "./tables";
 import { generateStats } from "./stats";
-import { nameToFilename, serializeNpcJson, autoAccentColor, npcInitials, ACCENT_PRESETS } from "../npc-library/npcFormat";
+import { nameToFilename, uniqueNpcFilename, serializeNpcJson, autoAccentColor, npcInitials, ACCENT_PRESETS } from "../npc-library/npcFormat";
 import type { ParsedNpc } from "../npc-library/types";
 import styles from "./NpcGenerator.module.css";
 
@@ -100,6 +100,11 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   const [generating, setGenerating] = useState<false | "all" | "trait" | "hook" | "voice">(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  // The name the collision warning was raised for (not a bare boolean), so any change to the
+  // name - typed, gender re-roll, "Re-roll all" - auto-clears a now-stale warning instead of it
+  // needing every name-changing code path to remember to reset a separate flag.
+  const [collisionName, setCollisionName] = useState<string | null>(null);
+  const nameCollision = collisionName !== null && collisionName === state.name;
   const streamBuf = useRef("");
   const cancelGenRef = useRef<(() => void) | null>(null);
   useEffect(() => () => { cancelGenRef.current?.(); }, []);
@@ -107,6 +112,19 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   useEffect(() => {
     ollamaCheck().then(setOllamaAvailable).catch(() => {});
   }, []);
+
+  // Move focus to the safe action (Cancel) when the collision warning appears, and back to
+  // Save when it's dismissed - same pattern ConfirmDeleteButton uses for its confirm/cancel
+  // swap, since the warning is easy to miss with focus stuck on a now-disabled Save button.
+  const saveBtnRef = useRef<HTMLButtonElement>(null);
+  const collisionCancelRef = useRef<HTMLButtonElement>(null);
+  const wasCollision = useRef(nameCollision);
+  useEffect(() => {
+    if (nameCollision !== wasCollision.current) {
+      (nameCollision ? collisionCancelRef : saveBtnRef).current?.focus();
+      wasCollision.current = nameCollision;
+    }
+  }, [nameCollision]);
 
   const handleRaceChange = (race: string) => {
     const next: Partial<NpcGeneratorState> = { race };
@@ -201,38 +219,47 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
     }
   }
 
-  const handleSave = async () => {
+  // `asNewCopy`: bypass the collision check and save under a suffixed filename regardless -
+  // used by the "Save as new copy" confirm button once the user has seen the warning.
+  const handleSave = async (asNewCopy = false) => {
     if (!vault?.vaultPath) return;
-    const filename = nameToFilename(state.name);
     const includeStats = state.generateStats && !!state.stats;
-    const npc: ParsedNpc = {
-      filename,
-      id: crypto.randomUUID(),
-      name: state.name,
-      race: state.race === "Any" ? "" : state.race,
-      occupation: state.occupation,
-      class: state.dndClass || undefined,
-      level: state.level ?? undefined,
-      age: state.age ?? undefined,
-      gender: state.gender !== "any" ? state.gender : undefined,
-      accentColor: state.accentColor,
-      trait: state.trait || undefined,
-      hook: state.hook || undefined,
-      voice: state.voice || undefined,
-      relationship: state.relationship ?? undefined,
-      ...(includeStats && state.stats ? {
-        cr: state.stats.cr,
-        hp: state.stats.hp,
-        hpMax: state.stats.hpMax,
-        hpFormula: state.stats.hpFormula,
-        ac: state.stats.ac,
-        speed: state.stats.speed,
-        abilityScores: state.stats.abilityScores,
-        actions: state.stats.actions,
-      } : {}),
-    };
     try {
+      const existing = (await vault.listFiles("json")).filter((f) => f.startsWith("npcs/"));
+      const base = nameToFilename(state.name);
+      if (!asNewCopy && existing.includes(base)) {
+        setCollisionName(state.name);
+        return;
+      }
+      const filename = asNewCopy ? uniqueNpcFilename(state.name, existing) : base;
+      const npc: ParsedNpc = {
+        filename,
+        id: crypto.randomUUID(),
+        name: state.name,
+        race: state.race === "Any" ? "" : state.race,
+        occupation: state.occupation,
+        class: state.dndClass || undefined,
+        level: state.level ?? undefined,
+        age: state.age ?? undefined,
+        gender: state.gender !== "any" ? state.gender : undefined,
+        accentColor: state.accentColor,
+        trait: state.trait || undefined,
+        hook: state.hook || undefined,
+        voice: state.voice || undefined,
+        relationship: state.relationship ?? undefined,
+        ...(includeStats && state.stats ? {
+          cr: state.stats.cr,
+          hp: state.stats.hp,
+          hpMax: state.stats.hpMax,
+          hpFormula: state.stats.hpFormula,
+          ac: state.stats.ac,
+          speed: state.stats.speed,
+          abilityScores: state.stats.abilityScores,
+          actions: state.stats.actions,
+        } : {}),
+      };
       await vault.writeFile(filename, serializeNpcJson(npc));
+      setCollisionName(null);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
@@ -438,6 +465,14 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
         <p className={styles.hint}>Start Ollama to enable AI re-roll</p>
       )}
 
+      {nameCollision && (
+        <div className={styles.collisionRow} role="alert">
+          <span className={styles.collisionText}>An NPC named "{state.name}" already exists.</span>
+          <button className={styles.collisionConfirm} onClick={() => handleSave(true)}>Save as new copy</button>
+          <button ref={collisionCancelRef} className={styles.collisionCancel} onClick={() => setCollisionName(null)}>Cancel</button>
+        </div>
+      )}
+
       {/* ── Actions ──────────────────────────────── */}
       <div className={styles.actions}>
         <button
@@ -448,9 +483,10 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
           {generating === "all" ? "Generating…" : canAI ? "✦ Re-roll all" : "⟳ Re-roll all"}
         </button>
         <button
+          ref={saveBtnRef}
           className={`${styles.saveBtn} ${saved ? styles.saveBtnSaved : ""} ${saveError ? styles.saveBtnError : ""}`}
-          onClick={handleSave}
-          disabled={!vault?.vaultPath || !state.name.trim()}
+          onClick={() => handleSave()}
+          disabled={!vault?.vaultPath || !state.name.trim() || nameCollision}
           title={!vault?.vaultPath ? "Open a vault first" : undefined}
         >
           {saved ? "Saved ✓" : saveError ? "Save failed" : "Save to library"}
