@@ -131,12 +131,12 @@ async fn stream_ollama_response(
                 continue;
             }
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
-                if let Some(token) = json["response"].as_str() {
-                    if !token.is_empty() {
-                        let _ = on_event.send(OllamaChunk::Token {
-                            text: token.to_string(),
-                        });
-                    }
+                if let Some(token) = json["response"].as_str()
+                    && !token.is_empty()
+                {
+                    let _ = on_event.send(OllamaChunk::Token {
+                        text: token.to_string(),
+                    });
                 }
                 if json["done"].as_bool().unwrap_or(false) {
                     let _ = on_event.send(OllamaChunk::Done);
@@ -256,12 +256,12 @@ async fn stream_openai_response(
             }
 
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
-                if let Some(content) = json["choices"][0]["delta"]["content"].as_str() {
-                    if !content.is_empty() {
-                        let _ = on_event.send(OllamaChunk::Token {
-                            text: content.to_string(),
-                        });
-                    }
+                if let Some(content) = json["choices"][0]["delta"]["content"].as_str()
+                    && !content.is_empty()
+                {
+                    let _ = on_event.send(OllamaChunk::Token {
+                        text: content.to_string(),
+                    });
                 }
                 // finish_reason is a string when done, null while streaming
                 if json["choices"][0]["finish_reason"].as_str().is_some() {
