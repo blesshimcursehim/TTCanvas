@@ -147,3 +147,83 @@ describe("migrateWorkspace", () => {
     expect(result.layouts).toEqual({ Default: { widgets: [] } });
   });
 });
+
+// Retired widgets - App.tsx renders an unknown type as a live "Unknown widget type" frame
+// rather than dropping it, so these strips are what stop a removed widget haunting a layout.
+describe("migrateWorkspace - retired widgets", () => {
+  const clock = { id: "w1", type: "session-clock", x: 0, y: 0, width: 260, height: 200, state: {} };
+  const sticky = { id: "w2", type: "sticky-note", x: 10, y: 10, width: 200, height: 150, state: {} };
+
+  it("strips a retired widget from every layout, keeping others", () => {
+    const raw = {
+      version: 2, activeLayout: "Default",
+      layouts: { Default: { widgets: [clock, sticky] }, Combat: { widgets: [sticky, clock] } },
+    };
+    const result = migrateWorkspace(raw);
+    expect(result.layouts["Default"].widgets).toEqual([sticky]);
+    expect(result.layouts["Combat"].widgets).toEqual([sticky]);
+  });
+
+  it("strips the retired singletonStates key, keeping other keys", () => {
+    const raw = {
+      version: 2, activeLayout: "Default", layouts: { Default: { widgets: [] } },
+      singletonStates: { "session-clock": { accumulatedMs: 5000 }, "bestiary": { folders: [] } },
+    };
+    const result = migrateWorkspace(raw);
+    expect(result.singletonStates).toEqual({ "bestiary": { folders: [] } });
+  });
+
+  it("strips the retired type from disabledWidgetTypes, keeping other entries", () => {
+    const raw = {
+      version: 2, activeLayout: "Default", layouts: { Default: { widgets: [] } },
+      disabledWidgetTypes: ["session-clock", "dice-roller"],
+    };
+    expect(migrateWorkspace(raw).disabledWidgetTypes).toEqual(["dice-roller"]);
+  });
+
+  it("strips a retired widget from a v1 workspace (that path never reaches Zod)", () => {
+    const result = migrateWorkspace({ version: 1, widgets: [clock, sticky] });
+    expect(result.layouts["Default"].widgets).toEqual([sticky]);
+  });
+
+  it("is a no-op when no retired types are present", () => {
+    const raw = {
+      version: 2, activeLayout: "Default", layouts: { Default: { widgets: [sticky] } },
+      singletonStates: { "bestiary": { folders: [] } }, disabledWidgetTypes: ["dice-roller"],
+    };
+    const result = migrateWorkspace(raw);
+    expect(result.layouts["Default"].widgets).toEqual([sticky]);
+    expect(result.singletonStates).toEqual({ "bestiary": { folders: [] } });
+    expect(result.disabledWidgetTypes).toEqual(["dice-roller"]);
+  });
+
+  it("keeps version at 2 after a strip", () => {
+    // Pins the deliberate decision not to bump: an older build reading a bumped file would
+    // reset the whole workspace to defaults and save over it a second later.
+    const raw = { version: 2, activeLayout: "Default", layouts: { Default: { widgets: [clock] } } };
+    expect(migrateWorkspace(raw).version).toBe(2);
+  });
+});
+
+describe("migrateWorkspace - sessionTimer", () => {
+  const base = { version: 2, activeLayout: "Default", layouts: { Default: { widgets: [] } } };
+
+  it("defaults sessionTimer when absent (pre-existing saves)", () => {
+    expect(migrateWorkspace(base).sessionTimer).toEqual({ startedAt: null, accumulatedMs: 0 });
+  });
+
+  it("pauses a timer left running, dropping the untimed gap", () => {
+    const raw = { ...base, sessionTimer: { startedAt: 1000, accumulatedMs: 5000 } };
+    expect(migrateWorkspace(raw).sessionTimer).toEqual({ startedAt: null, accumulatedMs: 5000 });
+  });
+
+  it("leaves an already-paused timer untouched", () => {
+    const raw = { ...base, sessionTimer: { startedAt: null, accumulatedMs: 5000 } };
+    expect(migrateWorkspace(raw).sessionTimer).toEqual({ startedAt: null, accumulatedMs: 5000 });
+  });
+
+  it("recovers corrupt sessionTimer fields", () => {
+    const raw = { ...base, sessionTimer: { startedAt: "x", accumulatedMs: "corrupt" } };
+    expect(migrateWorkspace(raw).sessionTimer).toEqual({ startedAt: null, accumulatedMs: 0 });
+  });
+});

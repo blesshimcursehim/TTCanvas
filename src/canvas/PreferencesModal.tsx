@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { getAllWidgets } from "../registry";
-import type { AppTheme, AppAccent, AppDensity, AppConfig } from "../appConfig";
+import type { AppTheme, AppAccent, AppDensity, AppClockFormat, AppConfig } from "../appConfig";
 import { useToast, type AIProvider } from "@ttcanvas/core";
 import {
   revealLogFile, readLogTail, clearLog, exportDiagnostics,
@@ -56,6 +56,12 @@ const DENSITIES: { id: AppDensity; label: string }[] = [
   { id: "compact",     label: "Compact"     },
   { id: "comfortable", label: "Comfortable" },
   { id: "spacious",    label: "Spacious"    },
+];
+
+const CLOCK_FORMATS: { id: AppClockFormat; label: string; hint: string }[] = [
+  { id: "system", label: "System", hint: "Follow the operating system" },
+  { id: "24h",    label: "24-hour", hint: "16:07" },
+  { id: "12h",    label: "12-hour", hint: "4:07 PM" },
 ];
 
 interface AIConfigPatch {
@@ -272,6 +278,23 @@ export function PreferencesModal({
                     {d.label}
                   </button>
                 ))}
+              </div>
+
+              <div className={styles.sectionHead}>Clock</div>
+              <div className={styles.segmented}>
+                {CLOCK_FORMATS.map((c) => (
+                  <button
+                    key={c.id}
+                    className={`${styles.segBtn} ${config.clockFormat === c.id ? styles.segBtnActive : ""}`}
+                    onClick={() => onChange({ clockFormat: c.id })}
+                    title={c.hint}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.sectionNote}>
+                How the title bar shows the real-world time. System follows your desktop.
               </div>
 
               <div className={styles.toggleRow}>

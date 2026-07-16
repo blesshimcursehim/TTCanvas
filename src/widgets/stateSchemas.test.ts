@@ -18,7 +18,6 @@ import {
   parseTimeTrackerState,
   parseRulesReferenceState,
   parseRuleCardsState,
-  parseSessionClockState,
   parseXpTrackerState,
   parseRollTablesState,
   parseEncounterBuilderState,
@@ -453,24 +452,6 @@ describe("parseHandoutGalleryState", () => {
   });
   it("defaults a non-string folder to null", () => {
     expect(parseHandoutGalleryState({ folder: 42 })).toEqual({ folder: null });
-  });
-});
-
-describe("parseSessionClockState", () => {
-  it("passes valid state through", () => {
-    const s = { mode: "timer" as const, running: true, startedAt: 1000, accumulatedMs: 5000, showSeconds: true };
-    expect(parseSessionClockState(s)).toEqual(s);
-  });
-  it("returns default for null", () => {
-    expect(parseSessionClockState(null)).toEqual({ mode: "clock", running: false, startedAt: null, accumulatedMs: 0, showSeconds: false });
-  });
-  it("defaults an invalid mode to 'clock'", () => {
-    const result = parseSessionClockState({ mode: "stopwatch", running: false, startedAt: null, accumulatedMs: 0, showSeconds: false }) as { mode: string };
-    expect(result.mode).toBe("clock");
-  });
-  it("defaults a non-number accumulatedMs to 0", () => {
-    const result = parseSessionClockState({ mode: "timer", running: false, startedAt: null, accumulatedMs: "corrupt", showSeconds: false }) as { accumulatedMs: number };
-    expect(result.accumulatedMs).toBe(0);
   });
 });
 

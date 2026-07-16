@@ -22,7 +22,6 @@ import {
   SessionRecorder, type SessionRecorderState,
   RulesReference, type RulesReferenceState,
   RuleCards, type RuleCardsState,
-  SessionClock, type SessionClockState,
   XpTracker, type XpTrackerState,
   RollTables, type RollTablesState,
   EncounterBuilder, type EncounterBuilderState,
@@ -49,7 +48,6 @@ import {
   parseBestiaryState,
   parseRulesReferenceState,
   parseRuleCardsState,
-  parseSessionClockState,
   parseXpTrackerState,
   parseRollTablesState,
   parseEncounterBuilderState,
@@ -372,21 +370,6 @@ registerWidget({
   minHeight: 240,
   parseState: parseRuleCardsState,
   component: RuleCards as WidgetComponent,
-});
-
-registerWidget({
-  type: "session-clock",
-  title: "Session Clock",
-  help: "# Session Clock\n\nUse the clock as either the current wall time or a session timer. Start, pause and reset the timer as needed.\n\nChoose whether to show seconds, then cast the clock to the Player Window when it should be visible to the table.",
-  icon: "stopwatch",
-  category: "Utilities",
-  defaultSize: { width: 260, height: 200 },
-  defaultState: { mode: "clock", running: false, startedAt: null, accumulatedMs: 0, showSeconds: false } satisfies SessionClockState,
-  singleton: true,
-  minWidth: 200,
-  minHeight: 160,
-  parseState: parseSessionClockState,
-  component: SessionClock as WidgetComponent,
 });
 
 registerWidget({

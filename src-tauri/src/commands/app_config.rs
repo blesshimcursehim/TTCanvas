@@ -256,6 +256,7 @@ pub struct AppConfigInput {
     accent: Option<String>,
     density: Option<String>,
     reduce_motion: Option<bool>,
+    clock_format: Option<String>,
     trusted_mod_hashes: Option<Vec<String>>,
 }
 
@@ -286,6 +287,7 @@ pub fn save_app_config(
         "accent": config.accent.unwrap_or_else(|| "amber".to_string()),
         "density": config.density.unwrap_or_else(|| "comfortable".to_string()),
         "reduceMotion": config.reduce_motion.unwrap_or(false),
+        "clockFormat": config.clock_format.unwrap_or_else(|| "system".to_string()),
         "trustedModHashes": config.trusted_mod_hashes.unwrap_or_default(),
     }))?;
     let tmp = path.with_extension("json.tmp");

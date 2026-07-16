@@ -23,6 +23,8 @@ export interface AIConfigPatch {
 export type AppTheme = "dark-vellum" | "dark-amber";
 export type AppAccent = "amber" | "plum" | "moss" | "ink";
 export type AppDensity = "compact" | "comfortable" | "spacious";
+/** "system" follows the OS's own 12h/24h preference, which is the default. */
+export type AppClockFormat = "system" | "24h" | "12h";
 
 export interface AppConfig {
   recentVaults: string[];
@@ -40,6 +42,7 @@ export interface AppConfig {
   accent: AppAccent;
   density: AppDensity;
   reduceMotion: boolean;
+  clockFormat: AppClockFormat;
   /**
    * SHA-256 hashes (hex) of mod file content the user has explicitly approved
    * to run. Mods share the main webview's DOM and IPC access, so untrusted
@@ -78,6 +81,7 @@ const AppConfigSchema = z.object({
   accent: z.enum(["amber", "plum", "moss", "ink"]).catch("amber"),
   density: z.enum(["compact", "comfortable", "spacious"]).catch("comfortable"),
   reduceMotion: z.boolean().catch(false),
+  clockFormat: z.enum(["system", "24h", "12h"]).catch("system"),
   trustedModHashes: z.array(z.string()).catch([]),
 }) satisfies z.ZodType<AppConfig>;
 

@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { getAllWidgets } from "../registry";
+import { RETIRED_WIDGET_TYPES } from "../workspace";
 import "./register";
 
 describe("built-in widget help", () => {
@@ -13,6 +14,18 @@ describe("built-in widget help", () => {
     const widgetsWithoutHelp = getAllWidgets().filter((widget) => !widget.help?.trim());
 
     expect(widgetsWithoutHelp).toEqual([]);
+  });
+});
+
+describe("retired widget types", () => {
+  it("never names a type that is still registered", () => {
+    // migrateWorkspace deletes every instance of a retired type on load, so listing a live
+    // widget here would silently wipe it from every layout. This is what makes retiring a
+    // widget a safe one-line change.
+    const registered = getAllWidgets().map((widget) => widget.type);
+    const stillRegistered = RETIRED_WIDGET_TYPES.filter((type) => registered.includes(type));
+
+    expect(stillRegistered).toEqual([]);
   });
 });
 
