@@ -6,13 +6,16 @@
 
 import { describe, it, expect } from "vitest";
 import {
+  bankSessionTimer,
   elapsedMs,
   formatElapsed,
   formatElapsedPrecise,
+  reconcileSessionTimer,
   resetSessionTimer,
   sessionStatus,
   toggleSessionTimer,
 } from "./sessionTimer";
+import type { WorkspaceState } from "@ttcanvas/core";
 
 const T0 = 1_000_000;
 
@@ -78,6 +81,46 @@ describe("resetSessionTimer", () => {
   });
   it("returns a fresh object each call (never a shared default)", () => {
     expect(resetSessionTimer()).not.toBe(resetSessionTimer());
+  });
+});
+
+describe("bankSessionTimer", () => {
+  it("folds the live span into accumulatedMs and re-bases startedAt, still running", () => {
+    expect(bankSessionTimer({ startedAt: T0, accumulatedMs: 1000 }, T0 + 5000)).toEqual({
+      startedAt: T0 + 5000,
+      accumulatedMs: 6000,
+    });
+  });
+
+  it("leaves a paused timer completely alone", () => {
+    const paused = { startedAt: null, accumulatedMs: 5000 };
+    expect(bankSessionTimer(paused, T0)).toBe(paused);
+  });
+
+  it("does not change the elapsed time it reports", () => {
+    const running = { startedAt: T0, accumulatedMs: 1000 };
+    const now = T0 + 5000;
+    expect(elapsedMs(bankSessionTimer(running, now), now)).toBe(elapsedMs(running, now));
+  });
+
+  it("survives a bank-then-reconcile round trip, which is the whole point", () => {
+    // The P1 bug: a graceful close saved `{startedAt: <2h ago>, accumulatedMs: 0}` unbanked,
+    // and reconcile then dropped the lot, so a two-hour session reopened reading 0:00.
+    const started = { startedAt: T0, accumulatedMs: 0 };
+    const closedAt = T0 + 7_200_000;
+    const saved = bankSessionTimer(started, closedAt);
+
+    const ws = { sessionTimer: saved } as WorkspaceState;
+    const reopened = reconcileSessionTimer(ws).sessionTimer;
+
+    expect(reopened).toEqual({ startedAt: null, accumulatedMs: 7_200_000 });
+    expect(formatElapsed(elapsedMs(reopened!, closedAt + 86_400_000))).toBe("2:00");
+  });
+
+  it("still drops the gap when the app was killed rather than closed", () => {
+    // No bank happened, so reconcile falls back to keeping only what was already banked.
+    const ws = { sessionTimer: { startedAt: T0, accumulatedMs: 60_000 } } as WorkspaceState;
+    expect(reconcileSessionTimer(ws).sessionTimer).toEqual({ startedAt: null, accumulatedMs: 60_000 });
   });
 });
 

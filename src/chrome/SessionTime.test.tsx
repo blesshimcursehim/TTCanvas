@@ -8,9 +8,13 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionTimerState } from "@ttcanvas/core";
+import type { AppClockFormat } from "../appConfig";
 import { SessionTime } from "./SessionTime";
 
-const NOW = new Date("2026-07-16T14:32:00Z").getTime();
+// Deliberately parsed without a "Z": that makes it local time, so the rendered clock is 16:07
+// whatever timezone the test machine is in. Anchoring to UTC would make these assertions
+// pass only in UTC+0.
+const NOW = new Date("2026-07-16T16:07:00").getTime();
 const TWO_H_15 = 8_100_000;
 
 const STOPPED: SessionTimerState = { startedAt: null, accumulatedMs: 0 };
@@ -27,9 +31,9 @@ afterEach(() => {
   cleanup();
 });
 
-function renderTimer(state: SessionTimerState) {
+function renderTimer(state: SessionTimerState, clockFormat: AppClockFormat = "24h") {
   const onChange = vi.fn();
-  render(<SessionTime state={state} onChange={onChange} />);
+  render(<SessionTime state={state} clockFormat={clockFormat} onChange={onChange} />);
   return { onChange };
 }
 
@@ -65,14 +69,22 @@ describe("SessionTime menu", () => {
   });
 
   it("labels the toggle by state rather than cycling silently", () => {
-    const { unmount } = render(<SessionTime state={RUNNING} onChange={vi.fn()} />);
+    const { unmount } = render(<SessionTime state={RUNNING} clockFormat="24h" onChange={vi.fn()} />);
     fireEvent.click(pill());
     expect(screen.getByRole("button", { name: "Pause session" })).toBeInTheDocument();
     unmount();
 
-    render(<SessionTime state={PAUSED} onChange={vi.fn()} />);
+    render(<SessionTime state={PAUSED} clockFormat="24h" onChange={vi.fn()} />);
     fireEvent.click(pill());
     expect(screen.getByRole("button", { name: "Resume session" })).toBeInTheDocument();
+  });
+
+  it("closes on Escape", () => {
+    renderTimer(RUNNING);
+    fireEvent.click(pill());
+    expect(screen.getByRole("button", { name: "Pause session" })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("button", { name: "Pause session" })).not.toBeInTheDocument();
   });
 
   it("banks the elapsed time on pause", () => {
@@ -101,6 +113,37 @@ describe("SessionTime menu", () => {
     expect(screen.getByRole("button", { name: "Pause session" })).toBeInTheDocument();
     fireEvent.mouseDown(document.body);
     expect(screen.queryByRole("button", { name: "Pause session" })).not.toBeInTheDocument();
+  });
+});
+
+describe("SessionTime accessible name", () => {
+  it("names the control, the visible clock and the status when running", () => {
+    renderTimer(RUNNING);
+    // The status dot is decorative, so without this a screen reader could not tell running
+    // from paused, and "16:07 2:15" alone never says what the control is.
+    expect(pill()).toHaveAccessibleName("Session timer. Clock 16:07, running, 2:15 elapsed");
+  });
+
+  it("distinguishes paused from running", () => {
+    renderTimer(PAUSED);
+    expect(pill()).toHaveAccessibleName("Session timer. Clock 16:07, paused, 2:15 elapsed");
+  });
+
+  it("says so when not started", () => {
+    renderTimer(STOPPED);
+    expect(pill()).toHaveAccessibleName("Session timer. Clock 16:07, not started");
+  });
+});
+
+describe("SessionTime clock format", () => {
+  it("renders 24-hour time", () => {
+    renderTimer(STOPPED, "24h");
+    expect(screen.getByText("16:07")).toBeInTheDocument();
+  });
+
+  it("renders 12-hour time", () => {
+    renderTimer(STOPPED, "12h");
+    expect(pill().textContent).toMatch(/4:07\s?PM/i);
   });
 });
 

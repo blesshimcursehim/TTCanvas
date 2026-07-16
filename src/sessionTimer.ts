@@ -39,6 +39,19 @@ export function resetSessionTimer(): SessionTimerState {
   return { ...DEFAULT_SESSION_TIMER };
 }
 
+/**
+ * Fold the live span into `accumulatedMs` and re-base `startedAt`, leaving the timer running.
+ *
+ * Equivalent to the input for display purposes, but safe to persist: `reconcileSessionTimer`
+ * discards whatever is still in flight on the next load, so a state saved without banking
+ * would come back having lost everything since Start. Call this on every path that writes a
+ * running timer to disk and then stops running (graceful close, vault switch).
+ */
+export function bankSessionTimer(s: SessionTimerState, now: number): SessionTimerState {
+  if (s.startedAt === null) return s;
+  return { startedAt: now, accumulatedMs: elapsedMs(s, now) };
+}
+
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
@@ -61,13 +74,17 @@ export function formatElapsedPrecise(ms: number): string {
 }
 
 /**
- * Pause a timer that was still running when the workspace was last saved.
+ * Pause a timer that was still running when the workspace was last saved, dropping the span
+ * since `startedAt`. That span is untrustworthy on load: the app can't tell a quick restart
+ * from an overnight close, and counting it would silently add hours.
  *
- * Only the banked `accumulatedMs` survives a restart: the in-flight span is dropped, because
- * the app has no idea whether the gap was a quick reload or an overnight close, and counting
- * it would silently add hours. Pause before closing to keep a span. Called from
- * `migrateWorkspace`, i.e. once per vault open, which is exactly the right scope - doing it
- * on component mount instead would re-fire on every remount (peek toggles, hide/show).
+ * This is the safety net, not the normal path. Every graceful exit (window close, vault
+ * switch) calls `bankSessionTimer` first, so `startedAt` is only ever seconds old and the
+ * session's real time is already in `accumulatedMs`. What this drops is the leftover of an
+ * *ungraceful* exit - a crash or a kill - where the last write is however old it is.
+ *
+ * Called from `migrateWorkspace`, i.e. once per vault open, which is exactly the right scope.
+ * Doing it on component mount instead would re-fire on every remount (peek toggles, hide/show).
  */
 export function reconcileSessionTimer(ws: WorkspaceState): WorkspaceState {
   const timer = ws.sessionTimer;

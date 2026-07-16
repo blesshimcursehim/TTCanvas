@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import type { SessionTimerState } from "@ttcanvas/core";
+import type { AppClockFormat } from "../appConfig";
 import { Icon } from "../icons/Icon";
 import { SessionTime } from "./SessionTime";
 import { version } from "../../package.json";
@@ -17,6 +18,7 @@ interface Props {
   playerWindowOpen: boolean;
   playerFullscreen: boolean;
   sessionTimer: SessionTimerState;
+  clockFormat: AppClockFormat;
   onSessionTimerChange: (state: SessionTimerState) => void;
   onLayoutsClick: () => void;
   onOpenVault: () => void;
@@ -28,7 +30,7 @@ interface Props {
   onSearchClick: () => void;
 }
 
-export function Titlebar({ vaultPath, recentVaults, playerWindowOpen, playerFullscreen, sessionTimer, onSessionTimerChange, onLayoutsClick, onOpenVault, onResumeVault, onPlayerWindowToggle, onClearPlayerScreen, onPlayerFullscreenToggle, onSettingsClick, onSearchClick }: Props) {
+export function Titlebar({ vaultPath, recentVaults, playerWindowOpen, playerFullscreen, sessionTimer, clockFormat, onSessionTimerChange, onLayoutsClick, onOpenVault, onResumeVault, onPlayerWindowToggle, onClearPlayerScreen, onPlayerFullscreenToggle, onSettingsClick, onSearchClick }: Props) {
   const [vaultMenuOpen, setVaultMenuOpen] = useState(false);
 
   const vaultName = vaultPath.split("/").filter(Boolean).pop() ?? vaultPath;
@@ -103,7 +105,7 @@ export function Titlebar({ vaultPath, recentVaults, playerWindowOpen, playerFull
 
       {/* Right tools */}
       <div className={styles.tools}>
-        <SessionTime state={sessionTimer} onChange={onSessionTimerChange} />
+        <SessionTime state={sessionTimer} clockFormat={clockFormat} onChange={onSessionTimerChange} />
         <button
           className={`${styles.playerBtn} ${playerWindowOpen ? styles.playerBtnActive : ""}`}
           onClick={onPlayerWindowToggle}

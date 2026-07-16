@@ -30,7 +30,7 @@ import { ModTrustPrompt } from "./canvas/ModTrustPrompt";
 import { deleteVaultFile } from "./vault";
 import { loadWorkspace, saveWorkspace } from "./workspace";
 import type { WidgetInstance, Layout, WorkspaceState } from "./workspace";
-import { DEFAULT_SESSION_TIMER } from "./sessionTimer";
+import { DEFAULT_SESSION_TIMER, bankSessionTimer } from "./sessionTimer";
 import { VaultProvider } from "./VaultProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
@@ -203,7 +203,7 @@ function App() {
   // otherwise wipe a running timer.
   const [sessionTimer, setSessionTimer] = useState<SessionTimerState>(DEFAULT_SESSION_TIMER);
   const [vaultPath, setVaultPath] = useState<string | null>(null);
-  const [appConfig, setAppConfig] = useState<AppConfig>({ recentVaults: [], lastBrowsePath: null, aiProvider: "ollama", aiBaseUrl: "", aiApiKey: "", aiModel: null, playerWindowX: null, playerWindowY: null, playerWindowW: null, playerWindowH: null, customConditions: [], theme: "dark-vellum", accent: "amber", density: "comfortable", reduceMotion: false, trustedModHashes: [] });
+  const [appConfig, setAppConfig] = useState<AppConfig>({ recentVaults: [], lastBrowsePath: null, aiProvider: "ollama", aiBaseUrl: "", aiApiKey: "", aiModel: null, playerWindowX: null, playerWindowY: null, playerWindowW: null, playerWindowH: null, customConditions: [], theme: "dark-vellum", accent: "amber", density: "comfortable", reduceMotion: false, clockFormat: "system", trustedModHashes: [] });
   const [loaded, setLoaded] = useState(false);
   const [playerWindowOpen, setPlayerWindowOpen] = useState(false);
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
@@ -211,6 +211,10 @@ function App() {
   const [appVersion, setAppVersion] = useState("");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef<{ vaultPath: string; state: WorkspaceState } | null>(null);
+  // The last state we built, unlike pendingSaveRef which is cleared once the debounce fires.
+  // Close needs it: a running session timer must be banked into the final write even when
+  // nothing else changed recently and there is no pending save to piggyback on.
+  const lastBuiltRef = useRef<{ vaultPath: string; state: WorkspaceState } | null>(null);
   const playerWindowOpenRef = useRef(false);
   const zOrderOnlyRef = useRef(false);
   const workspaceQueueRef = useRef(
@@ -292,8 +296,22 @@ function App() {
       const pending = pendingSaveRef.current;
       if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
       pendingSaveRef.current = null;
+
+      // A running session timer has to bank its live span before the last write, or the next
+      // load drops everything since Start (reconcileSessionTimer can't tell a quick restart
+      // from an overnight close). With no pending save, that banking is the *only* reason to
+      // write, so fall back to lastBuiltRef for the rest of the state - starting a timer and
+      // then touching nothing else for an hour leaves the debounce long since fired, and
+      // flush() alone would write nothing. A stopped timer still takes the flush-only path,
+      // so quitting doesn't cost a redundant full-workspace write.
+      const running = lastBuiltRef.current?.state.sessionTimer?.startedAt != null;
+      const base = pending ?? (running ? lastBuiltRef.current : null);
+      const finalSave = base
+        ? { ...base, state: { ...base.state, sessionTimer: bankSessionTimer(base.state.sessionTimer ?? DEFAULT_SESSION_TIMER, Date.now()) } }
+        : null;
+
       await Promise.all([
-        pending ? workspaceQueueRef.current.enqueue(pending) : workspaceQueueRef.current.flush(),
+        finalSave ? workspaceQueueRef.current.enqueue(finalSave) : workspaceQueueRef.current.flush(),
         configQueueRef.current.flush(),
       ]);
       invoke("confirm_close");
@@ -352,6 +370,7 @@ function App() {
     };
     const pending = { vaultPath, state };
     pendingSaveRef.current = pending;
+    lastBuiltRef.current = pending;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       pendingSaveRef.current = null;
@@ -379,7 +398,9 @@ function App() {
           showVignette,
           singletonStates,
           disabledWidgetTypes,
-          sessionTimer,
+          // Banked for the same reason as the close path: this vault's timer is about to stop
+          // running, and an unbanked startedAt would read as zero when the vault is reopened.
+          sessionTimer: bankSessionTimer(sessionTimer, Date.now()),
         },
       });
     }
@@ -1080,6 +1101,7 @@ function App() {
             playerWindowOpen={playerWindowOpen}
             playerFullscreen={playerFullscreen}
             sessionTimer={sessionTimer}
+            clockFormat={appConfig.clockFormat}
             onSessionTimerChange={setSessionTimer}
             onLayoutsClick={() => setSettingsOpen((o) => !o)}
             onOpenVault={handleOpenVault}

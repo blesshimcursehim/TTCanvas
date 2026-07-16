@@ -4,6 +4,12 @@ All notable changes are documented here.
 
 ## Unreleased
 
+### Features
+
+- **Pick a 12-hour or 24-hour clock** - Preferences, under Appearance, now has a Clock setting with
+  System, 24-hour and 12-hour. System follows your desktop, which is what the title bar has always
+  done, so nothing changes unless you choose otherwise.
+
 ### Changes
 
 - **The session timer moved into the title bar, and the Session Clock widget is gone.** The title bar
@@ -11,15 +17,18 @@ All notable changes are documented here.
   the same time rather than one or the other. Click it for Start, Pause and Reset, plus the elapsed
   time down to the second. This replaces the Session Clock widget, which did the same job on the
   canvas and is no longer available. Any Session Clock you had open is removed cleanly the next time
-  the vault opens, and you don't need to do anything. One thing to know: a timer left mid-count does
-  not carry across the upgrade.
+  the vault opens, and you don't need to do anything. Its count doesn't come with it, so the new timer
+  starts fresh.
 
 ### Fixes
 
-- **The title bar's session timer now survives a reload.** It kept its count in memory only, so
-  reloading the app, or even tapping the peek toggle, silently reset it to zero. It also had no way
-  to reset on purpose, and no way back to a stopped state once started. All three are fixed by the
-  move above.
+- **The title bar's session timer now survives quitting the app.** It kept its count in memory only,
+  so quitting, or even tapping the peek toggle, silently reset it to zero. It also had no way to reset
+  on purpose, and no way back to a stopped state once started. All of that is fixed by the move above:
+  quit normally and the timer comes back paused with its full time. The one case that still loses the
+  current stretch is a crash or a force-quit, because there's then no way to tell how long the app was
+  gone (it would otherwise count an overnight close as play time). Pause before closing if you want to
+  be certain.
 - **NPC Generator no longer overwrites an existing NPC with the same name** - saving used to write straight to a name-derived filename, so a second NPC sharing a name silently clobbered the first one's file. Saving now checks the library first and, on a collision, offers "Save as new copy" or "Cancel" instead of overwriting.
 - **NPC Library - deleting an NPC now asks for confirmation** - the Remove button used to delete on a single click. It now behaves like every other delete action in the app, needing a second "Yes, delete" click before anything is removed.
 
