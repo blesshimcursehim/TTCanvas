@@ -59,7 +59,7 @@ const DENSITIES: { id: AppDensity; label: string }[] = [
 ];
 
 const CLOCK_FORMATS: { id: AppClockFormat; label: string; hint: string }[] = [
-  { id: "system", label: "System", hint: "Follow the operating system" },
+  { id: "system", label: "System", hint: "Follow this app's locale" },
   { id: "24h",    label: "24-hour", hint: "16:07" },
   { id: "12h",    label: "12-hour", hint: "4:07 PM" },
 ];
@@ -294,7 +294,9 @@ export function PreferencesModal({
                 ))}
               </div>
               <div className={styles.sectionNote}>
-                How the title bar shows the real-world time. System follows your desktop.
+                How the title bar shows the real-world time. System follows this app's locale,
+                which on Linux can differ from a desktop's own 24-hour toggle - pick 24-hour or
+                12-hour directly if System doesn't match.
               </div>
 
               <div className={styles.toggleRow}>

@@ -104,7 +104,7 @@ export function SessionTime({ state, clockFormat, onChange }: Props) {
         onClick={() => setMenuOpen((o) => !o)}
         aria-expanded={menuOpen}
         aria-label={pillLabel}
-        title="Session timer"
+        title={pillLabel}
       >
         <span className={styles.clock}>{clockText}</span>
         {status !== "stopped" && (
