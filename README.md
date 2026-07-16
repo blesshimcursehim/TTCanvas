@@ -233,7 +233,7 @@ export default function Counter({ state, onChange }: { state: any; onChange: (s:
 ### Prerequisites
 
 - [Rust](https://rustup.rs/) (stable)
-- [Node.js](https://nodejs.org/) 20+
+- [Node.js](https://nodejs.org/) 24.x
 - [pnpm](https://pnpm.io/)
 - [Tauri CLI prerequisites](https://tauri.app/start/prerequisites/) for your OS
 
