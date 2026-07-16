@@ -193,50 +193,6 @@
   justify-content: flex-end;
 }
 
-.sessionPill {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  font-weight: 500;
-  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-  letter-spacing: 0.06em;
-  padding: 3px 8px;
-  border: none;
-  border-radius: 5px;
-  background: transparent;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
-}
-
-.sessionPill_stopped {
-  color: var(--fg-muted);
-  opacity: 0.5;
-}
-
-.sessionPill_stopped:hover {
-  opacity: 1;
-  background: oklch(0.30 0.01 260 / 0.5);
-}
-
-.sessionPill_running {
-  color: var(--ink-3);
-}
-
-.sessionPill_running:hover {
-  background: oklch(0.30 0.01 260 / 0.5);
-}
-
-.sessionPill_paused {
-  color: var(--fg-muted);
-}
-
-.sessionPill_paused:hover {
-  background: oklch(0.30 0.01 260 / 0.5);
-  color: var(--ink-3);
-}
-
 .divider {
   width: 1px;
   height: 18px;
@@ -325,7 +281,7 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--fg-muted);
+  color: var(--ink-4);
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
@@ -333,7 +289,7 @@
 
 .clearBtn:hover {
   background: oklch(0.30 0.01 260 / 0.6);
-  color: var(--fg);
+  color: var(--ink);
 }
 
 .clearBtnActive {

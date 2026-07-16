@@ -148,6 +148,20 @@ export interface SpellcastingBlock {
   spells?: { level: number; name: string; prepared?: boolean }[];
 }
 
+/**
+ * The title bar's real-world session timer. Distinct from the in-game calendar clock, which
+ * lives in the Time Tracker widget and flows through CalendarContext.
+ *
+ * `running` is deliberately not a field: the timer runs exactly when `startedAt` is non-null,
+ * so the illegal "running with no start time" state cannot be represented at all.
+ */
+export interface SessionTimerState {
+  /** Epoch ms the current run started, or null when paused or stopped. */
+  startedAt: number | null;
+  /** Time banked from previous runs. The live span is added at display time, never persisted per tick. */
+  accumulatedMs: number;
+}
+
 export interface WorkspaceState {
   version: 2;
   activeLayout: string;
@@ -156,4 +170,5 @@ export interface WorkspaceState {
   showVignette?: boolean;
   singletonStates?: Record<string, unknown>;
   disabledWidgetTypes?: string[];
+  sessionTimer?: SessionTimerState;
 }

@@ -7,6 +7,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
 import type { WorkspaceState, WidgetInstance } from "@ttcanvas/core";
+import { DEFAULT_SESSION_TIMER, reconcileSessionTimer } from "./sessionTimer";
 import { logWarn } from "./diagnostics/log";
 
 export type { WorkspaceState, WidgetInstance, Layout } from "@ttcanvas/core";
@@ -45,6 +46,13 @@ const LayoutSchema = z.object({
   backgroundImage: z.string().optional().catch(undefined),
 });
 
+const SessionTimerSchema = z
+  .object({
+    startedAt: z.number().nullable().catch(null),
+    accumulatedMs: z.number().catch(0),
+  })
+  .catch({ ...DEFAULT_SESSION_TIMER });
+
 const WorkspaceV2Schema = z.object({
   version: z.literal(2),
   activeLayout: z.string().catch("Default"),
@@ -55,6 +63,7 @@ const WorkspaceV2Schema = z.object({
   showVignette: z.boolean().catch(false),
   singletonStates: z.record(z.string(), z.unknown()).catch({}),
   disabledWidgetTypes: z.array(z.string()).catch([]),
+  sessionTimer: SessionTimerSchema,
 });
 
 // ---------------------------------------------------------------------------
@@ -67,9 +76,41 @@ const DEFAULT_WS: WorkspaceState = {
   showVignette: false,
   singletonStates: {},
   disabledWidgetTypes: [],
+  sessionTimer: { ...DEFAULT_SESSION_TIMER },
 };
 
-export function migrateWorkspace(raw: unknown): WorkspaceState {
+/**
+ * Built-in widget types that shipped once and have since been removed. Instances, singleton
+ * state and disabled-list entries for these are stripped from every workspace on load, because
+ * App.tsx renders an unknown type as a live "Unknown widget type" frame rather than dropping it,
+ * so a retired widget would otherwise haunt a saved layout forever.
+ *
+ * Retiring another widget is one line here. Every entry MUST already be unregistered - a type
+ * listed while still registered would silently delete that widget from every layout on next
+ * load. `register.test.ts` pins that.
+ */
+export const RETIRED_WIDGET_TYPES: readonly string[] = ["session-clock"];
+
+function stripRetiredWidgets(ws: WorkspaceState): WorkspaceState {
+  const retired = (type: string) => RETIRED_WIDGET_TYPES.includes(type);
+  const layouts = Object.fromEntries(
+    Object.entries(ws.layouts).map(([name, layout]) => [
+      name,
+      { ...layout, widgets: layout.widgets.filter((w) => !retired(w.type)) },
+    ])
+  );
+  const singletonStates = Object.fromEntries(
+    Object.entries(ws.singletonStates ?? {}).filter(([type]) => !retired(type))
+  );
+  return {
+    ...ws,
+    layouts,
+    singletonStates,
+    disabledWidgetTypes: (ws.disabledWidgetTypes ?? []).filter((type) => !retired(type)),
+  };
+}
+
+function parseWorkspace(raw: unknown): WorkspaceState {
   if (!raw) {
     return { ...DEFAULT_WS };
   }
@@ -86,6 +127,12 @@ export function migrateWorkspace(raw: unknown): WorkspaceState {
   // or a completely malformed file that escaped all per-field .catch() guards).
   logWarn(`workspace: unrecognised or malformed workspace (version=${String((obj as Record<string, unknown>).version)}), opening with defaults`);
   return { ...DEFAULT_WS };
+}
+
+// Both steps run on the *result* of parseWorkspace rather than inside its v2 branch, so they
+// cover the v1 path too - that branch returns early without ever reaching Zod.
+export function migrateWorkspace(raw: unknown): WorkspaceState {
+  return reconcileSessionTimer(stripRetiredWidgets(parseWorkspace(raw)));
 }
 
 export async function loadWorkspace(vaultPath: string): Promise<WorkspaceState> {

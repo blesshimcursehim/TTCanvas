@@ -4,8 +4,22 @@ All notable changes are documented here.
 
 ## Unreleased
 
+### Changes
+
+- **The session timer moved into the title bar, and the Session Clock widget is gone.** The title bar
+  now shows the real-world clock and, once you start a session, how long you've been playing, both at
+  the same time rather than one or the other. Click it for Start, Pause and Reset, plus the elapsed
+  time down to the second. This replaces the Session Clock widget, which did the same job on the
+  canvas and is no longer available. Any Session Clock you had open is removed cleanly the next time
+  the vault opens, and you don't need to do anything. One thing to know: a timer left mid-count does
+  not carry across the upgrade.
+
 ### Fixes
 
+- **The title bar's session timer now survives a reload.** It kept its count in memory only, so
+  reloading the app, or even tapping the peek toggle, silently reset it to zero. It also had no way
+  to reset on purpose, and no way back to a stopped state once started. All three are fixed by the
+  move above.
 - **NPC Generator no longer overwrites an existing NPC with the same name** - saving used to write straight to a name-derived filename, so a second NPC sharing a name silently clobbered the first one's file. Saving now checks the library first and, on a collision, offers "Save as new copy" or "Cancel" instead of overwriting.
 - **NPC Library - deleting an NPC now asks for confirmation** - the Remove button used to delete on a single click. It now behaves like every other delete action in the app, needing a second "Yes, delete" click before anything is removed.
 

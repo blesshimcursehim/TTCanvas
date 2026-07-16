@@ -30,10 +30,11 @@ import { ModTrustPrompt } from "./canvas/ModTrustPrompt";
 import { deleteVaultFile } from "./vault";
 import { loadWorkspace, saveWorkspace } from "./workspace";
 import type { WidgetInstance, Layout, WorkspaceState } from "./workspace";
+import { DEFAULT_SESSION_TIMER } from "./sessionTimer";
 import { VaultProvider } from "./VaultProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState } from "@ttcanvas/core";
+import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
 import { advanceTimeSeconds, formatDateOverlay, mimeForImageExt, buildTurnOrder } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
@@ -198,6 +199,9 @@ function App() {
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [singletonStates, setSingletonStates] = useState<Record<string, unknown>>({});
   const [disabledWidgetTypes, setDisabledWidgetTypes] = useState<string[]>([]);
+  // Owned here rather than in Titlebar because peek unmounts the whole title bar, which would
+  // otherwise wipe a running timer.
+  const [sessionTimer, setSessionTimer] = useState<SessionTimerState>(DEFAULT_SESSION_TIMER);
   const [vaultPath, setVaultPath] = useState<string | null>(null);
   const [appConfig, setAppConfig] = useState<AppConfig>({ recentVaults: [], lastBrowsePath: null, aiProvider: "ollama", aiBaseUrl: "", aiApiKey: "", aiModel: null, playerWindowX: null, playerWindowY: null, playerWindowW: null, playerWindowH: null, customConditions: [], theme: "dark-vellum", accent: "amber", density: "comfortable", reduceMotion: false, trustedModHashes: [] });
   const [loaded, setLoaded] = useState(false);
@@ -344,6 +348,7 @@ function App() {
       showVignette,
       singletonStates,
       disabledWidgetTypes,
+      sessionTimer,
     };
     const pending = { vaultPath, state };
     pendingSaveRef.current = pending;
@@ -355,7 +360,7 @@ function App() {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [widgets, layouts, activeLayout, showGrid, showVignette, singletonStates, disabledWidgetTypes, vaultPath, loaded]);
+  }, [widgets, layouts, activeLayout, showGrid, showVignette, singletonStates, disabledWidgetTypes, sessionTimer, vaultPath, loaded]);
 
   const handleVaultChange = useCallback(async (newPath: string) => {
     if (vaultPath) {
@@ -374,6 +379,7 @@ function App() {
           showVignette,
           singletonStates,
           disabledWidgetTypes,
+          sessionTimer,
         },
       });
     }
@@ -395,12 +401,13 @@ function App() {
     setShowVignette(ws.showVignette ?? false);
     setSingletonStates(ws.singletonStates ?? {});
     setDisabledWidgetTypes(ws.disabledWidgetTypes ?? []);
+    setSessionTimer(ws.sessionTimer ?? DEFAULT_SESSION_TIMER);
     setVaultPath(newPath);
     setPendingModTrust(untrustedMods.length > 0 ? { vaultPath: newPath, mods: untrustedMods } : null);
     const updated = pushRecentVault(appConfig, newPath);
     const withBrowse = { ...updated, lastBrowsePath: parentDir(newPath) };
     setAppConfig(withBrowse);
-  }, [vaultPath, widgets, layouts, activeLayout, showGrid, showVignette, singletonStates, disabledWidgetTypes, appConfig, showToast]);
+  }, [vaultPath, widgets, layouts, activeLayout, showGrid, showVignette, singletonStates, disabledWidgetTypes, sessionTimer, appConfig, showToast]);
 
   const handleOpenVault = useCallback(async () => {
     const path = await vaultApi.openVault(appConfig.lastBrowsePath);
@@ -1072,6 +1079,8 @@ function App() {
             recentVaults={appConfig.recentVaults}
             playerWindowOpen={playerWindowOpen}
             playerFullscreen={playerFullscreen}
+            sessionTimer={sessionTimer}
+            onSessionTimerChange={setSessionTimer}
             onLayoutsClick={() => setSettingsOpen((o) => !o)}
             onOpenVault={handleOpenVault}
             onResumeVault={handleResume}

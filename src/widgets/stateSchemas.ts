@@ -432,24 +432,6 @@ export function parseRuleCardsState(raw: unknown): unknown {
 }
 
 // ---------------------------------------------------------------------------
-// session-clock
-// ---------------------------------------------------------------------------
-
-const sessionClockSchema = z
-  .object({
-    mode: z.enum(["clock", "timer"]).catch("clock"),
-    running: z.boolean().catch(false),
-    startedAt: z.number().nullable().catch(null),
-    accumulatedMs: z.number().catch(0),
-    showSeconds: z.boolean().catch(false),
-  })
-  .catch({ mode: "clock", running: false, startedAt: null, accumulatedMs: 0, showSeconds: false });
-
-export function parseSessionClockState(raw: unknown): unknown {
-  return sessionClockSchema.parse(raw);
-}
-
-// ---------------------------------------------------------------------------
 // xp-tracker
 // ---------------------------------------------------------------------------
 

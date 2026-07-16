@@ -68,8 +68,6 @@ export type { RulesReferenceState } from "./rules-reference/types";
 export { RuleCards } from "./rule-cards/RuleCards";
 export type { RuleCardsState, RuleCard } from "./rule-cards/types";
 
-export { SessionClock } from "./session-clock/SessionClock";
-export type { SessionClockState } from "./session-clock/types";
 
 export { XpTracker } from "./xp-tracker/XpTracker";
 export type { XpTrackerState } from "./xp-tracker/types";
