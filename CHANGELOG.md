@@ -6,6 +6,17 @@ All notable changes are documented here.
 
 ### Features
 
+- **Party members and NPCs can be added to an encounter properly.** Encounter Builder used to be a
+  Bestiary-only tool, with the whole party riding along on a single "Also add party" checkbox and NPC
+  Library entries not available at all. Now all three go in as rows, and every row gets the same
+  controls: how many, whether the stack shares one initiative roll, the DEX hint, and live name, HP
+  and AC that follow the original record. An NPC can join as a foe or an ally, since NPCs are
+  sometimes on your side. Party members are always one person, so they show a fixed count of 1 rather
+  than a stepper.
+- **Leave a row out without deleting it.** Each row has a tickbox, so the ogres asleep in the next
+  room can stay in the encounter as prep and stay out of the fight. The tick is saved with the
+  encounter rather than reset each session, so it survives a reload.
+
 - **Pick a 12-hour or 24-hour clock** - Preferences, under Appearance, now has a Clock setting with
   System, 24-hour and 12-hour. System follows this app's locale, which is what the title bar has
   always done, so nothing changes unless you choose otherwise. On Linux, System can land on a
@@ -13,6 +24,13 @@ All notable changes are documented here.
   app has no reliable way to read - pick 24-hour or 12-hour directly if that happens.
 
 ### Changes
+
+- **Encounters you saved before this release start with no party.** The old "Also add party" tickbox
+  was never saved, it just defaulted to on every time, so there's nothing to carry over into the new
+  party rows. Your existing encounters keep their creatures and counts, but the party has to be added
+  once per encounter. Encounter Builder says so and offers an "+ Add party" button when an encounter
+  has no party in it, so it should be a single click rather than a puzzle. Worth doing before a
+  session rather than during one.
 
 - **The session timer moved into the title bar, and the Session Clock widget is gone.** The title bar
   now shows the real-world clock and, once you start a session, how long you've been playing, both at

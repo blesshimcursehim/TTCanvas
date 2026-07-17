@@ -361,26 +361,70 @@ describe("parseRollTablesState", () => {
   });
 });
 
+type ParsedEnc = { encounters: { rewardXp?: number; members: { source?: { kind: string; id: string }; count: number }[] }[]; selectedId: string | null };
+
 describe("parseEncounterBuilderState", () => {
   it("passes valid state through", () => {
-    const enc = { id: "e1", name: "Ambush", notes: "at the bridge", members: [{ id: "m1", creatureId: "c1", name: "Goblin", count: 4 }] };
-    const result = parseEncounterBuilderState({ encounters: [enc], selectedId: "e1" }) as { encounters: unknown[]; selectedId: string };
+    const enc = {
+      id: "e1", name: "Ambush", notes: "at the bridge", rewardXp: 1200,
+      members: [{ id: "m1", source: { kind: "bestiary", id: "c1" }, name: "Goblin", count: 4 }],
+    };
+    const result = parseEncounterBuilderState({ encounters: [enc], selectedId: "e1" }) as ParsedEnc;
     expect(result.encounters).toEqual([enc]);
     expect(result.selectedId).toBe("e1");
   });
+  it("keeps every source kind, and a party/npc row's fields", () => {
+    const enc = {
+      id: "e1", name: "A",
+      members: [
+        { id: "m1", source: { kind: "party", id: "p1" }, name: "Aria", count: 1, included: false },
+        { id: "m2", source: { kind: "npc", id: "npcs/vex.json" }, name: "Vex", count: 2, kind: "ally", rollHp: true, sharedHp: true },
+      ],
+    };
+    const result = parseEncounterBuilderState({ encounters: [enc], selectedId: null }) as ParsedEnc;
+    expect(result.encounters[0].members).toEqual(enc.members);
+  });
   it("drops encounters missing id and members missing id", () => {
-    const good = { id: "e1", name: "A", members: [{ id: "m1", creatureId: "c1", name: "Goblin", count: 2 }, { creatureId: "c2", name: "no id", count: 1 }] };
+    const good = { id: "e1", name: "A", members: [{ id: "m1", source: { kind: "bestiary", id: "c1" }, name: "Goblin", count: 2 }, { source: { kind: "bestiary", id: "c2" }, name: "no id", count: 1 }] };
     const bad = { name: "no id", members: [] };
-    const result = parseEncounterBuilderState({ encounters: [good, bad], selectedId: null }) as { encounters: { members: unknown[] }[] };
+    const result = parseEncounterBuilderState({ encounters: [good, bad], selectedId: null }) as ParsedEnc;
     expect(result.encounters).toHaveLength(1);
     expect(result.encounters[0].members).toHaveLength(1);
   });
   it("defaults a missing count to 1", () => {
-    const result = parseEncounterBuilderState({ encounters: [{ id: "e1", name: "A", members: [{ id: "m1", creatureId: "c1", name: "Goblin" }] }], selectedId: null }) as { encounters: { members: { count: number }[] }[] };
+    const result = parseEncounterBuilderState({ encounters: [{ id: "e1", name: "A", members: [{ id: "m1", source: { kind: "bestiary", id: "c1" }, name: "Goblin" }] }], selectedId: null }) as ParsedEnc;
     expect(result.encounters[0].members[0].count).toBe(1);
   });
   it("returns default for null", () => {
     expect(parseEncounterBuilderState(null)).toEqual({ encounters: [], selectedId: null });
+  });
+
+  // ── creatureId -> tagged source migration ──
+  it("lifts a legacy creatureId row to a bestiary source and drops the dead field", () => {
+    const legacy = { encounters: [{ id: "e1", name: "A", members: [{ id: "m1", creatureId: "c1", name: "Goblin", count: 4 }] }], selectedId: null };
+    const result = parseEncounterBuilderState(legacy) as ParsedEnc;
+    expect(result.encounters[0].members[0]).toEqual({ id: "m1", source: { kind: "bestiary", id: "c1" }, name: "Goblin", count: 4 });
+  });
+  it("is idempotent - re-parsing its own output loses nothing (WidgetSlot re-parses every render)", () => {
+    const legacy = { encounters: [{ id: "e1", name: "A", rewardXp: 50, members: [{ id: "m1", creatureId: "c1", name: "Goblin", count: 2, groupInit: true }] }], selectedId: null };
+    const once = parseEncounterBuilderState(legacy);
+    const twice = parseEncounterBuilderState(once);
+    expect(twice).toEqual(once);
+  });
+  it("keeps a row whose source is unreadable, as a missing-source row rather than dropping it", () => {
+    const result = parseEncounterBuilderState({
+      encounters: [{ id: "e1", name: "A", members: [{ id: "m1", source: "nonsense", name: "Goblin", count: 1 }] }],
+      selectedId: null,
+    }) as ParsedEnc;
+    expect(result.encounters[0].members).toHaveLength(1);
+    expect(result.encounters[0].members[0].source).toEqual({ kind: "bestiary", id: "" });
+  });
+  it("prefers an existing source over a stale creatureId left alongside it", () => {
+    const result = parseEncounterBuilderState({
+      encounters: [{ id: "e1", name: "A", members: [{ id: "m1", creatureId: "old", source: { kind: "npc", id: "npcs/vex.json" }, name: "Vex", count: 1 }] }],
+      selectedId: null,
+    }) as ParsedEnc;
+    expect(result.encounters[0].members[0].source).toEqual({ kind: "npc", id: "npcs/vex.json" });
   });
 });
 
