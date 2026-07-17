@@ -6,6 +6,47 @@ All notable changes are documented here.
 
 ### Features
 
+- **Party members and NPCs can be added to an encounter properly.** Encounter Builder used to be a
+  Bestiary-only tool, with the whole party riding along on a single "Also add party" checkbox and NPC
+  Library entries not available at all. Now all three go in as rows, and every row gets the same
+  controls: how many, whether the stack shares one initiative roll, the DEX hint, and live name, HP
+  and AC that follow the original record. An NPC can join as a foe or an ally, since NPCs are
+  sometimes on your side. Party members are always one person, so they show a fixed count of 1 rather
+  than a stepper.
+- **Leave a row out without deleting it.** Each row has a tickbox, so the ogres asleep in the next
+  room can stay in the encounter as prep and stay out of the fight. The tick is saved with the
+  encounter rather than reset each session, so it survives a reload.
+- **Roll a creature's HP instead of using the average.** A Bestiary creature with a hit-dice formula
+  (or an NPC with one) gets a "Roll HP" tick on its encounter row, so a stack of four goblins lands in
+  the Initiative Tracker with four different totals rather than four identical ones. Each copy rolls
+  its own by default, or tick "shared" to roll once for the whole stack. It reuses the Dice Roller's
+  own evaluator, and falls back to the static average if a formula is missing or not valid dice
+  notation. Party HP is left alone, since that is real and already tracked.
+- **"Start combat" is now safe to press twice.** It used to pile a fresh copy of the whole encounter
+  onto whatever was already in the Initiative Tracker every time, and never brought the tracker into
+  view. Now, with a fight already running, it asks first: replace it, append, or cancel. Replace wipes
+  the current combat and starts clean at round 1, append merges without duplicating any party member or
+  named NPC already in the fight (repeated monsters still stack, since those are reinforcements). Either
+  way it reveals and raises the Initiative Tracker, so the combatants never land offscreen. There is
+  also a separate "Add to current combat" button for when appending is what you actually meant.
+- **End a combat and hand the damage back to the party.** The Initiative Tracker's old "Clear" button
+  is now "End combat", and instead of just wiping the fight it opens a review first. It lists each
+  party member's HP change ("Aria: 24 to 9"), leaves the unchanged ones unticked, and shows any
+  conditions still on them so you can note them down before they're gone. Tick the ones you want and
+  the new HP is written straight back to the Party Tracker, so the damage from the fight sticks. Only
+  party members come back this way, since foes and NPCs live elsewhere. Conditions are shown for your
+  reference but not applied, since party sheets don't track them. Cancel closes the review and leaves
+  the combat exactly as it was.
+- **Give an encounter an XP reward and hand it to the XP Tracker.** An encounter now has a Reward XP
+  field. Start that encounter and, when you end the combat, the review offers to split the reward
+  across the party (you pick who was in on it), routing it through the XP Tracker exactly as a manual
+  award would, undo history and all. The amount is always yours to type, never guessed from a
+  creature's challenge rating. There's also an "Award to party" button on the encounter itself for a
+  fight that never went through the tracker. When an award pushes a character past a level threshold,
+  the XP Tracker shows a banner offering to bump their sheet level on the Party Tracker to match. This
+  replaces the old level-up flash, which vanished after a few seconds and couldn't actually change the
+  sheet.
+
 - **Pick a 12-hour or 24-hour clock** - Preferences, under Appearance, now has a Clock setting with
   System, 24-hour and 12-hour. System follows this app's locale, which is what the title bar has
   always done, so nothing changes unless you choose otherwise. On Linux, System can land on a
@@ -13,6 +54,13 @@ All notable changes are documented here.
   app has no reliable way to read - pick 24-hour or 12-hour directly if that happens.
 
 ### Changes
+
+- **Encounters you saved before this release start with no party.** The old "Also add party" tickbox
+  was never saved, it just defaulted to on every time, so there's nothing to carry over into the new
+  party rows. Your existing encounters keep their creatures and counts, but the party has to be added
+  once per encounter. Encounter Builder says so and offers an "+ Add party" button when an encounter
+  has no party in it, so it should be a single click rather than a puzzle. Worth doing before a
+  session rather than during one.
 
 - **The session timer moved into the title bar, and the Session Clock widget is gone.** The title bar
   now shows the real-world clock and, once you start a session, how long you've been playing, both at
@@ -23,6 +71,11 @@ All notable changes are documented here.
   starts fresh.
 
 ### Fixes
+
+- **Bestiary's "Add to Initiative" now brings the tracker into view.** Adding a creature straight from
+  the Bestiary dropped it into the Initiative Tracker without surfacing the widget, so it looked like
+  nothing had happened if the tracker was hidden or buried. It now reveals and raises the tracker, the
+  same as starting a combat does.
 
 - **The title bar's session timer now survives quitting the app.** It kept its count in memory only,
   so quitting, or even tapping the peek toggle, silently reset it to zero. It also had no way to reset

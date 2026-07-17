@@ -427,18 +427,3 @@
 .bottomBtn + .bottomBtn {
   border-left: 1px solid var(--line-soft);
 }
-
-.dangerBtn:hover:not(:disabled) {
-  background: oklch(0.45 0.18 22 / 0.12);
-  color: oklch(0.70 0.13 22);
-}
-
-.confirmText {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px;
-  font-size: 12.5px;
-  color: var(--ink-3);
-}

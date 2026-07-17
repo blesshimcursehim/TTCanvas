@@ -116,6 +116,19 @@ const initiativeGroupSchema = z
   })
   .passthrough();
 
+// Snapshot of the encounter a combat started from. Must be declared, not passed through: this is a
+// strip-mode z.object, and WidgetSlot re-parses every render, so an undeclared field is dropped each
+// frame. `.optional().catch(undefined)` so an ad-hoc combat (no encounter) and a corrupt value both
+// resolve to absent.
+const combatEncounterRefSchema = z
+  .object({
+    id: z.string(),
+    name: z.string().catch("Encounter"),
+    rewardXp: z.number().optional().catch(undefined),
+  })
+  .optional()
+  .catch(undefined);
+
 const initiativeTrackerSchema = z
   .object({
     combatants: filterArr(combatantSchema),
@@ -127,6 +140,7 @@ const initiativeTrackerSchema = z
     roundAdvances: z.array(z.number()).catch([]),
     groups: filterArr(initiativeGroupSchema),
     lairActionReminder: z.boolean().catch(false),
+    encounter: combatEncounterRefSchema,
   })
   .catch({
     combatants: [], currentId: null, round: 1, showOnPlayer: false,
@@ -507,18 +521,44 @@ export function parseRollTablesState(raw: unknown): unknown {
 // encounter-builder
 // ---------------------------------------------------------------------------
 
-const encounterMemberSchema = z.object({
+const encounterSourceSchema = z
+  .object({
+    kind: z.enum(["bestiary", "party", "npc"]).catch("bestiary"),
+    id: z.string().catch(""),
+  })
+  // A row whose source is unreadable survives as a "missing source" row rather than vanishing,
+  // exactly as `creatureId: z.string().catch("")` used to do.
+  .catch({ kind: "bestiary", id: "" });
+
+const encounterMemberFields = z.object({
   id: z.string(),
-  creatureId: z.string().catch(""),
+  source: encounterSourceSchema,
   name: z.string().catch(""),
   count: z.number().catch(1),
   groupInit: z.boolean().optional().catch(undefined),
+  rollHp: z.boolean().optional().catch(undefined),
+  sharedHp: z.boolean().optional().catch(undefined),
+  included: z.boolean().optional().catch(undefined),
+  kind: z.enum(["pc", "foe", "ally"]).optional().catch(undefined),
 });
+
+// `creatureId` (always a Bestiary entry id) became a tagged `source`, so party and NPC rows can
+// share the same row shape. Old rows are lifted on read; the new shape reaches disk the first time
+// the widget saves, and z.object's default strip drops the dead creatureId with it. Idempotent,
+// which matters because WidgetSlot re-parses on every render.
+const encounterMemberSchema = z.preprocess((raw) => {
+  if (raw && typeof raw === "object" && !("source" in raw) && "creatureId" in raw) {
+    const { creatureId, ...rest } = raw as Record<string, unknown>;
+    return { ...rest, source: { kind: "bestiary", id: creatureId } };
+  }
+  return raw;
+}, encounterMemberFields);
 
 const encounterSchema = z.object({
   id: z.string(),
   name: z.string().catch("Untitled"),
   notes: z.string().optional().catch(undefined),
+  rewardXp: z.number().optional().catch(undefined),
   members: filterArr(encounterMemberSchema),
 });
 

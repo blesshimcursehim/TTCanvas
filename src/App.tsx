@@ -32,10 +32,11 @@ import { loadWorkspace, saveWorkspace } from "./workspace";
 import type { WidgetInstance, Layout, WorkspaceState } from "./workspace";
 import { DEFAULT_SESSION_TIMER, bankSessionTimer } from "./sessionTimer";
 import { VaultProvider } from "./VaultProvider";
+import { NpcProvider } from "./NpcProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
-import { advanceTimeSeconds, formatDateOverlay, mimeForImageExt, buildTurnOrder } from "@ttcanvas/widgets-builtin";
+import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { advanceTimeSeconds, formatDateOverlay, mimeForImageExt, buildTurnOrder, applyEncounterAward, type XpTrackerState } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
 
@@ -54,6 +55,8 @@ const DEFAULT_TIME_STATE: TimeTrackerState = {
 const DEFAULT_IT_STATE: InitiativeTrackerState = {
   combatants: [], currentId: null, round: 1, showOnPlayer: false, autoAdvanceTime: false, roundSeconds: 6,
 };
+
+const DEFAULT_XP_STATE: XpTrackerState = { mode: "party", partyXp: 0, perPc: {} };
 
 /**
  * Serializes async writes to one file so callers never race each other, and
@@ -621,11 +624,16 @@ function App() {
 
   const handleClearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
+  // Reads widgetsRef rather than `widgets` so the callback is stable: it is composed into
+  // revealWidget and from there into the ITContext value, which would otherwise change identity
+  // on every widget drag and re-render every useIT() consumer. The ref is also strictly fresher
+  // than a closed-over `widgets` (latest committed value, not this render's snapshot), which is
+  // why removeWidget already reads it.
   const addWidget = useCallback((type: string) => {
     const def = getWidget(type);
     if (!def) return;
     if (def.singleton) {
-      const existing = widgets.find((w) => w.type === type);
+      const existing = widgetsRef.current.find((w) => w.type === type);
       if (existing) {
         if (existing.hidden) updateWidget(existing.id, { hidden: false });
         bringToFront(existing.id);
@@ -644,7 +652,7 @@ function App() {
         state: resolveDefaultState(def),
       },
     ]);
-  }, [widgets, bringToFront, updateWidget]);
+  }, [bringToFront, updateWidget]);
 
   const switchLayout = useCallback((name: string) => {
     setLayouts((ls) => ({ ...ls, [activeLayout]: { widgets, backgroundImage: ls[activeLayout]?.backgroundImage } }));
@@ -738,9 +746,9 @@ function App() {
     const bestiaryWidget = widgets.find((w) => w.type === "bestiary");
     if (!bestiaryWidget) return [];
     const s = (singletonStates["bestiary"] ?? bestiaryWidget.state) as {
-      entries?: { id: string; name: string; cr: string; hp: number; ac: number; portrait?: string; abilityScores?: import("@ttcanvas/core").AbilityScores }[];
+      entries?: { id: string; name: string; cr: string; hp: number; ac: number; portrait?: string; hitDice?: string; abilityScores?: import("@ttcanvas/core").AbilityScores }[];
     };
-    return (s?.entries ?? []).map((e) => ({ id: e.id, name: e.name, cr: e.cr, hp: e.hp, ac: e.ac, portrait: e.portrait, abilityScores: e.abilityScores }));
+    return (s?.entries ?? []).map((e) => ({ id: e.id, name: e.name, cr: e.cr, hp: e.hp, ac: e.ac, portrait: e.portrait, hitDice: e.hitDice, abilityScores: e.abilityScores }));
   }, [widgets, singletonStates]);
 
   // Name lists for the wikilink resolver's state-backed targets. Read straight from singleton state
@@ -784,6 +792,10 @@ function App() {
     // the token that was dragged in with that same id (CombatantRow's drag handler does the same).
     return members.map((m) => m.sourceId ?? m.id);
   }, [itState]);
+  // Expose just the count, not combatants[]: a primitive that only changes when a combatant is
+  // added or removed, so the Encounter Builder's "combat already running?" check never pulls the
+  // whole list across the context (see ITContext.combatantCount).
+  const combatantCount = (itState as InitiativeTrackerState | undefined)?.combatants.length ?? 0;
 
   const calState = (singletonStates["custom-calendar"] ?? DEFAULT_CAL_STATE) as CalendarState;
   const timeState = (singletonStates["time-tracker"] ?? DEFAULT_TIME_STATE) as TimeTrackerState;
@@ -830,29 +842,103 @@ function App() {
     });
   }, [setSingletonStates]);
 
+  // Bring a singleton widget into view (unhide + raise it, or add it if it is not on the canvas yet).
+  // Shared by every "open X" handler and by startCombat so acting on an entity always surfaces its
+  // widget. Stable (widgetsRef, not `widgets`) so it can be composed into context values - see addWidget.
+  const revealWidget = useCallback((type: string) => {
+    const existing = widgetsRef.current.find((w) => w.type === type);
+    if (existing) {
+      if (existing.hidden) updateWidget(existing.id, { hidden: false });
+      bringToFront(existing.id);
+    } else {
+      addWidget(type);
+    }
+  }, [bringToFront, updateWidget, addWidget]);
+
+  // Single quick-add (Bestiary's "Add to Initiative"). Reveals the tracker like startCombat, so a
+  // creature added from the Bestiary surfaces the tracker rather than landing silently offscreen.
   const addCombatant = useCallback((c: Omit<import("@ttcanvas/core").Combatant, "id">) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setSingletonStates((ss) => {
       const it = (ss["initiative-tracker"] ?? DEFAULT_IT_STATE) as InitiativeTrackerState;
       return { ...ss, "initiative-tracker": { ...it, combatants: [...it.combatants, { ...c, id }] } };
     });
-  }, [setSingletonStates]);
+    revealWidget("initiative-tracker");
+  }, [setSingletonStates, revealWidget]);
 
-  // Batch insert (Encounter Builder "Start combat") - a single state update for the whole encounter.
-  // `groups` carries any pre-formed group-initiative groups (e.g. a count>1 monster stack added
-  // with "Roll as group" on) to merge in alongside the new combatants.
-  const addCombatants = useCallback((
+  // Encounter Builder "Start combat" - a single state update for the whole encounter, then reveal
+  // the tracker. "replace" wipes the live combat; "append" merges, skipping any combatant whose
+  // sourceId is already present so a party member or lone NPC can't be duplicated. Foes carry no
+  // sourceId by design (see combat.ts), so a repeated monster stack still appends - reinforcements.
+  const startCombat = useCallback((
     cs: Omit<import("@ttcanvas/core").Combatant, "id">[],
-    groups?: import("@ttcanvas/core").InitiativeGroup[],
+    groups: import("@ttcanvas/core").InitiativeGroup[],
+    mode: import("@ttcanvas/core").StartCombatMode,
+    encounter?: import("@ttcanvas/core").CombatEncounterRef,
   ) => {
     if (cs.length === 0) return;
     setSingletonStates((ss) => {
       const it = (ss["initiative-tracker"] ?? DEFAULT_IT_STATE) as InitiativeTrackerState;
-      const withIds = cs.map((c, i) => ({ ...c, id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}` }));
-      const nextGroups = groups?.length ? [...(it.groups ?? []), ...groups] : it.groups;
-      return { ...ss, "initiative-tracker": { ...it, combatants: [...it.combatants, ...withIds], groups: nextGroups } };
+      const stamp = Date.now();
+      const withIds = cs.map((c, i) => ({ ...c, id: `${stamp}-${i}-${Math.random().toString(36).slice(2, 7)}` }));
+      if (mode === "replace") {
+        return { ...ss, "initiative-tracker": {
+          ...it, combatants: withIds, groups, currentId: null, round: 1, roundAdvances: [], encounter,
+        } };
+      }
+      const present = new Set(it.combatants.flatMap((c) => (c.sourceId ? [c.sourceId] : [])));
+      const fresh = withIds.filter((c) => !c.sourceId || !present.has(c.sourceId));
+      return { ...ss, "initiative-tracker": {
+        ...it,
+        combatants: [...it.combatants, ...fresh],
+        groups: groups.length ? [...(it.groups ?? []), ...groups] : it.groups,
+        // Merging two encounters into one fight has no single reward; keep the first snapshot.
+        encounter: it.encounter ?? encounter,
+      } };
+    });
+    revealWidget("initiative-tracker");
+  }, [setSingletonStates, revealWidget]);
+
+  // One-way hand-back into the Party Tracker roster (end-combat HP, confirmed level-ups). The
+  // App-level equivalent of PartyTracker's own patchMember, exposed on PartyContext so the
+  // Initiative Tracker and XP Tracker can write without importing the widget. Reads the effective
+  // state (singletonStates ?? instance, like partyMembers) so it never wipes a roster that still
+  // lives on the widget instance; widgetsRef keeps the callback stable.
+  const patchMembers = useCallback((patches: import("@ttcanvas/core").PartyMemberPatch[]) => {
+    if (patches.length === 0) return;
+    setSingletonStates((ss) => {
+      const base = (ss["party-tracker"] ?? widgetsRef.current.find((w) => w.type === "party-tracker")?.state) as
+        { members?: { id: string; hp: number; maxHp: number; level: number }[]; compact?: boolean } | undefined;
+      if (!base?.members) return ss;
+      const byId = new Map(patches.map((p) => [p.id, p]));
+      const members = base.members.map((m) => {
+        const p = byId.get(m.id);
+        if (!p) return m;
+        return {
+          ...m,
+          ...(p.hp !== undefined ? { hp: Math.max(0, Math.min(p.hp, m.maxHp)) } : {}),
+          ...(p.level !== undefined ? { level: p.level } : {}),
+        };
+      });
+      return { ...ss, "party-tracker": { ...base, members } };
     });
   }, [setSingletonStates]);
+
+  // Route an encounter reward into the XP Tracker (from the end-combat review or the Encounter
+  // Builder), then reveal it. id/at are generated outside the updater because React 19 StrictMode
+  // double-invokes it; applyEncounterAward is pure, so a re-run with the same id/at is idempotent.
+  const xpState = singletonStates["xp-tracker"] ?? widgets.find((w) => w.type === "xp-tracker")?.state;
+  const xpMode = (xpState as XpTrackerState | undefined)?.mode ?? "party";
+  const awardEncounterXp = useCallback((total: number, recipientIds: string[], label: string) => {
+    if (total <= 0 || recipientIds.length === 0) return;
+    const id = crypto.randomUUID();
+    const at = Date.now();
+    setSingletonStates((ss) => {
+      const xp = (ss["xp-tracker"] ?? DEFAULT_XP_STATE) as XpTrackerState;
+      return { ...ss, "xp-tracker": applyEncounterAward(xp, { total, recipientIds, label, id, at }) };
+    });
+    revealWidget("xp-tracker");
+  }, [setSingletonStates, revealWidget]);
 
   const aiContextValue = useMemo(() => ({
     config: {
@@ -882,10 +968,11 @@ function App() {
 
   const gameTimeContextValue = useMemo(() => ({ advanceGameTime }), [advanceGameTime]);
   const itContextValue = useMemo(
-    () => ({ addCombatant, addCombatants, activeSourceIds: activeCombatantSourceIds }),
-    [addCombatant, addCombatants, activeCombatantSourceIds],
+    () => ({ addCombatant, startCombat, combatantCount, activeSourceIds: activeCombatantSourceIds }),
+    [addCombatant, startCombat, combatantCount, activeCombatantSourceIds],
   );
-  const partyContextValue = useMemo(() => ({ members: partyMembers }), [partyMembers]);
+  const partyContextValue = useMemo(() => ({ members: partyMembers, patchMembers }), [partyMembers, patchMembers]);
+  const xpContextValue = useMemo(() => ({ mode: xpMode, awardEncounterXp }), [xpMode, awardEncounterXp]);
   const bestiaryContextValue = useMemo(() => ({ creatures: bestiaryCreatures }), [bestiaryCreatures]);
 
   const railWidgets: RailWidget[] = useMemo(
@@ -901,18 +988,6 @@ function App() {
       return [...rest, ...reordered];
     });
   }
-
-  // Bring a singleton widget into view (unhide + raise it, or add it if it is not on the canvas yet).
-  // Shared by every "open X" handler below so opening an entity always surfaces its widget.
-  const revealWidget = useCallback((type: string) => {
-    const existing = widgets.find((w) => w.type === type);
-    if (existing) {
-      if (existing.hidden) updateWidget(existing.id, { hidden: false });
-      bringToFront(existing.id);
-    } else {
-      addWidget(type);
-    }
-  }, [widgets, bringToFront, updateWidget, addWidget]);
 
   const handleOpenNpc = useCallback((filename: string) => {
     setSingletonStates((ss) => ({ ...ss, "npc-library": { selectedFile: filename } }));
@@ -1056,12 +1131,14 @@ function App() {
 
   return (
     <VaultProvider vaultPath={vaultPath} onVaultPathChange={handleVaultChange}>
+      <NpcProvider>
       <AIContext.Provider value={aiContextValue}>
       <CalendarContext.Provider value={calendarContextValue}>
       <GameTimeContext.Provider value={gameTimeContextValue}>
       <ConditionsContext.Provider value={conditionsContextValue}>
       <ITContext.Provider value={itContextValue}>
       <PartyContext.Provider value={partyContextValue}>
+      <XpContext.Provider value={xpContextValue}>
       <BestiaryContext.Provider value={bestiaryContextValue}>
         {/* Resolves cross-entity [[links]] from entity bodies; inside the provider so it can read the
             vault. Session Notes' own links stay note-only (separate channel), keeping Obsidian intact. */}
@@ -1224,12 +1301,14 @@ function App() {
           )}
         </div>
       </BestiaryContext.Provider>
+      </XpContext.Provider>
       </PartyContext.Provider>
       </ITContext.Provider>
       </ConditionsContext.Provider>
       </GameTimeContext.Provider>
       </CalendarContext.Provider>
       </AIContext.Provider>
+      </NpcProvider>
     </VaultProvider>
   );
 }

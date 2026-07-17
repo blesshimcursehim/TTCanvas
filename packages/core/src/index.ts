@@ -8,9 +8,13 @@ export * from "./types";
 export { VaultContext, useVault } from "./VaultContext";
 export type { VaultContextValue } from "./VaultContext";
 export { PartyContext, useParty } from "./PartyContext";
-export type { PartyContextValue, SharedPartyMember } from "./PartyContext";
+export type { PartyContextValue, SharedPartyMember, PartyMemberPatch } from "./PartyContext";
 export { BestiaryContext, useBestiary } from "./BestiaryContext";
 export type { BestiaryContextValue, BestiaryCreatureRef } from "./BestiaryContext";
+export { NpcContext, useNpcs } from "./NpcContext";
+export type { NpcContextValue, NpcRef } from "./NpcContext";
+export { XpContext, useXp } from "./XpContext";
+export type { XpContextValue } from "./XpContext";
 export { CalendarContext, useCalendar } from "./CalendarContext";
 export type { CalendarContextValue } from "./CalendarContext";
 export type {
@@ -26,6 +30,7 @@ export type { GameTimeContextValue } from "./GameTimeContext";
 export { ITContext, useIT } from "./ITContext";
 export type {
   ITContextValue, Combatant, CombatantKind, InitiativeTrackerState,
+  StartCombatMode, CombatEncounterRef,
   InitiativeTurn, InitiativeOverlay, InitiativeGroup,
 } from "./ITContext";
 export { AIContext, useAI, defaultAIConfig } from "./AIContext";

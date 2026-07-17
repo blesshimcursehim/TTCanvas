@@ -25,6 +25,21 @@ export interface Combatant {
   groupId?: string;
 }
 
+export type StartCombatMode = "replace" | "append";
+
+/**
+ * Snapshot of the encounter a combat was started from - stored on InitiativeTrackerState so the
+ * end-combat review can offer the encounter's reward without reaching back into Encounter Builder
+ * state. A snapshot, not a live link: editing the encounter mid-combat must not change a pending
+ * award. Absent = an ad-hoc combat (hand-added combatants, or Bestiary's quick-add).
+ */
+export interface CombatEncounterRef {
+  id: string;
+  name: string;
+  /** XP reward to route to the XP Tracker after combat, if the encounter set one. */
+  rewardXp?: number;
+}
+
 /** A shared initiative roll for two or more combatants (group initiative). */
 export interface InitiativeGroup {
   id: string;
@@ -56,6 +71,9 @@ export interface InitiativeTrackerState {
   groups?: InitiativeGroup[];
   /** Toast a GM-facing nudge each time a round wraps ("lair actions"). Absent = false. */
   lairActionReminder?: boolean;
+  /** The encounter this combat was started from, for the end-combat review's reward hand-off.
+   *  Absent = an ad-hoc combat. Cleared when combat ends. */
+  encounter?: CombatEncounterRef;
 }
 
 /** One row of the player-facing initiative overlay. */
@@ -92,11 +110,25 @@ export interface InitiativeOverlay {
 export interface ITContextValue {
   addCombatant: (c: Omit<Combatant, "id">) => void;
   /**
-   * Add several combatants in one state update - used by the Encounter Builder's "Start combat".
-   * `groups` carries any pre-formed group-initiative groups (e.g. a count>1 monster stack added
-   * with "Roll as group" on) to merge into state alongside the new combatants.
+   * Push a built encounter into the tracker and reveal it - the Encounter Builder's "Start combat".
+   * "replace" wipes the live combat first (combatants, groups, round, current turn, round advances);
+   * "append" merges, skipping any combatant whose sourceId is already present so a party member or
+   * lone NPC can't be added twice. `groups` carries any pre-formed group-initiative groups, and
+   * `encounter` is the snapshot stored for the end-combat review. Replaces the old always-additive
+   * addCombatants.
    */
-  addCombatants: (cs: Omit<Combatant, "id">[], groups?: InitiativeGroup[]) => void;
+  startCombat: (
+    cs: Omit<Combatant, "id">[],
+    groups: InitiativeGroup[],
+    mode: StartCombatMode,
+    encounter?: CombatEncounterRef,
+  ) => void;
+  /**
+   * How many combatants are in the tracker right now - lets the Encounter Builder warn before
+   * replacing a live combat. Deliberately a count, not the list: exposing combatants[] would bounce
+   * this context on every HP tick and re-render every useIT() consumer, Map Display included.
+   */
+  combatantCount: number;
   /**
    * sourceId (falling back to id) of every combatant whose turn it currently is - lets Map Display
    * spotlight the linked token(s) on the GM's own map (the player-window equivalent travels via
@@ -106,7 +138,9 @@ export interface ITContextValue {
   activeSourceIds: string[];
 }
 
-const defaultValue: ITContextValue = { addCombatant: () => {}, addCombatants: () => {}, activeSourceIds: [] };
+const defaultValue: ITContextValue = {
+  addCombatant: () => {}, startCombat: () => {}, combatantCount: 0, activeSourceIds: [],
+};
 
 export const ITContext = createContext<ITContextValue>(defaultValue);
 export function useIT(): ITContextValue { return useContext(ITContext); }

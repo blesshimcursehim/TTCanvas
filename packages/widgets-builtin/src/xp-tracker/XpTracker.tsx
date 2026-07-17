@@ -4,13 +4,11 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useParty } from "@ttcanvas/core";
 import type { XpTrackerState, XpAward } from "./types";
-import { DEFAULT_XP_THRESHOLDS, levelForXp, splitXp, levelProgress } from "./xpMath";
+import { DEFAULT_XP_THRESHOLDS, levelForXp, splitXp, levelProgress, applyEncounterAward, XP_HISTORY_CAP } from "./xpMath";
 import styles from "./XpTracker.module.css";
-
-const HISTORY_CAP = 50;
 
 interface Props {
   state: XpTrackerState;
@@ -22,7 +20,7 @@ function levelLabel(level: number | null): string {
 }
 
 export function XpTracker({ state, onChange }: Props) {
-  const { members } = useParty();
+  const { members, patchMembers } = useParty();
   const { mode, partyXp, perPc, thresholds } = state;
   const history = state.history ?? [];
   const effectiveThresholds = thresholds ?? DEFAULT_XP_THRESHOLDS;
@@ -37,16 +35,8 @@ export function XpTracker({ state, onChange }: Props) {
   const [historyOpen, setHistoryOpen] = useState(false);
   // PCs unticked from split awards (absent players). Not persisted - resets to "everyone" per session.
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
-  const [flash, setFlash] = useState<string | null>(null);
-  const flashTimeout = useRef<number | null>(null);
-
-  useEffect(() => () => { if (flashTimeout.current) clearTimeout(flashTimeout.current); }, []);
-
-  function showFlash(msg: string) {
-    setFlash(msg);
-    if (flashTimeout.current) clearTimeout(flashTimeout.current);
-    flashTimeout.current = window.setTimeout(() => setFlash(null), 4000);
-  }
+  // The pending-level-up signature the GM has dismissed. The banner reappears if the set changes.
+  const [dismissedSig, setDismissedSig] = useState<string | null>(null);
 
   function snapshot(label: string): XpAward {
     return { id: crypto.randomUUID(), label, at: Date.now(), prevPartyXp: partyXp, prevPerPc: perPc };
@@ -60,11 +50,8 @@ export function XpTracker({ state, onChange }: Props) {
     const n = parseInt(awardAmount, 10);
     if (isNaN(n) || n === 0) return;
     const nextXp = Math.max(0, partyXp + n);
-    const before = levelForXp(partyXp, effectiveThresholds);
-    const after = levelForXp(nextXp, effectiveThresholds);
     const entry = snapshot(`${n > 0 ? "+" : ""}${n.toLocaleString()} XP`);
-    onChange({ ...state, partyXp: nextXp, history: [entry, ...history].slice(0, HISTORY_CAP) });
-    if (before !== null && after !== null && after > before) showFlash(`Level up! The party reached Lv ${after}`);
+    onChange({ ...state, partyXp: nextXp, history: [entry, ...history].slice(0, XP_HISTORY_CAP) });
     setAwardAmount("");
   }
 
@@ -74,26 +61,20 @@ export function XpTracker({ state, onChange }: Props) {
     const n = parseInt(awardAmount, 10);
     const recipients = members.filter((m) => !excluded.has(m.id));
     if (isNaN(n) || n === 0 || recipients.length === 0) return;
-    const share = kind === "split" ? splitXp(Math.abs(n), recipients.length) * Math.sign(n) : n;
-    if (share === 0) return;
-    const next = { ...perPc };
-    const leveled: string[] = [];
-    for (const m of recipients) {
-      const prev = next[m.id] ?? 0;
-      const val = Math.max(0, prev + share);
-      const before = levelForXp(prev, effectiveThresholds);
-      const after = levelForXp(val, effectiveThresholds);
-      if (before !== null && after !== null && after > before) leveled.push(m.name);
-      next[m.id] = val;
-    }
+    const recipientIds = recipients.map((m) => m.id);
     const pcs = `${recipients.length} PC${recipients.length !== 1 ? "s" : ""}`;
-    const entry = snapshot(
-      kind === "split"
-        ? `${n > 0 ? "+" : ""}${n.toLocaleString()} XP → ${pcs} (${share > 0 ? "+" : ""}${share.toLocaleString()} each)`
-        : `${n > 0 ? "+" : ""}${n.toLocaleString()} XP each → ${pcs}`,
-    );
-    onChange({ ...state, perPc: next, history: [entry, ...history].slice(0, HISTORY_CAP) });
-    if (leveled.length > 0) showFlash(`Level up! ${leveled.join(", ")}`);
+    if (kind === "split") {
+      // Same split-across-recipients operation as an encounter reward, so it shares that logic.
+      const share = splitXp(Math.abs(n), recipients.length) * Math.sign(n);
+      if (share === 0) return;
+      const label = `${n > 0 ? "+" : ""}${n.toLocaleString()} XP → ${pcs} (${share > 0 ? "+" : ""}${share.toLocaleString()} each)`;
+      onChange(applyEncounterAward(state, { total: n, recipientIds, label, id: crypto.randomUUID(), at: Date.now() }));
+    } else {
+      const next = { ...perPc };
+      for (const id of recipientIds) next[id] = Math.max(0, (next[id] ?? 0) + n);
+      const label = `${n > 0 ? "+" : ""}${n.toLocaleString()} XP each → ${pcs}`;
+      onChange({ ...state, perPc: next, history: [snapshot(label), ...history].slice(0, XP_HISTORY_CAP) });
+    }
     setAwardAmount("");
   }
 
@@ -156,6 +137,22 @@ export function XpTracker({ state, onChange }: Props) {
   const recipientCount = members.filter((m) => !excluded.has(m.id)).length;
   const partyProg = levelProgress(partyXp, effectiveThresholds);
 
+  // The sheet level lags its XP whenever an award crossed a threshold - including awards made from
+  // the end-combat review, which never pass through this widget's handlers. Derived from state (not
+  // an award event) so it survives a reload and works no matter who awarded. Level-ups only; never
+  // offer to demote a PC whose GM lowered their XP.
+  const pendingLevelUps = members.flatMap((m) => {
+    const xp = mode === "party" ? partyXp : (perPc[m.id] ?? 0);
+    const derived = levelForXp(xp, effectiveThresholds);
+    return derived !== null && derived > m.level ? [{ id: m.id, name: m.name, from: m.level, to: derived }] : [];
+  });
+  const pendingSig = pendingLevelUps.map((p) => `${p.id}:${p.to}`).join(",");
+  const showLevelBanner = pendingLevelUps.length > 0 && pendingSig !== dismissedSig;
+
+  function applyLevelUps() {
+    patchMembers(pendingLevelUps.map((p) => ({ id: p.id, level: p.to })));
+  }
+
   return (
     <div className={styles.root}>
       <div className={styles.modeTabs}>
@@ -163,13 +160,23 @@ export function XpTracker({ state, onChange }: Props) {
         <button className={`${styles.modeTab} ${mode === "perPc" ? styles.modeTabActive : ""}`} onClick={() => setMode("perPc")}>Per PC</button>
       </div>
 
-      {flash && <div className={styles.flash}>▲ {flash}</div>}
+      {showLevelBanner && (
+        <div className={styles.levelBanner}>
+          <span className={styles.levelBannerText}>
+            ▲ Sheet levels behind XP: {pendingLevelUps.map((p) => `${p.name} (${p.from} → ${p.to})`).join(", ")}
+          </span>
+          <div className={styles.levelBannerActions}>
+            <button className={styles.levelBannerApply} onClick={applyLevelUps}>Apply to Party Tracker</button>
+            <button className={styles.levelBannerDismiss} onClick={() => setDismissedSig(pendingSig)}>Dismiss</button>
+          </div>
+        </div>
+      )}
 
       <div className={styles.body}>
         {mode === "party" ? (
           <div className={styles.partyView}>
             <div className={styles.bigXp}>{partyXp.toLocaleString()} XP</div>
-            <div className={`${styles.levelBadge} ${flash ? styles.levelBadgeFlash : ""}`}>{levelLabel(partyProg.level)}</div>
+            <div className={styles.levelBadge}>{levelLabel(partyProg.level)}</div>
             {partyProg.level !== null && (
               <div className={styles.progressWrap}>
                 <div className={styles.progressBar}>

@@ -6,7 +6,9 @@
 
 import type { AbilityScores, NamedEntry, SpellcastingBlock } from "@ttcanvas/core";
 
-export type NpcRelationship = "ally" | "neutral" | "wary" | "hostile";
+// Lives in core so NpcContext can expose it; re-exported here for the widget's own importers.
+export type { NpcRelationship } from "@ttcanvas/core";
+import type { NpcRelationship } from "@ttcanvas/core";
 
 export interface NpcCustomField {
   label: string;

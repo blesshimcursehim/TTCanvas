@@ -19,7 +19,8 @@ export type { NpcGeneratorState } from "./npc-generator/types";
 export { createDefaultNpcGeneratorState } from "./npc-generator/tables";
 
 export { NpcLibrary } from "./npc-library/NpcLibrary";
-export type { NpcLibraryState } from "./npc-library/types";
+export type { NpcLibraryState, ParsedNpc } from "./npc-library/types";
+export { parseNpcJson } from "./npc-library/npcFormat";
 
 export { SessionNotes } from "./session-notes/SessionNotes";
 export type { SessionNotesState } from "./session-notes/types";
@@ -71,6 +72,7 @@ export type { RuleCardsState, RuleCard } from "./rule-cards/types";
 
 export { XpTracker } from "./xp-tracker/XpTracker";
 export type { XpTrackerState } from "./xp-tracker/types";
+export { applyEncounterAward } from "./xp-tracker/xpMath";
 
 export { RollTables } from "./roll-tables/RollTables";
 export type { RollTablesState, RollTable, RollTableEntry, RollHistoryItem } from "./roll-tables/types";

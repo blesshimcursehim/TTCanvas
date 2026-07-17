@@ -405,7 +405,7 @@ registerWidget({
 registerWidget({
   type: "encounter-builder",
   title: "Encounter Builder",
-  help: "# Encounter Builder\n\nBuild saved encounters from Bestiary creatures and custom combatants. Adjust quantities and review the calculated difficulty before play.\n\nSend an encounter to the Initiative Tracker when you are ready to run it.",
+  help: "# Encounter Builder\n\nBuild saved encounters from Bestiary creatures, party members and NPC Library entries. Every row gets the same controls: how many, whether the stack shares one initiative roll, and whether it joins the fight at all.\n\nUntick a row to leave it out without deleting it. NPCs can join as a foe or an ally.\n\nGive an encounter a Reward XP amount and the end-combat review will offer to split it across the party.\n\nSend an encounter to the Initiative Tracker when you are ready to run it.",
   icon: "flag",
   category: "Combat",
   defaultSize: { width: 480, height: 480 },

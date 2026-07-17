@@ -136,6 +136,10 @@ export interface NamedEntry {
   description: string;
 }
 
+/** How an NPC stands towards the party. Lives here rather than in npc-library/types.ts because
+ *  NpcContext exposes it to widgets, and core cannot import from widgets-builtin. */
+export type NpcRelationship = "ally" | "neutral" | "wary" | "hostile";
+
 export interface SpellSlots {
   [level: number]: { total: number; used: number };
 }

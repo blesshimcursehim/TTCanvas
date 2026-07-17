@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import { useVault, pushLocationScene } from "@ttcanvas/core";
+import { useVault, useNpcs, pushLocationScene, type NpcRef } from "@ttcanvas/core";
 import { autoAccentColor, npcInitials } from "../npc-library/npcFormat";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { mimeForImageExt } from "../shared/mime";
@@ -24,8 +24,6 @@ interface Props {
   onChange: (state: GazetteerState) => void;
 }
 
-interface NpcRef { filename: string; name: string }
-
 /** Structural key for import dedupe: the location minus its transient filename. */
 function locationContentKey(loc: GazetteerLocation): string {
   const { filename: _f, ...rest } = loc;
@@ -42,8 +40,8 @@ function validateGazetteerBundle(parsed: unknown): GazetteerLocation[] | null {
 
 export function Gazetteer({ state, onChange }: Props) {
   const vault = useVault();
+  const { npcs } = useNpcs();
   const [locations, setLocations] = useState<GazetteerLocation[]>([]);
-  const [npcs, setNpcs] = useState<NpcRef[]>([]);
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState(false);
@@ -58,7 +56,7 @@ export function Gazetteer({ state, onChange }: Props) {
   const [importError, setImportError] = useState<string | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
 
-  // ── Load places + NPC names (for link labels and the picker) ──
+  // ── Load places (NPC names for link labels and the picker come from useNpcs) ──
   const loadAll = useCallback(async () => {
     if (!vault.vaultPath) { setLocations([]); return; }
     try {
@@ -73,23 +71,6 @@ export function Gazetteer({ state, onChange }: Props) {
   }, [vault]);
 
   useEffect(() => { void loadAll(); }, [loadAll, vault.vaultVersion]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const files = (await vault.listFiles("json")).filter((f) => f.startsWith("npcs/"));
-        const refs = await Promise.all(files.map(async (filename): Promise<NpcRef | null> => {
-          try {
-            const obj = JSON.parse(await vault.readFile(filename));
-            return { filename, name: typeof obj?.name === "string" && obj.name.trim() ? obj.name : filename };
-          } catch { return null; }
-        }));
-        if (!cancelled) setNpcs(refs.filter((r): r is NpcRef => r !== null));
-      } catch { if (!cancelled) setNpcs([]); }
-    })();
-    return () => { cancelled = true; };
-  }, [vault, vault.vaultVersion]);
 
   const npcByFile = useMemo(() => new Map(npcs.map((n) => [n.filename, n])), [npcs]);
 
