@@ -32,6 +32,7 @@ import { loadWorkspace, saveWorkspace } from "./workspace";
 import type { WidgetInstance, Layout, WorkspaceState } from "./workspace";
 import { DEFAULT_SESSION_TIMER, bankSessionTimer } from "./sessionTimer";
 import { VaultProvider } from "./VaultProvider";
+import { NpcProvider } from "./NpcProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
 import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
@@ -1062,6 +1063,7 @@ function App() {
 
   return (
     <VaultProvider vaultPath={vaultPath} onVaultPathChange={handleVaultChange}>
+      <NpcProvider>
       <AIContext.Provider value={aiContextValue}>
       <CalendarContext.Provider value={calendarContextValue}>
       <GameTimeContext.Provider value={gameTimeContextValue}>
@@ -1236,6 +1238,7 @@ function App() {
       </GameTimeContext.Provider>
       </CalendarContext.Provider>
       </AIContext.Provider>
+      </NpcProvider>
     </VaultProvider>
   );
 }

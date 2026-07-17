@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useVault, useParty } from "@ttcanvas/core";
+import { useVault, useParty, useNpcs, type NpcRef } from "@ttcanvas/core";
 import { autoAccentColor } from "../npc-library/npcFormat";
 import { ConfirmDeleteButton as SharedConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { mimeForImageExt } from "../shared/mime";
@@ -21,38 +21,16 @@ interface Props {
   onChange: (state: RelationshipWebState) => void;
 }
 
-interface NpcRef { filename: string; name: string; portrait?: string; }
-
 const FACTION_COLOR = "oklch(0.62 0.13 290)";
 
 export function RelationshipWeb({ state, onChange }: Props) {
   const vault = useVault();
   const { members } = useParty();
-  const [npcs, setNpcs] = useState<NpcRef[]>([]);
+  const { npcs } = useNpcs();
   const [expanded, setExpanded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [linking, setLinking] = useState(false);
   const [linkSource, setLinkSource] = useState<string | null>(null);
-
-  // Load NPC Library names + portraits so linked nodes stay labelled and the picker can list them.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const files = (await vault.listFiles("json")).filter((f) => f.startsWith("npcs/"));
-        const refs = await Promise.all(files.map(async (filename): Promise<NpcRef | null> => {
-          try {
-            const obj = JSON.parse(await vault.readFile(filename));
-            const name = typeof obj?.name === "string" && obj.name.trim() ? obj.name : filename;
-            const portrait = typeof obj?.portrait === "string" ? obj.portrait : undefined;
-            return { filename, name, portrait };
-          } catch { return null; }
-        }));
-        if (!cancelled) setNpcs(refs.filter((r): r is NpcRef => r !== null));
-      } catch { if (!cancelled) setNpcs([]); }
-    })();
-    return () => { cancelled = true; };
-  }, [vault, vault.vaultVersion]);
 
   const npcByFile = useMemo(() => new Map(npcs.map((n) => [n.filename, n])), [npcs]);
   const partyById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);

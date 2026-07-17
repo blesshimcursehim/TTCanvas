@@ -8,8 +8,8 @@
 import { StrictMode } from "react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, cleanup, waitFor, screen, fireEvent } from "@testing-library/react";
-import { VaultContext } from "@ttcanvas/core";
-import type { VaultContextValue } from "@ttcanvas/core";
+import { VaultContext, NpcContext } from "@ttcanvas/core";
+import type { VaultContextValue, NpcContextValue } from "@ttcanvas/core";
 import { Gazetteer } from "./Gazetteer";
 import type { GazetteerState } from "./types";
 
@@ -20,7 +20,6 @@ const FILES: Record<string, string> = {
     id: "citadel", name: "Citadel of Thorns", kind: "settlement", parentId: "feywild",
     links: [{ kind: "npc", ref: "npcs/vex.json", label: "Vex (stale)" }, { kind: "faction", ref: null, label: "The Ashen Veil" }],
   }),
-  "npcs/vex.json": JSON.stringify({ name: "Vex Duloran" }),
 };
 
 const vault = {
@@ -31,6 +30,13 @@ const vault = {
   readFileBase64: async () => "BASE64",
 } as unknown as VaultContextValue;
 
+// Linked NPCs resolve through NpcContext (NpcProvider scans the vault for them in the app), so the
+// live name the widget should prefer over the stale cached label lives here, not in the vault mock.
+const npcCtx: NpcContextValue = {
+  npcs: [{ filename: "npcs/vex.json", id: "vex-id", name: "Vex Duloran" }],
+  loading: false,
+};
+
 afterEach(cleanup);
 
 function renderWith(selectedFile: string | null) {
@@ -38,7 +44,9 @@ function renderWith(selectedFile: string | null) {
   return render(
     <StrictMode>
       <VaultContext.Provider value={vault}>
-        <Gazetteer state={seeded} onChange={() => {}} />
+        <NpcContext.Provider value={npcCtx}>
+          <Gazetteer state={seeded} onChange={() => {}} />
+        </NpcContext.Provider>
       </VaultContext.Provider>
     </StrictMode>,
   );

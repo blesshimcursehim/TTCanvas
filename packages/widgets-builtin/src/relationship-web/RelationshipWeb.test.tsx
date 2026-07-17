@@ -8,8 +8,8 @@
 import { StrictMode } from "react";
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import { render, cleanup, waitFor } from "@testing-library/react";
-import { VaultContext, PartyContext } from "@ttcanvas/core";
-import type { VaultContextValue, PartyContextValue } from "@ttcanvas/core";
+import { VaultContext, PartyContext, NpcContext } from "@ttcanvas/core";
+import type { VaultContextValue, PartyContextValue, NpcContextValue } from "@ttcanvas/core";
 import { RelationshipWeb } from "./RelationshipWeb";
 import type { RelationshipWebState } from "./types";
 
@@ -18,15 +18,20 @@ beforeAll(() => {
   Element.prototype.releasePointerCapture = () => {};
 });
 
+// The vault is only needed for the portrait bytes now - NPC resolution comes from NpcContext,
+// which NpcProvider populates in the app.
 const vault = {
   vaultPath: "/v",
   vaultVersion: 1,
-  listFiles: async (ext: string) => (ext === "json" ? ["npcs/vex.json"] : []),
-  readFile: async () => JSON.stringify({ name: "Vex", portrait: "portraits/vex.jpg" }),
   readFileBase64: async () => "BASE64",
 } as unknown as VaultContextValue;
 
 const party: PartyContextValue = { members: [] };
+
+const npcCtx: NpcContextValue = {
+  npcs: [{ filename: "npcs/vex.json", id: "vex-id", name: "Vex", portrait: "portraits/vex.jpg" }],
+  loading: false,
+};
 
 afterEach(cleanup);
 
@@ -43,9 +48,11 @@ describe("RelationshipWeb portraits", () => {
     render(
       <StrictMode>
         <VaultContext.Provider value={vault}>
-          <PartyContext.Provider value={party}>
-            <RelationshipWeb state={seeded} onChange={() => {}} />
-          </PartyContext.Provider>
+          <NpcContext.Provider value={npcCtx}>
+            <PartyContext.Provider value={party}>
+              <RelationshipWeb state={seeded} onChange={() => {}} />
+            </PartyContext.Provider>
+          </NpcContext.Provider>
         </VaultContext.Provider>
       </StrictMode>,
     );
@@ -63,9 +70,11 @@ describe("RelationshipWeb portraits", () => {
     };
     render(
       <VaultContext.Provider value={vault}>
-        <PartyContext.Provider value={party}>
-          <RelationshipWeb state={seeded} onChange={() => {}} />
-        </PartyContext.Provider>
+        <NpcContext.Provider value={npcCtx}>
+          <PartyContext.Provider value={party}>
+            <RelationshipWeb state={seeded} onChange={() => {}} />
+          </PartyContext.Provider>
+        </NpcContext.Provider>
       </VaultContext.Provider>,
     );
     expect(document.querySelector("image")).toBeNull();

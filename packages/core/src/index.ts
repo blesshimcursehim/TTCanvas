@@ -11,6 +11,8 @@ export { PartyContext, useParty } from "./PartyContext";
 export type { PartyContextValue, SharedPartyMember } from "./PartyContext";
 export { BestiaryContext, useBestiary } from "./BestiaryContext";
 export type { BestiaryContextValue, BestiaryCreatureRef } from "./BestiaryContext";
+export { NpcContext, useNpcs } from "./NpcContext";
+export type { NpcContextValue, NpcRef } from "./NpcContext";
 export { CalendarContext, useCalendar } from "./CalendarContext";
 export type { CalendarContextValue } from "./CalendarContext";
 export type {
