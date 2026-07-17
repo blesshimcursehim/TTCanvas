@@ -22,6 +22,13 @@ All notable changes are documented here.
   its own by default, or tick "shared" to roll once for the whole stack. It reuses the Dice Roller's
   own evaluator, and falls back to the static average if a formula is missing or not valid dice
   notation. Party HP is left alone, since that is real and already tracked.
+- **"Start combat" is now safe to press twice.** It used to pile a fresh copy of the whole encounter
+  onto whatever was already in the Initiative Tracker every time, and never brought the tracker into
+  view. Now, with a fight already running, it asks first: replace it, append, or cancel. Replace wipes
+  the current combat and starts clean at round 1, append merges without duplicating any party member or
+  named NPC already in the fight (repeated monsters still stack, since those are reinforcements). Either
+  way it reveals and raises the Initiative Tracker, so the combatants never land offscreen. There is
+  also a separate "Add to current combat" button for when appending is what you actually meant.
 
 - **Pick a 12-hour or 24-hour clock** - Preferences, under Appearance, now has a Clock setting with
   System, 24-hour and 12-hour. System follows this app's locale, which is what the title bar has
@@ -47,6 +54,11 @@ All notable changes are documented here.
   starts fresh.
 
 ### Fixes
+
+- **Bestiary's "Add to Initiative" now brings the tracker into view.** Adding a creature straight from
+  the Bestiary dropped it into the Initiative Tracker without surfacing the widget, so it looked like
+  nothing had happened if the tracker was hidden or buried. It now reveals and raises the tracker, the
+  same as starting a combat does.
 
 - **The title bar's session timer now survives quitting the app.** It kept its count in memory only,
   so quitting, or even tapping the peek toggle, silently reset it to zero. It also had no way to reset

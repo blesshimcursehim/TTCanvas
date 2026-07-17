@@ -169,6 +169,19 @@ describe("parseInitiativeTrackerState", () => {
     const ok = parseInitiativeTrackerState({ combatants: [], currentId: null, round: 1, showOnPlayer: false, autoAdvanceTime: true, roundSeconds: 10 }) as { roundSeconds: number };
     expect(ok.roundSeconds).toBe(10);
   });
+
+  it("keeps the encounter snapshot through a re-parse (strip-mode field must be declared)", () => {
+    const enc = { id: "e1", name: "Goblin Ambush", rewardXp: 1200 };
+    const result = parseInitiativeTrackerState({ combatants: [], currentId: null, round: 1, encounter: enc }) as { encounter?: typeof enc };
+    expect(result.encounter).toEqual(enc);
+  });
+
+  it("leaves the encounter absent for an ad-hoc combat, and drops a corrupt one", () => {
+    const none = parseInitiativeTrackerState({ combatants: [], currentId: null, round: 1 }) as { encounter?: unknown };
+    expect(none.encounter).toBeUndefined();
+    const corrupt = parseInitiativeTrackerState({ combatants: [], currentId: null, round: 1, encounter: { name: "no id" } }) as { encounter?: unknown };
+    expect(corrupt.encounter).toBeUndefined();
+  });
 });
 
 describe("parseSessionNotesState", () => {

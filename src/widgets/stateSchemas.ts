@@ -116,6 +116,19 @@ const initiativeGroupSchema = z
   })
   .passthrough();
 
+// Snapshot of the encounter a combat started from. Must be declared, not passed through: this is a
+// strip-mode z.object, and WidgetSlot re-parses every render, so an undeclared field is dropped each
+// frame. `.optional().catch(undefined)` so an ad-hoc combat (no encounter) and a corrupt value both
+// resolve to absent.
+const combatEncounterRefSchema = z
+  .object({
+    id: z.string(),
+    name: z.string().catch("Encounter"),
+    rewardXp: z.number().optional().catch(undefined),
+  })
+  .optional()
+  .catch(undefined);
+
 const initiativeTrackerSchema = z
   .object({
     combatants: filterArr(combatantSchema),
@@ -127,6 +140,7 @@ const initiativeTrackerSchema = z
     roundAdvances: z.array(z.number()).catch([]),
     groups: filterArr(initiativeGroupSchema),
     lairActionReminder: z.boolean().catch(false),
+    encounter: combatEncounterRefSchema,
   })
   .catch({
     combatants: [], currentId: null, round: 1, showOnPlayer: false,

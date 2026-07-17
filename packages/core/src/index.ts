@@ -28,6 +28,7 @@ export type { GameTimeContextValue } from "./GameTimeContext";
 export { ITContext, useIT } from "./ITContext";
 export type {
   ITContextValue, Combatant, CombatantKind, InitiativeTrackerState,
+  StartCombatMode, CombatEncounterRef,
   InitiativeTurn, InitiativeOverlay, InitiativeGroup,
 } from "./ITContext";
 export { AIContext, useAI, defaultAIConfig } from "./AIContext";

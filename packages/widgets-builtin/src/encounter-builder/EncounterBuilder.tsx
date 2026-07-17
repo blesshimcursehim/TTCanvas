@@ -55,7 +55,7 @@ export function EncounterBuilder({ state, onChange }: Props) {
   const { creatures } = useBestiary();
   const { members: party } = useParty();
   const { npcs } = useNpcs();
-  const { addCombatants } = useIT();
+  const { startCombat, combatantCount } = useIT();
   const { encounters, selectedId } = state;
 
   const [adding, setAdding] = useState(false);
@@ -67,6 +67,8 @@ export function EncounterBuilder({ state, onChange }: Props) {
   const [pickTab, setPickTab] = useState<PickTab>("bestiary");
   const [pickQuery, setPickQuery] = useState("");
   const [autoRoll, setAutoRoll] = useState(true);
+  // Shown when "Start combat" is pressed while a combat is already running - replace vs append.
+  const [confirmStart, setConfirmStart] = useState(false);
   const [lastStart, setLastStart] = useState<{ count: number; missing: number } | null>(null);
 
   const selected = encounters.find((e) => e.id === selectedId) ?? null;
@@ -131,6 +133,7 @@ export function EncounterBuilder({ state, onChange }: Props) {
     setAdding(false);
     setRenaming(false);
     setConfirmDelete(false);
+    setConfirmStart(false);
     setPicking(false);
     setLastStart(null);
   }
@@ -206,11 +209,19 @@ export function EncounterBuilder({ state, onChange }: Props) {
   }
 
   // ── Start combat ──────────────────────────────────────────
-  function handleStartCombat() {
+  function runStartCombat(mode: "replace" | "append") {
     if (!selected) return;
     const { combatants, missing, groups } = buildCombatants(selected, sources, { autoRoll });
-    addCombatants(combatants, groups);
+    startCombat(combatants, groups, mode, { id: selected.id, name: selected.name, rewardXp: selected.rewardXp });
+    setConfirmStart(false);
     setLastStart({ count: combatants.length, missing });
+  }
+
+  // Primary "Start combat": straight through when the tracker is empty, otherwise ask
+  // replace-vs-append first rather than silently piling a second copy onto a live fight.
+  function handleStartCombat() {
+    if (combatantCount > 0) setConfirmStart(true);
+    else runStartCombat("replace");
   }
 
   // ── Render ────────────────────────────────────────────────
@@ -474,12 +485,37 @@ export function EncounterBuilder({ state, onChange }: Props) {
                 <input type="checkbox" checked={autoRoll} onChange={(e) => setAutoRoll(e.target.checked)} />
                 Auto-roll initiative
               </label>
-              <button className={styles.startBtn} onClick={handleStartCombat} disabled={totalCombatants === 0}>
-                Start combat
-              </button>
+              {confirmStart ? (
+                // Inline confirm (the InitiativeTracker "Clear all" idiom), not a modal: three
+                // outcomes, so ConfirmDeleteButton's two-way control doesn't fit.
+                <div className={styles.confirmStart}>
+                  <span className={styles.confirmStartMsg}>
+                    A combat is already running ({combatantCount} combatant{combatantCount !== 1 ? "s" : ""}).
+                  </span>
+                  <div className={styles.confirmStartActions}>
+                    <button className={styles.startBtn} onClick={() => runStartCombat("replace")}>Replace it</button>
+                    <button className={styles.appendBtn} onClick={() => runStartCombat("append")}>Append</button>
+                    <button className={styles.cancelBtn} onClick={() => setConfirmStart(false)}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.startActions}>
+                  <button className={styles.startBtn} onClick={handleStartCombat} disabled={totalCombatants === 0}>
+                    Start combat
+                  </button>
+                  <button
+                    className={styles.appendBtn}
+                    onClick={() => runStartCombat("append")}
+                    disabled={totalCombatants === 0 || combatantCount === 0}
+                    title="Add these combatants to the combat already in the tracker"
+                  >
+                    Add to current combat
+                  </button>
+                </div>
+              )}
               {lastStart && (
                 <div className={styles.startResult}>
-                  Added {lastStart.count} to the Initiative Tracker.
+                  Sent {lastStart.count} to the Initiative Tracker.
                   {lastStart.missing > 0 && <span className={styles.startMissing}> {lastStart.missing} missing source{lastStart.missing !== 1 ? "s" : ""} skipped.</span>}
                 </div>
               )}

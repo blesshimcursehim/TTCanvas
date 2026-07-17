@@ -790,6 +790,10 @@ function App() {
     // the token that was dragged in with that same id (CombatantRow's drag handler does the same).
     return members.map((m) => m.sourceId ?? m.id);
   }, [itState]);
+  // Expose just the count, not combatants[]: a primitive that only changes when a combatant is
+  // added or removed, so the Encounter Builder's "combat already running?" check never pulls the
+  // whole list across the context (see ITContext.combatantCount).
+  const combatantCount = (itState as InitiativeTrackerState | undefined)?.combatants.length ?? 0;
 
   const calState = (singletonStates["custom-calendar"] ?? DEFAULT_CAL_STATE) as CalendarState;
   const timeState = (singletonStates["time-tracker"] ?? DEFAULT_TIME_STATE) as TimeTrackerState;
@@ -836,29 +840,62 @@ function App() {
     });
   }, [setSingletonStates]);
 
+  // Bring a singleton widget into view (unhide + raise it, or add it if it is not on the canvas yet).
+  // Shared by every "open X" handler and by startCombat so acting on an entity always surfaces its
+  // widget. Stable (widgetsRef, not `widgets`) so it can be composed into context values - see addWidget.
+  const revealWidget = useCallback((type: string) => {
+    const existing = widgetsRef.current.find((w) => w.type === type);
+    if (existing) {
+      if (existing.hidden) updateWidget(existing.id, { hidden: false });
+      bringToFront(existing.id);
+    } else {
+      addWidget(type);
+    }
+  }, [bringToFront, updateWidget, addWidget]);
+
+  // Single quick-add (Bestiary's "Add to Initiative"). Reveals the tracker like startCombat, so a
+  // creature added from the Bestiary surfaces the tracker rather than landing silently offscreen.
   const addCombatant = useCallback((c: Omit<import("@ttcanvas/core").Combatant, "id">) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setSingletonStates((ss) => {
       const it = (ss["initiative-tracker"] ?? DEFAULT_IT_STATE) as InitiativeTrackerState;
       return { ...ss, "initiative-tracker": { ...it, combatants: [...it.combatants, { ...c, id }] } };
     });
-  }, [setSingletonStates]);
+    revealWidget("initiative-tracker");
+  }, [setSingletonStates, revealWidget]);
 
-  // Batch insert (Encounter Builder "Start combat") - a single state update for the whole encounter.
-  // `groups` carries any pre-formed group-initiative groups (e.g. a count>1 monster stack added
-  // with "Roll as group" on) to merge in alongside the new combatants.
-  const addCombatants = useCallback((
+  // Encounter Builder "Start combat" - a single state update for the whole encounter, then reveal
+  // the tracker. "replace" wipes the live combat; "append" merges, skipping any combatant whose
+  // sourceId is already present so a party member or lone NPC can't be duplicated. Foes carry no
+  // sourceId by design (see combat.ts), so a repeated monster stack still appends - reinforcements.
+  const startCombat = useCallback((
     cs: Omit<import("@ttcanvas/core").Combatant, "id">[],
-    groups?: import("@ttcanvas/core").InitiativeGroup[],
+    groups: import("@ttcanvas/core").InitiativeGroup[],
+    mode: import("@ttcanvas/core").StartCombatMode,
+    encounter?: import("@ttcanvas/core").CombatEncounterRef,
   ) => {
     if (cs.length === 0) return;
     setSingletonStates((ss) => {
       const it = (ss["initiative-tracker"] ?? DEFAULT_IT_STATE) as InitiativeTrackerState;
-      const withIds = cs.map((c, i) => ({ ...c, id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}` }));
-      const nextGroups = groups?.length ? [...(it.groups ?? []), ...groups] : it.groups;
-      return { ...ss, "initiative-tracker": { ...it, combatants: [...it.combatants, ...withIds], groups: nextGroups } };
+      const stamp = Date.now();
+      const withIds = cs.map((c, i) => ({ ...c, id: `${stamp}-${i}-${Math.random().toString(36).slice(2, 7)}` }));
+      if (mode === "replace") {
+        return { ...ss, "initiative-tracker": {
+          ...it, combatants: withIds, groups, currentId: null, round: 1, roundAdvances: [], encounter,
+        } };
+      }
+      const present = new Set(it.combatants.flatMap((c) => (c.sourceId ? [c.sourceId] : [])));
+      const fresh = withIds.filter((c) => !c.sourceId || !present.has(c.sourceId));
+      return { ...ss, "initiative-tracker": {
+        ...it,
+        combatants: [...it.combatants, ...fresh],
+        groups: groups.length ? [...(it.groups ?? []), ...groups] : it.groups,
+        // Merging two encounters into one fight has no single reward; keep the first snapshot.
+        encounter: it.encounter ?? encounter,
+      } };
     });
-  }, [setSingletonStates]);
+    revealWidget("initiative-tracker");
+  }, [setSingletonStates, revealWidget]);
 
   const aiContextValue = useMemo(() => ({
     config: {
@@ -888,8 +925,8 @@ function App() {
 
   const gameTimeContextValue = useMemo(() => ({ advanceGameTime }), [advanceGameTime]);
   const itContextValue = useMemo(
-    () => ({ addCombatant, addCombatants, activeSourceIds: activeCombatantSourceIds }),
-    [addCombatant, addCombatants, activeCombatantSourceIds],
+    () => ({ addCombatant, startCombat, combatantCount, activeSourceIds: activeCombatantSourceIds }),
+    [addCombatant, startCombat, combatantCount, activeCombatantSourceIds],
   );
   const partyContextValue = useMemo(() => ({ members: partyMembers }), [partyMembers]);
   const bestiaryContextValue = useMemo(() => ({ creatures: bestiaryCreatures }), [bestiaryCreatures]);
@@ -907,19 +944,6 @@ function App() {
       return [...rest, ...reordered];
     });
   }
-
-  // Bring a singleton widget into view (unhide + raise it, or add it if it is not on the canvas yet).
-  // Shared by every "open X" handler below so opening an entity always surfaces its widget.
-  // Stable (widgetsRef, not `widgets`) so it can be composed into context values - see addWidget.
-  const revealWidget = useCallback((type: string) => {
-    const existing = widgetsRef.current.find((w) => w.type === type);
-    if (existing) {
-      if (existing.hidden) updateWidget(existing.id, { hidden: false });
-      bringToFront(existing.id);
-    } else {
-      addWidget(type);
-    }
-  }, [bringToFront, updateWidget, addWidget]);
 
   const handleOpenNpc = useCallback((filename: string) => {
     setSingletonStates((ss) => ({ ...ss, "npc-library": { selectedFile: filename } }));
