@@ -19,7 +19,7 @@ function creature(
 function pc(
   id: string, name: string, initiative = 0, portraitPath?: string, abilityScores?: AbilityScores,
 ): SharedPartyMember {
-  return { id, name, hp: 20, maxHp: 20, ac: 15, initiative, portraitPath, abilityScores };
+  return { id, name, hp: 20, maxHp: 20, ac: 15, initiative, level: 1, portraitPath, abilityScores };
 }
 function npc(
   filename: string, name: string, hp = 12, ac = 13, abilityScores?: AbilityScores, hpFormula?: string,

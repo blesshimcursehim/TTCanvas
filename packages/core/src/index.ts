@@ -8,7 +8,7 @@ export * from "./types";
 export { VaultContext, useVault } from "./VaultContext";
 export type { VaultContextValue } from "./VaultContext";
 export { PartyContext, useParty } from "./PartyContext";
-export type { PartyContextValue, SharedPartyMember } from "./PartyContext";
+export type { PartyContextValue, SharedPartyMember, PartyMemberPatch } from "./PartyContext";
 export { BestiaryContext, useBestiary } from "./BestiaryContext";
 export type { BestiaryContextValue, BestiaryCreatureRef } from "./BestiaryContext";
 export { NpcContext, useNpcs } from "./NpcContext";

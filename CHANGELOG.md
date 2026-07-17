@@ -29,6 +29,14 @@ All notable changes are documented here.
   named NPC already in the fight (repeated monsters still stack, since those are reinforcements). Either
   way it reveals and raises the Initiative Tracker, so the combatants never land offscreen. There is
   also a separate "Add to current combat" button for when appending is what you actually meant.
+- **End a combat and hand the damage back to the party.** The Initiative Tracker's old "Clear" button
+  is now "End combat", and instead of just wiping the fight it opens a review first. It lists each
+  party member's HP change ("Aria: 24 to 9"), leaves the unchanged ones unticked, and shows any
+  conditions still on them so you can note them down before they're gone. Tick the ones you want and
+  the new HP is written straight back to the Party Tracker, so the damage from the fight sticks. Only
+  party members come back this way, since foes and NPCs live elsewhere. Conditions are shown for your
+  reference but not applied, since party sheets don't track them. Cancel closes the review and leaves
+  the combat exactly as it was.
 
 - **Pick a 12-hour or 24-hour clock** - Preferences, under Appearance, now has a Clock setting with
   System, 24-hour and 12-hour. System follows this app's locale, which is what the title bar has

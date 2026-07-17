@@ -33,7 +33,7 @@ function Wrapper({ initialState, party = [], showToast = () => {} }: {
 }) {
   const [state, setState] = useState(initialState);
   return (
-    <PartyContext.Provider value={{ members: party }}>
+    <PartyContext.Provider value={{ members: party, patchMembers: () => {} }}>
       <ToastContext.Provider value={{ showToast }}>
         <InitiativeTracker state={state} onChange={setState} />
       </ToastContext.Provider>
@@ -269,7 +269,7 @@ describe("From party - DEX-modified initiative", () => {
       showOnPlayer: false,
     };
     const party: SharedPartyMember[] = [{
-      id: "p1", name: "Aria", hp: 20, maxHp: 20, ac: 15, initiative: 0,
+      id: "p1", name: "Aria", hp: 20, maxHp: 20, ac: 15, initiative: 0, level: 1,
       abilityScores: { str: 10, dex: 16, con: 10, int: 10, wis: 10, cha: 10 }, // dex 16 -> +3
     }];
     renderTracker(state, party);

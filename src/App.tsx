@@ -897,6 +897,31 @@ function App() {
     revealWidget("initiative-tracker");
   }, [setSingletonStates, revealWidget]);
 
+  // One-way hand-back into the Party Tracker roster (end-combat HP, confirmed level-ups). The
+  // App-level equivalent of PartyTracker's own patchMember, exposed on PartyContext so the
+  // Initiative Tracker and XP Tracker can write without importing the widget. Reads the effective
+  // state (singletonStates ?? instance, like partyMembers) so it never wipes a roster that still
+  // lives on the widget instance; widgetsRef keeps the callback stable.
+  const patchMembers = useCallback((patches: import("@ttcanvas/core").PartyMemberPatch[]) => {
+    if (patches.length === 0) return;
+    setSingletonStates((ss) => {
+      const base = (ss["party-tracker"] ?? widgetsRef.current.find((w) => w.type === "party-tracker")?.state) as
+        { members?: { id: string; hp: number; maxHp: number; level: number }[]; compact?: boolean } | undefined;
+      if (!base?.members) return ss;
+      const byId = new Map(patches.map((p) => [p.id, p]));
+      const members = base.members.map((m) => {
+        const p = byId.get(m.id);
+        if (!p) return m;
+        return {
+          ...m,
+          ...(p.hp !== undefined ? { hp: Math.max(0, Math.min(p.hp, m.maxHp)) } : {}),
+          ...(p.level !== undefined ? { level: p.level } : {}),
+        };
+      });
+      return { ...ss, "party-tracker": { ...base, members } };
+    });
+  }, [setSingletonStates]);
+
   const aiContextValue = useMemo(() => ({
     config: {
       provider: appConfig.aiProvider,
@@ -928,7 +953,7 @@ function App() {
     () => ({ addCombatant, startCombat, combatantCount, activeSourceIds: activeCombatantSourceIds }),
     [addCombatant, startCombat, combatantCount, activeCombatantSourceIds],
   );
-  const partyContextValue = useMemo(() => ({ members: partyMembers }), [partyMembers]);
+  const partyContextValue = useMemo(() => ({ members: partyMembers, patchMembers }), [partyMembers, patchMembers]);
   const bestiaryContextValue = useMemo(() => ({ creatures: bestiaryCreatures }), [bestiaryCreatures]);
 
   const railWidgets: RailWidget[] = useMemo(

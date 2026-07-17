@@ -26,7 +26,7 @@ const vault = {
   readFileBase64: async () => "BASE64",
 } as unknown as VaultContextValue;
 
-const party: PartyContextValue = { members: [] };
+const party: PartyContextValue = { members: [], patchMembers: () => {} };
 
 const npcCtx: NpcContextValue = {
   npcs: [{ filename: "npcs/vex.json", id: "vex-id", name: "Vex", portrait: "portraits/vex.jpg" }],
