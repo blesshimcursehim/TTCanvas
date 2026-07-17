@@ -11,6 +11,7 @@ import {
 } from "@ttcanvas/core";
 import type { Encounter, EncounterMember, EncounterSource, EncounterBuilderState } from "./types";
 import { buildCombatants, type CombatSources } from "./combat";
+import { parseExpression } from "../dice-roller/dice";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ModeToggle } from "../shared/ModeToggle";
 import styles from "./EncounterBuilder.module.css";
@@ -24,6 +25,8 @@ interface RowView {
   name: string;
   meta: string;
   dexMod: number;
+  /** The source has a parseable hit-dice formula, so "Roll HP" is worth offering. Party has none. */
+  hpFormula: string | null;
 }
 
 type PickTab = "bestiary" | "party" | "npc";
@@ -74,6 +77,11 @@ export function EncounterBuilder({ state, onChange }: Props) {
     npcs: new Map(npcs.map((n) => [n.filename, n])),
   }), [creatures, party, npcs]);
 
+  /** A formula worth offering "Roll HP" for - present and valid notation. Unparseable = not offered. */
+  function rollableFormula(formula: string | undefined): string | null {
+    return formula && parseExpression(formula) ? formula : null;
+  }
+
   /** Resolves a row against its library. null = the source is gone (deleted since it was added). */
   function rowView(member: EncounterMember): RowView | null {
     const { kind, id } = member.source;
@@ -84,6 +92,7 @@ export function EncounterBuilder({ state, onChange }: Props) {
         name: c.name,
         meta: `CR ${c.cr} · ${c.hp} HP · AC ${c.ac}`,
         dexMod: c.abilityScores ? abilityModifier(c.abilityScores.dex) : 0,
+        hpFormula: rollableFormula(c.hitDice),
       };
     }
     if (kind === "party") {
@@ -93,6 +102,7 @@ export function EncounterBuilder({ state, onChange }: Props) {
         name: m.name,
         meta: `${m.hp}/${m.maxHp} HP · AC ${m.ac}`,
         dexMod: m.abilityScores ? abilityModifier(m.abilityScores.dex) : 0,
+        hpFormula: null, // party HP is authoritative, never rolled
       };
     }
     const n = sources.npcs.get(id);
@@ -103,6 +113,7 @@ export function EncounterBuilder({ state, onChange }: Props) {
       name: n.name,
       meta: bits.length ? bits.join(" · ") : "no statblock",
       dexMod: n.abilityScores ? abilityModifier(n.abilityScores.dex) : 0,
+      hpFormula: rollableFormula(n.hpFormula),
     };
   }
 
@@ -391,6 +402,26 @@ export function EncounterBuilder({ state, onChange }: Props) {
                           onChange={(e) => updateMember(m.id, { groupInit: e.target.checked })}
                         />
                         Group
+                      </label>
+                    )}
+                    {view?.hpFormula && (
+                      <label className={styles.groupCheck} title={`Roll HP from ${view.hpFormula} instead of the static average`}>
+                        <input
+                          type="checkbox"
+                          checked={m.rollHp ?? false}
+                          onChange={(e) => updateMember(m.id, { rollHp: e.target.checked || undefined })}
+                        />
+                        Roll HP
+                      </label>
+                    )}
+                    {view?.hpFormula && m.rollHp && m.count > 1 && (
+                      <label className={styles.groupCheck} title="Roll HP once for the whole stack, instead of one roll per copy">
+                        <input
+                          type="checkbox"
+                          checked={m.sharedHp ?? false}
+                          onChange={(e) => updateMember(m.id, { sharedHp: e.target.checked || undefined })}
+                        />
+                        shared
                       </label>
                     )}
                     <button className={styles.removeBtn} onClick={() => removeMember(m.id)} title="Remove">×</button>

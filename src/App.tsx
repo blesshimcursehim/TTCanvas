@@ -744,9 +744,9 @@ function App() {
     const bestiaryWidget = widgets.find((w) => w.type === "bestiary");
     if (!bestiaryWidget) return [];
     const s = (singletonStates["bestiary"] ?? bestiaryWidget.state) as {
-      entries?: { id: string; name: string; cr: string; hp: number; ac: number; portrait?: string; abilityScores?: import("@ttcanvas/core").AbilityScores }[];
+      entries?: { id: string; name: string; cr: string; hp: number; ac: number; portrait?: string; hitDice?: string; abilityScores?: import("@ttcanvas/core").AbilityScores }[];
     };
-    return (s?.entries ?? []).map((e) => ({ id: e.id, name: e.name, cr: e.cr, hp: e.hp, ac: e.ac, portrait: e.portrait, abilityScores: e.abilityScores }));
+    return (s?.entries ?? []).map((e) => ({ id: e.id, name: e.name, cr: e.cr, hp: e.hp, ac: e.ac, portrait: e.portrait, hitDice: e.hitDice, abilityScores: e.abilityScores }));
   }, [widgets, singletonStates]);
 
   // Name lists for the wikilink resolver's state-backed targets. Read straight from singleton state

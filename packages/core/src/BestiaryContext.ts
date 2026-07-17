@@ -19,6 +19,8 @@ export interface BestiaryCreatureRef {
   hp: number;
   ac: number;
   portrait?: string;
+  /** Hit-dice formula (e.g. "10d8+20") - lets the Encounter Builder roll HP per instance. */
+  hitDice?: string;
   /** Rich-statblock ability scores, if filled in - lets initiative rolls add a DEX modifier. */
   abilityScores?: AbilityScores;
 }

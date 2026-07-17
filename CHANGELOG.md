@@ -16,6 +16,12 @@ All notable changes are documented here.
 - **Leave a row out without deleting it.** Each row has a tickbox, so the ogres asleep in the next
   room can stay in the encounter as prep and stay out of the fight. The tick is saved with the
   encounter rather than reset each session, so it survives a reload.
+- **Roll a creature's HP instead of using the average.** A Bestiary creature with a hit-dice formula
+  (or an NPC with one) gets a "Roll HP" tick on its encounter row, so a stack of four goblins lands in
+  the Initiative Tracker with four different totals rather than four identical ones. Each copy rolls
+  its own by default, or tick "shared" to roll once for the whole stack. It reuses the Dice Roller's
+  own evaluator, and falls back to the static average if a formula is missing or not valid dice
+  notation. Party HP is left alone, since that is real and already tracked.
 
 - **Pick a 12-hour or 24-hour clock** - Preferences, under Appearance, now has a Clock setting with
   System, 24-hour and 12-hour. System follows this app's locale, which is what the title bar has

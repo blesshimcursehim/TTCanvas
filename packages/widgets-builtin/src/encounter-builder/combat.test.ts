@@ -8,13 +8,13 @@ import { describe, it, expect } from "vitest";
 import type {
   AbilityScores, BestiaryCreatureRef, SharedPartyMember, NpcRef, CombatantKind,
 } from "@ttcanvas/core";
-import { rollInitiative, buildCombatants, type CombatSources } from "./combat";
+import { rollInitiative, rollHp, buildCombatants, type CombatSources } from "./combat";
 import type { Encounter, EncounterMember } from "./types";
 
 function creature(
-  id: string, name: string, hp = 10, ac = 12, portrait?: string, abilityScores?: AbilityScores,
+  id: string, name: string, hp = 10, ac = 12, portrait?: string, abilityScores?: AbilityScores, hitDice?: string,
 ): BestiaryCreatureRef {
-  return { id, name, cr: "1", hp, ac, portrait, abilityScores };
+  return { id, name, cr: "1", hp, ac, portrait, abilityScores, hitDice };
 }
 function pc(
   id: string, name: string, initiative = 0, portraitPath?: string, abilityScores?: AbilityScores,
@@ -22,9 +22,9 @@ function pc(
   return { id, name, hp: 20, maxHp: 20, ac: 15, initiative, portraitPath, abilityScores };
 }
 function npc(
-  filename: string, name: string, hp = 12, ac = 13, abilityScores?: AbilityScores,
+  filename: string, name: string, hp = 12, ac = 13, abilityScores?: AbilityScores, hpFormula?: string,
 ): NpcRef {
-  return { filename, id: `id-${filename}`, name, hp, ac, abilityScores };
+  return { filename, id: `id-${filename}`, name, hp, ac, abilityScores, hpFormula };
 }
 
 function bestiaryMember(creatureId: string, name: string, count = 1, groupInit = false): EncounterMember {
@@ -57,6 +57,12 @@ function dex(score: number): AbilityScores {
 
 /** A deterministic rng that yields exactly `value` in [0,1). */
 const rngConst = (value: number) => () => value;
+
+/** A deterministic rng that walks a fixed sequence, repeating the last value if it runs out. */
+function rngSeq(...values: number[]): () => number {
+  let i = 0;
+  return () => values[Math.min(i++, values.length - 1)];
+}
 
 describe("rollInitiative", () => {
   it("maps rng 0 to 1 (low end of a d20)", () => {
@@ -306,5 +312,95 @@ describe("buildCombatants", () => {
     const e = encounter([bestiaryMember("g", "Goblin")]);
     const { combatants } = buildCombatants(e, sources({ bestiary: [creature("g", "Goblin")] }), opts);
     expect(combatants).toHaveLength(1);
+  });
+
+  // ── Rolled HP ─────────────────────────────────────────────
+
+  it("rolls HP from a creature's hit-dice formula when rollHp is set", () => {
+    // 2d8+2 with every d8 maxed (rng 0.999) -> 8 + 8 + 2 = 18, overriding the static 10.
+    const e = encounter([{ ...bestiaryMember("g", "Goblin"), rollHp: true }]);
+    const { combatants } = buildCombatants(
+      e, sources({ bestiary: [creature("g", "Goblin", 10, 12, undefined, undefined, "2d8+2")] }), opts, rngConst(0.999),
+    );
+    expect(combatants[0]).toMatchObject({ hp: 18, maxHp: 18 });
+  });
+
+  it("keeps the static HP when rollHp is off, even with a formula present", () => {
+    const e = encounter([bestiaryMember("g", "Goblin")]);
+    const { combatants } = buildCombatants(
+      e, sources({ bestiary: [creature("g", "Goblin", 10, 12, undefined, undefined, "2d8+2")] }), opts, rngConst(0.999),
+    );
+    expect(combatants[0].hp).toBe(10);
+  });
+
+  it("falls back to static HP when rollHp is set but the formula is absent", () => {
+    const e = encounter([{ ...bestiaryMember("g", "Goblin"), rollHp: true }]);
+    const { combatants } = buildCombatants(e, sources({ bestiary: [creature("g", "Goblin", 10)] }), opts, rngConst(0.999));
+    expect(combatants[0].hp).toBe(10);
+  });
+
+  it("falls back to static HP when the formula is unparseable", () => {
+    const e = encounter([{ ...bestiaryMember("g", "Goblin"), rollHp: true }]);
+    const { combatants } = buildCombatants(
+      e, sources({ bestiary: [creature("g", "Goblin", 10, 12, undefined, undefined, "not dice")] }), opts, rngConst(0.999),
+    );
+    expect(combatants[0].hp).toBe(10);
+  });
+
+  it("rolls HP per copy by default, so a stack varies", () => {
+    // 1d10 rolled three times: rng 0 -> 1, 0.999 -> 10, 0.5 -> 6.
+    const e = encounter([{ ...bestiaryMember("g", "Goblin", 3), rollHp: true }]);
+    const { combatants } = buildCombatants(
+      e, sources({ bestiary: [creature("g", "Goblin", 5, 12, undefined, undefined, "1d10")] }),
+      opts, rngSeq(0, 0.999, 0.5),
+    );
+    expect(combatants.map((c) => c.hp)).toEqual([1, 10, 6]);
+  });
+
+  it("rolls HP once for the whole stack when sharedHp is set", () => {
+    // The single shared roll consumes rng first; per-copy rolls never happen.
+    const e = encounter([{ ...bestiaryMember("g", "Goblin", 3), rollHp: true, sharedHp: true }]);
+    const { combatants } = buildCombatants(
+      e, sources({ bestiary: [creature("g", "Goblin", 5, 12, undefined, undefined, "1d10")] }),
+      opts, rngSeq(0.999, 0, 0, 0),
+    );
+    expect(combatants.map((c) => c.hp)).toEqual([10, 10, 10]);
+  });
+
+  it("keeps group initiative and shared HP independent (shared init, per-copy HP)", () => {
+    // groupInit shares one initiative; without sharedHp, each copy still rolls its own HP.
+    // rng order: group init (0.999 -> 20 +0), then per copy HP 1d6: 0 -> 1, 0.5 -> 4.
+    const e = encounter([{ ...bestiaryMember("g", "Goblin", 2, true), rollHp: true }]);
+    const { combatants, groups } = buildCombatants(
+      e, sources({ bestiary: [creature("g", "Goblin", 3, 12, undefined, undefined, "1d6")] }),
+      { autoRoll: true }, rngSeq(0.999, 0, 0.5),
+    );
+    expect(groups[0].initiative).toBe(20);
+    expect(combatants.every((c) => c.initiative === 20)).toBe(true);
+    expect(combatants.map((c) => c.hp)).toEqual([1, 4]);
+  });
+
+  it("rolls HP from an NPC's hpFormula too", () => {
+    const e = encounter([{ ...npcMember("npcs/vex.json", "Vex"), rollHp: true }]);
+    const { combatants } = buildCombatants(
+      e, sources({ npcs: [npc("npcs/vex.json", "Vex", 12, 13, undefined, "3d6")] }), opts, rngConst(0),
+    );
+    expect(combatants[0].hp).toBe(3); // 1+1+1
+  });
+});
+
+describe("rollHp", () => {
+  it("rolls the formula, never using the static value", () => {
+    expect(rollHp("2d6", 99, rngConst(0.999))).toBe(12);
+  });
+  it("falls back to the static value when the formula is missing", () => {
+    expect(rollHp(undefined, 42, rngConst(0.999))).toBe(42);
+  });
+  it("falls back to the static value when the formula is unparseable", () => {
+    expect(rollHp("garbage", 42, rngConst(0.999))).toBe(42);
+  });
+  it("never returns below 1, even if a formula could total zero or less", () => {
+    // 1d4-10 with a min roll totals -9; clamped to 1 so a fresh combatant is not born dead.
+    expect(rollHp("1d4-10", 8, rngConst(0))).toBe(1);
   });
 });

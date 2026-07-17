@@ -12,11 +12,25 @@ import { abilityModifier } from "@ttcanvas/core";
 import type {
   Combatant, CombatantKind, BestiaryCreatureRef, InitiativeGroup, SharedPartyMember, NpcRef,
 } from "@ttcanvas/core";
+import { parseExpression, rollExpression } from "../dice-roller/dice";
 import type { Encounter, EncounterMember } from "./types";
 
 /** A d20 initiative roll. `rng` returns a float in [0,1) - injectable for tests. */
 export function rollInitiative(rng: () => number = Math.random): number {
   return Math.floor(rng() * 20) + 1;
+}
+
+/**
+ * Rolls HP from a hit-dice formula (Bestiary `hitDice` / NPC `hpFormula`), reusing the Dice Roller's
+ * evaluator rather than a second parser. Falls back to the source's static average HP when the
+ * formula is missing or unparseable (a creature can be edited after the row was ticked), and never
+ * returns below 1 - a fresh combatant at 0 HP would be dead on arrival.
+ */
+export function rollHp(formula: string | undefined, staticHp: number, rng: () => number = Math.random): number {
+  if (!formula) return staticHp;
+  const expr = parseExpression(formula);
+  if (!expr) return staticHp;
+  return Math.max(1, rollExpression(expr, rng).total);
 }
 
 /** The live data an encounter's rows resolve against, one map per source kind. */
@@ -54,6 +68,8 @@ interface ResolvedSource {
   identity?: string;
   /** Party only: a stored initiative is preferred over a roll when non-zero. */
   storedInitiative?: number;
+  /** Hit-dice formula for optional rolled HP; undefined when the source carries none. */
+  hpFormula?: string;
 }
 
 function resolveMember(member: EncounterMember, sources: CombatSources): ResolvedSource | null {
@@ -64,6 +80,7 @@ function resolveMember(member: EncounterMember, sources: CombatSources): Resolve
     return {
       name: c.name, hp: c.hp, ac: c.ac, dex: c.abilityScores?.dex ?? 10, kind: "foe",
       portraitPath: c.portrait, // data URL; the map/player token loaders accept it inline
+      hpFormula: c.hitDice,
     };
   }
   if (kind === "party") {
@@ -87,6 +104,7 @@ function resolveMember(member: EncounterMember, sources: CombatSources): Resolve
     kind: member.kind ?? "foe",
     portraitPath: n.portrait,
     identity: n.filename,
+    hpFormula: n.hpFormula,
   };
 }
 
@@ -100,8 +118,12 @@ function resolveMember(member: EncounterMember, sources: CombatSources): Resolve
  * variant. A roll happens only when `autoRoll` (else initiative 0) and adds the source's DEX
  * modifier; a party member's stored non-zero initiative wins over a roll.
  *
- * rng consumption order is pinned so tests can script it: per member, the shared group roll first,
- * then per copy in order.
+ * Optional rolled HP works the same way: `rollHp` rolls from the source's hit-dice formula instead
+ * of using its static average, and `sharedHp` rolls once for the whole stack (mirroring `groupInit`)
+ * rather than once per copy.
+ *
+ * rng consumption order is pinned so tests can script it: per member, the shared rolls first (group
+ * initiative, then shared HP), then per copy (initiative, then that copy's HP).
  */
 export function buildCombatants(
   encounter: Encounter,
@@ -136,6 +158,13 @@ export function buildCombatants(
       groups.push({ id: groupId, label: resolved.name, initiative: groupInitiative, combined: true });
     }
 
+    // rollHp only applies with a formula to roll from; otherwise every copy keeps the static average.
+    const rollingHp = Boolean(member.rollHp) && resolved.hpFormula !== undefined;
+    // sharedHp rolls once for the whole stack (like groupInit), consumed here before the per-copy loop.
+    const sharedHp = rollingHp && Boolean(member.sharedHp)
+      ? rollHp(resolved.hpFormula, resolved.hp, rng)
+      : undefined;
+
     // A combatant gets a sourceId only when it is the sole instance of an *individual* source.
     // Bestiary entries are templates - one entry legitimately spawns N interchangeable goblins, and
     // two separate builds can each spawn a lone Bugbear from the same entry - so they never get one;
@@ -149,11 +178,14 @@ export function buildCombatants(
       const initiative = asGroup
         ? (groupInitiative as number)
         : (resolved.storedInitiative || rollFor());
+      // Shared roll if set, else this copy's own roll, else the static average. A fresh combatant
+      // is at full health, so hp and maxHp take the same value.
+      const hp = sharedHp ?? (rollingHp ? rollHp(resolved.hpFormula, resolved.hp, rng) : resolved.hp);
       combatants.push({
         name: count > 1 ? `${resolved.name} ${i + 1}` : resolved.name,
         initiative,
-        hp: resolved.hp,
-        maxHp: resolved.hp,
+        hp,
+        maxHp: hp,
         ac: resolved.ac,
         kind: resolved.kind,
         sourceId,
