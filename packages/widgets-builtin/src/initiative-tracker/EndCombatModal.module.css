@@ -57,6 +57,19 @@
 .unlinked { font-size: 12px; color: var(--ink-3); }
 .empty { font-size: 12.5px; color: var(--ink-4); }
 
+.xpRow { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.xpInput {
+  width: 90px; padding: 6px 8px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 6px; color: var(--ink); font-family: var(--font-mono); font-size: 13px;
+}
+.xpInput:focus { border-color: var(--accent); outline: none; }
+.xpPreview { font-size: 12px; color: var(--ink-3); }
+.xpRecipients { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 4px 0 2px; }
+.xpChip {
+  display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-2); cursor: pointer;
+}
+.xpChip input { accent-color: var(--accent); cursor: pointer; }
+
 .footer {
   display: flex; justify-content: flex-end; gap: 8px;
   padding: 12px 18px; border-top: 1px solid var(--line-soft); flex-shrink: 0;

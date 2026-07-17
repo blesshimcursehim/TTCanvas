@@ -35,8 +35,8 @@ import { VaultProvider } from "./VaultProvider";
 import { NpcProvider } from "./NpcProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
-import { advanceTimeSeconds, formatDateOverlay, mimeForImageExt, buildTurnOrder } from "@ttcanvas/widgets-builtin";
+import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { advanceTimeSeconds, formatDateOverlay, mimeForImageExt, buildTurnOrder, applyEncounterAward, type XpTrackerState } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
 
@@ -55,6 +55,8 @@ const DEFAULT_TIME_STATE: TimeTrackerState = {
 const DEFAULT_IT_STATE: InitiativeTrackerState = {
   combatants: [], currentId: null, round: 1, showOnPlayer: false, autoAdvanceTime: false, roundSeconds: 6,
 };
+
+const DEFAULT_XP_STATE: XpTrackerState = { mode: "party", partyXp: 0, perPc: {} };
 
 /**
  * Serializes async writes to one file so callers never race each other, and
@@ -922,6 +924,22 @@ function App() {
     });
   }, [setSingletonStates]);
 
+  // Route an encounter reward into the XP Tracker (from the end-combat review or the Encounter
+  // Builder), then reveal it. id/at are generated outside the updater because React 19 StrictMode
+  // double-invokes it; applyEncounterAward is pure, so a re-run with the same id/at is idempotent.
+  const xpState = singletonStates["xp-tracker"] ?? widgets.find((w) => w.type === "xp-tracker")?.state;
+  const xpMode = (xpState as XpTrackerState | undefined)?.mode ?? "party";
+  const awardEncounterXp = useCallback((total: number, recipientIds: string[], label: string) => {
+    if (total <= 0 || recipientIds.length === 0) return;
+    const id = crypto.randomUUID();
+    const at = Date.now();
+    setSingletonStates((ss) => {
+      const xp = (ss["xp-tracker"] ?? DEFAULT_XP_STATE) as XpTrackerState;
+      return { ...ss, "xp-tracker": applyEncounterAward(xp, { total, recipientIds, label, id, at }) };
+    });
+    revealWidget("xp-tracker");
+  }, [setSingletonStates, revealWidget]);
+
   const aiContextValue = useMemo(() => ({
     config: {
       provider: appConfig.aiProvider,
@@ -954,6 +972,7 @@ function App() {
     [addCombatant, startCombat, combatantCount, activeCombatantSourceIds],
   );
   const partyContextValue = useMemo(() => ({ members: partyMembers, patchMembers }), [partyMembers, patchMembers]);
+  const xpContextValue = useMemo(() => ({ mode: xpMode, awardEncounterXp }), [xpMode, awardEncounterXp]);
   const bestiaryContextValue = useMemo(() => ({ creatures: bestiaryCreatures }), [bestiaryCreatures]);
 
   const railWidgets: RailWidget[] = useMemo(
@@ -1119,6 +1138,7 @@ function App() {
       <ConditionsContext.Provider value={conditionsContextValue}>
       <ITContext.Provider value={itContextValue}>
       <PartyContext.Provider value={partyContextValue}>
+      <XpContext.Provider value={xpContextValue}>
       <BestiaryContext.Provider value={bestiaryContextValue}>
         {/* Resolves cross-entity [[links]] from entity bodies; inside the provider so it can read the
             vault. Session Notes' own links stay note-only (separate channel), keeping Obsidian intact. */}
@@ -1281,6 +1301,7 @@ function App() {
           )}
         </div>
       </BestiaryContext.Provider>
+      </XpContext.Provider>
       </PartyContext.Provider>
       </ITContext.Provider>
       </ConditionsContext.Provider>

@@ -72,6 +72,7 @@ export type { RuleCardsState, RuleCard } from "./rule-cards/types";
 
 export { XpTracker } from "./xp-tracker/XpTracker";
 export type { XpTrackerState } from "./xp-tracker/types";
+export { applyEncounterAward } from "./xp-tracker/xpMath";
 
 export { RollTables } from "./roll-tables/RollTables";
 export type { RollTablesState, RollTable, RollTableEntry, RollHistoryItem } from "./roll-tables/types";

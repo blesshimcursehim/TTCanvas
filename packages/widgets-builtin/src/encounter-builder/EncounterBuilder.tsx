@@ -6,7 +6,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  useBestiary, useParty, useNpcs, useIT, abilityModifier,
+  useBestiary, useParty, useNpcs, useIT, useXp, abilityModifier,
   type CombatantKind,
 } from "@ttcanvas/core";
 import type { Encounter, EncounterMember, EncounterSource, EncounterBuilderState } from "./types";
@@ -56,6 +56,7 @@ export function EncounterBuilder({ state, onChange }: Props) {
   const { members: party } = useParty();
   const { npcs } = useNpcs();
   const { startCombat, combatantCount } = useIT();
+  const { awardEncounterXp } = useXp();
   const { encounters, selectedId } = state;
 
   const [adding, setAdding] = useState(false);
@@ -355,6 +356,32 @@ export function EncounterBuilder({ state, onChange }: Props) {
               placeholder="Setup notes (optional) - terrain, tactics, triggers…"
               onChange={(e) => updateEncounter(selected.id, { notes: e.target.value || undefined })}
             />
+
+            {/* Reward XP - GM-entered, offered by the end-combat review. Never derived from CR. The
+                inline "Award" is the general path for a fight that never went through the tracker;
+                it splits the reward across the whole party. */}
+            <div className={styles.rewardRow}>
+              <span className={styles.rewardLabel}>Reward XP</span>
+              <input
+                className={styles.rewardInput}
+                type="number"
+                min={0}
+                placeholder="none"
+                value={selected.rewardXp ?? ""}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  updateEncounter(selected.id, { rewardXp: Number.isFinite(n) && n > 0 ? n : undefined });
+                }}
+              />
+              <button
+                className={styles.rewardBtn}
+                onClick={() => selected.rewardXp && awardEncounterXp(selected.rewardXp, party.map((m) => m.id), `Encounter: ${selected.name}`)}
+                disabled={!selected.rewardXp || party.length === 0}
+                title={party.length === 0 ? "No party members to award" : "Split this reward across the whole party"}
+              >
+                Award to party
+              </button>
+            </div>
 
             {/* Member list */}
             <div className={styles.memberList}>

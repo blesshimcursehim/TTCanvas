@@ -37,6 +37,15 @@ All notable changes are documented here.
   party members come back this way, since foes and NPCs live elsewhere. Conditions are shown for your
   reference but not applied, since party sheets don't track them. Cancel closes the review and leaves
   the combat exactly as it was.
+- **Give an encounter an XP reward and hand it to the XP Tracker.** An encounter now has a Reward XP
+  field. Start that encounter and, when you end the combat, the review offers to split the reward
+  across the party (you pick who was in on it), routing it through the XP Tracker exactly as a manual
+  award would, undo history and all. The amount is always yours to type, never guessed from a
+  creature's challenge rating. There's also an "Award to party" button on the encounter itself for a
+  fight that never went through the tracker. When an award pushes a character past a level threshold,
+  the XP Tracker shows a banner offering to bump their sheet level on the Party Tracker to match. This
+  replaces the old level-up flash, which vanished after a few seconds and couldn't actually change the
+  sheet.
 
 - **Pick a 12-hour or 24-hour clock** - Preferences, under Appearance, now has a Clock setting with
   System, 24-hour and 12-hour. System follows this app's locale, which is what the title bar has

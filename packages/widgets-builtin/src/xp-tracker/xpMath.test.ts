@@ -5,7 +5,8 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { describe, it, expect } from "vitest";
-import { levelForXp, splitXp, levelProgress, DEFAULT_XP_THRESHOLDS } from "./xpMath";
+import { levelForXp, splitXp, levelProgress, applyEncounterAward, XP_HISTORY_CAP, DEFAULT_XP_THRESHOLDS } from "./xpMath";
+import type { XpTrackerState } from "./types";
 
 describe("levelForXp", () => {
   it("returns level 1 for 0 xp", () => {
@@ -84,5 +85,56 @@ describe("levelProgress", () => {
 
   it("returns null level for an empty threshold table", () => {
     expect(levelProgress(5000, []).level).toBeNull();
+  });
+});
+
+describe("applyEncounterAward", () => {
+  const base = (over: Partial<XpTrackerState> = {}): XpTrackerState => ({
+    mode: "perPc", partyXp: 0, perPc: {}, ...over,
+  });
+  const input = (total: number, recipientIds: string[]) => ({
+    total, recipientIds, label: "Goblins", id: "a1", at: 1000,
+  });
+
+  it("splits the total across recipients in perPc mode, rounding down", () => {
+    const next = applyEncounterAward(base({ perPc: { p1: 100, p2: 0 } }), input(1000, ["p1", "p2", "p3"]));
+    // 1000 / 3 -> 333 each
+    expect(next.perPc).toEqual({ p1: 433, p2: 333, p3: 333 });
+  });
+
+  it("advances the shared pool by the per-head share in party mode", () => {
+    const next = applyEncounterAward(base({ mode: "party", partyXp: 500 }), input(1200, ["p1", "p2", "p3", "p4"]));
+    // 1200 / 4 -> 300 added to the pool
+    expect(next.partyXp).toBe(800);
+    expect(next.perPc).toEqual({});
+  });
+
+  it("pushes an undo snapshot of the prior totals", () => {
+    const next = applyEncounterAward(base({ partyXp: 10, perPc: { p1: 5 } }), input(90, ["p1"]));
+    expect(next.history).toEqual([{ id: "a1", label: "Goblins", at: 1000, prevPartyXp: 10, prevPerPc: { p1: 5 } }]);
+  });
+
+  it("caps history at XP_HISTORY_CAP", () => {
+    const full = Array.from({ length: XP_HISTORY_CAP }, (_, i) => ({ id: `h${i}`, label: "x", prevPartyXp: 0, prevPerPc: {} }));
+    const next = applyEncounterAward(base({ perPc: { p1: 0 }, history: full }), input(50, ["p1"]));
+    expect(next.history).toHaveLength(XP_HISTORY_CAP);
+    expect(next.history?.[0].id).toBe("a1");
+  });
+
+  it("is a no-op with no recipients", () => {
+    const s = base({ perPc: { p1: 10 } });
+    expect(applyEncounterAward(s, input(500, []))).toBe(s);
+  });
+
+  it("is a no-op when the share rounds to zero", () => {
+    // 2 XP across 3 PCs -> 0 each, nothing to record.
+    const s = base({ perPc: { p1: 10 } });
+    expect(applyEncounterAward(s, input(2, ["p1", "p2", "p3"]))).toBe(s);
+  });
+
+  it("never drops a recipient below zero on a negative correction", () => {
+    const next = applyEncounterAward(base({ perPc: { p1: 100 } }), input(-600, ["p1", "p2"]));
+    // -600 / 2 -> -300; p1 100-300 clamps to 0, p2 0-300 clamps to 0
+    expect(next.perPc).toEqual({ p1: 0, p2: 0 });
   });
 });

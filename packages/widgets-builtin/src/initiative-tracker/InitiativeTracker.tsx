@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useEffect, useState } from "react";
-import { useParty, useGameTime, useToast, pushInitiativeOverlay, abilityModifier } from "@ttcanvas/core";
+import { useParty, useGameTime, useXp, useToast, pushInitiativeOverlay, abilityModifier } from "@ttcanvas/core";
 import { portraitColor } from "../party-tracker/CharacterCard";
 import type { Combatant, CombatantKind, InitiativeGroup, InitiativeTrackerState } from "./types";
 import { CombatantRow } from "./CombatantRow";
@@ -35,6 +35,7 @@ const EMPTY_FORM = { name: "", initiative: "10", hp: "10", ac: "10", kind: "foe"
 export function InitiativeTracker({ state, onChange }: Props) {
   const { members: partyMembers, patchMembers } = useParty();
   const { advanceGameTime } = useGameTime();
+  const { mode: xpMode, awardEncounterXp } = useXp();
   const { showToast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -224,9 +225,11 @@ export function InitiativeTracker({ state, onChange }: Props) {
     patch({ combatants: [], groups: [], currentId: null, round: 1, roundAdvances: [], encounter: undefined });
   };
 
-  // End-combat review committed: hand the ticked HP changes back to the party, then clear.
-  const endCombat = (patches: Parameters<typeof patchMembers>[0]) => {
-    patchMembers(patches);
+  // End-combat review committed: hand the ticked HP changes back to the party, route any XP reward,
+  // then clear (the order the plan specifies - hand-back and award before the wipe).
+  const endCombat = (result: import("./EndCombatModal").EndCombatResult) => {
+    patchMembers(result.hpPatches);
+    if (result.xpAward) awardEncounterXp(result.xpAward.total, result.xpAward.recipientIds, result.xpAward.label);
     clearCombat();
     setEnding(false);
   };
@@ -567,6 +570,8 @@ export function InitiativeTracker({ state, onChange }: Props) {
           combatants={state.combatants}
           party={partyMembers}
           round={state.round}
+          encounter={state.encounter}
+          xpMode={xpMode}
           onEnd={endCombat}
           onCancel={() => setEnding(false)}
         />

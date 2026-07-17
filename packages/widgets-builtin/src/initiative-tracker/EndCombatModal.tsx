@@ -6,16 +6,33 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import type { Combatant, SharedPartyMember, PartyMemberPatch } from "@ttcanvas/core";
+import type { Combatant, SharedPartyMember, PartyMemberPatch, CombatEncounterRef } from "@ttcanvas/core";
 import { buildEndCombatReview, type UnlinkedCombatant } from "./endCombat";
+import { splitXp } from "../xp-tracker/xpMath";
 import styles from "./EndCombatModal.module.css";
+
+/** An XP award to route after combat, alongside the HP hand-back. */
+export interface EndCombatXpAward {
+  total: number;
+  recipientIds: string[];
+  label: string;
+}
+
+export interface EndCombatResult {
+  hpPatches: PartyMemberPatch[];
+  xpAward?: EndCombatXpAward;
+}
 
 interface Props {
   combatants: Combatant[];
   party: SharedPartyMember[];
   round: number;
-  /** Applies the ticked HP hand-backs, then ends combat. Called with the patches to write. */
-  onEnd: (patches: PartyMemberPatch[]) => void;
+  /** The encounter this combat came from, if any - its rewardXp drives the XP section. */
+  encounter?: CombatEncounterRef;
+  /** How the XP Tracker splits awards, for an honest preview ("each" vs "to the pool"). */
+  xpMode: "party" | "perPc";
+  /** Applies the ticked HP hand-backs and the XP award, then ends combat. */
+  onEnd: (result: EndCombatResult) => void;
   onCancel: () => void;
 }
 
@@ -36,11 +53,19 @@ function summariseUnlinked(unlinked: UnlinkedCombatant[]): string {
     .join(", ");
 }
 
-export function EndCombatModal({ combatants, party, round, onEnd, onCancel }: Props) {
+export function EndCombatModal({ combatants, party, round, encounter, xpMode, onEnd, onCancel }: Props) {
   const review = buildEndCombatReview(combatants, party);
   // Default to applying every clear-cut change; leave unchanged and ambiguous rows for the GM to opt in.
   const [applyIds, setApplyIds] = useState<Set<string>>(
     () => new Set(review.party.filter((d) => d.changed && !d.ambiguous).map((d) => d.memberId)),
+  );
+
+  const hasReward = encounter?.rewardXp !== undefined && encounter.rewardXp > 0;
+  const [xpAmount, setXpAmount] = useState(() => (hasReward ? String(encounter?.rewardXp) : ""));
+  // Default XP recipients to the party members who were actually in the fight; a sitting-out PC can
+  // still be ticked (party is the full roster), or a participant unticked.
+  const [xpRecipients, setXpRecipients] = useState<Set<string>>(
+    () => new Set(review.party.map((d) => d.memberId)),
   );
 
   const toggle = (memberId: string) => {
@@ -52,11 +77,27 @@ export function EndCombatModal({ combatants, party, round, onEnd, onCancel }: Pr
     });
   };
 
+  const toggleXp = (memberId: string) => {
+    setXpRecipients((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) next.delete(memberId);
+      else next.add(memberId);
+      return next;
+    });
+  };
+
+  const xpTotal = parseInt(xpAmount, 10);
+  const xpValid = hasReward && Number.isFinite(xpTotal) && xpTotal > 0 && xpRecipients.size > 0;
+  const xpShare = xpValid ? splitXp(xpTotal, xpRecipients.size) : 0;
+
   const handleEnd = () => {
-    const patches: PartyMemberPatch[] = review.party
+    const hpPatches: PartyMemberPatch[] = review.party
       .filter((d) => applyIds.has(d.memberId))
       .map((d) => ({ id: d.memberId, hp: d.after }));
-    onEnd(patches);
+    const xpAward: EndCombatXpAward | undefined = xpValid
+      ? { total: xpTotal, recipientIds: [...xpRecipients], label: `Encounter: ${encounter?.name ?? "combat"}` }
+      : undefined;
+    onEnd({ hpPatches, xpAward });
   };
 
   const unlinkedSummary = summariseUnlinked(review.unlinked);
@@ -101,6 +142,39 @@ export function EndCombatModal({ combatants, party, round, onEnd, onCancel }: Pr
             </section>
           ) : (
             <div className={styles.empty}>No party members in this combat to hand back.</div>
+          )}
+
+          {hasReward && (
+            <section className={styles.section}>
+              <div className={styles.sectionTitle}>XP reward</div>
+              <div className={styles.xpRow}>
+                <input
+                  className={styles.xpInput}
+                  type="number"
+                  min={0}
+                  value={xpAmount}
+                  onChange={(e) => setXpAmount(e.target.value)}
+                  aria-label="XP to award"
+                />
+                <span className={styles.xpPreview}>
+                  {xpValid
+                    ? `${xpShare.toLocaleString()} XP ${xpMode === "party" ? "to the pool" : "each"} across ${xpRecipients.size}`
+                    : "Tick at least one PC"}
+                </span>
+              </div>
+              <div className={styles.xpRecipients}>
+                {party.map((m) => (
+                  <label key={m.id} className={styles.xpChip}>
+                    <input
+                      type="checkbox"
+                      checked={xpRecipients.has(m.id)}
+                      onChange={() => toggleXp(m.id)}
+                    />
+                    {m.name}
+                  </label>
+                ))}
+              </div>
+            </section>
           )}
 
           {unlinkedSummary && (
