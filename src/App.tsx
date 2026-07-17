@@ -621,11 +621,16 @@ function App() {
 
   const handleClearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
+  // Reads widgetsRef rather than `widgets` so the callback is stable: it is composed into
+  // revealWidget and from there into the ITContext value, which would otherwise change identity
+  // on every widget drag and re-render every useIT() consumer. The ref is also strictly fresher
+  // than a closed-over `widgets` (latest committed value, not this render's snapshot), which is
+  // why removeWidget already reads it.
   const addWidget = useCallback((type: string) => {
     const def = getWidget(type);
     if (!def) return;
     if (def.singleton) {
-      const existing = widgets.find((w) => w.type === type);
+      const existing = widgetsRef.current.find((w) => w.type === type);
       if (existing) {
         if (existing.hidden) updateWidget(existing.id, { hidden: false });
         bringToFront(existing.id);
@@ -644,7 +649,7 @@ function App() {
         state: resolveDefaultState(def),
       },
     ]);
-  }, [widgets, bringToFront, updateWidget]);
+  }, [bringToFront, updateWidget]);
 
   const switchLayout = useCallback((name: string) => {
     setLayouts((ls) => ({ ...ls, [activeLayout]: { widgets, backgroundImage: ls[activeLayout]?.backgroundImage } }));
@@ -904,15 +909,16 @@ function App() {
 
   // Bring a singleton widget into view (unhide + raise it, or add it if it is not on the canvas yet).
   // Shared by every "open X" handler below so opening an entity always surfaces its widget.
+  // Stable (widgetsRef, not `widgets`) so it can be composed into context values - see addWidget.
   const revealWidget = useCallback((type: string) => {
-    const existing = widgets.find((w) => w.type === type);
+    const existing = widgetsRef.current.find((w) => w.type === type);
     if (existing) {
       if (existing.hidden) updateWidget(existing.id, { hidden: false });
       bringToFront(existing.id);
     } else {
       addWidget(type);
     }
-  }, [widgets, bringToFront, updateWidget, addWidget]);
+  }, [bringToFront, updateWidget, addWidget]);
 
   const handleOpenNpc = useCallback((filename: string) => {
     setSingletonStates((ss) => ({ ...ss, "npc-library": { selectedFile: filename } }));
