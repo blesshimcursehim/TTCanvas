@@ -293,7 +293,7 @@ registerWidget({
 registerWidget({
   type: "time-tracker",
   title: "Time Tracker",
-  help: "# Time Tracker\n\nAdvance the shared campaign time in common increments or enter a custom amount. The history records each change so you can review or undo it.\n\nSet up the Calendar first. Cast the current date and time to show it in the Player Window.",
+  help: "# Time Tracker\n\nAdvance the shared campaign time in common increments or enter a custom amount. The history records each change so you can review or undo it.\n\nSet up the Calendar first. Cast the current date and time to show it in the Player Window. When an advance crosses a Calendar event's start day, a reminder toast names it - a nudge only, it never changes the scene.",
   icon: "clock",
   category: "World",
   defaultSize: { width: 280, height: 240 },

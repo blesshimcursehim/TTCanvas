@@ -5,9 +5,9 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState } from "react";
-import { useCalendar, pushDateOverlay } from "@ttcanvas/core";
+import { useCalendar, useToast, pushDateOverlay } from "@ttcanvas/core";
 import type { TimeTrackerState, TimeAdvance } from "@ttcanvas/core";
-import { formatCalDate, formatTime, timeOfDay, formatDateOverlay, advanceTime } from "../calendar/utils";
+import { formatCalDate, formatTime, timeOfDay, formatDateOverlay, advanceTime, eventsStartingBetween, describeCrossedEvents } from "../calendar/utils";
 import styles from "./TimeTracker.module.css";
 
 interface Props {
@@ -19,6 +19,7 @@ function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}
 
 export function TimeTracker({ state, onChange }: Props) {
   const calCtx = useCalendar();
+  const { showToast } = useToast();
   const { currentDate, currentHour, currentMinute, history, showOnPlayer } = state;
   const currentSecond = state.currentSecond ?? 0; // absent on pre-seconds saves
   const def = calCtx.def;
@@ -49,6 +50,9 @@ export function TimeTracker({ state, onChange }: Props) {
     };
     onChange(newState);
     if (showOnPlayer) pushDate(newState, def);
+    // Remind (never trigger) when the advance crosses a calendar event's start day.
+    const crossed = eventsStartingBetween(currentDate, newDate, calCtx.events, def);
+    if (crossed.length) showToast(describeCrossedEvents(crossed, newDate, def), "info");
   }
 
   function handleCustom() {
