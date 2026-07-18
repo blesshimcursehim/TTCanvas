@@ -109,6 +109,20 @@ describe("buildCombatants", () => {
     expect(combatants[0].portraitPath).toBe("portraits/p1.jpg");
   });
 
+  it("keeps a hurt party member's current and max HP distinct (regression: was 0/0)", () => {
+    const hurt: SharedPartyMember = { id: "p1", name: "Aria", hp: 0, maxHp: 38, ac: 15, initiative: 0, level: 3 };
+    const e = encounter([partyMember("p1", "Aria")]);
+    const { combatants } = buildCombatants(e, sources({ party: [hurt] }), opts);
+    expect(combatants[0]).toMatchObject({ hp: 0, maxHp: 38 });
+  });
+
+  it("keeps an NPC's current HP below its max", () => {
+    const wounded: NpcRef = { filename: "npcs/vex.json", id: "x", name: "Vex", hp: 8, hpMax: 20, ac: 13 };
+    const e = encounter([npcMember("npcs/vex.json", "Vex")]);
+    const { combatants } = buildCombatants(e, sources({ npcs: [wounded] }), opts);
+    expect(combatants[0]).toMatchObject({ hp: 8, maxHp: 20 });
+  });
+
   it("skips a member whose creature is missing and counts it", () => {
     const e = encounter([bestiaryMember("g", "Goblin", 2), bestiaryMember("ghost", "Deleted")]);
     const { combatants, missing } = buildCombatants(e, sources({ bestiary: [creature("g", "Goblin")] }), opts);
@@ -287,11 +301,12 @@ describe("buildCombatants", () => {
     expect(combatants[0].sourceId).toBe("npcs/vex.json");
   });
 
-  it("leaves sourceId unset on a count>1 NPC, which is being used as a template", () => {
-    const e = encounter([npcMember("npcs/fanatic.json", "Cult Fanatic", 3)]);
-    const { combatants } = buildCombatants(e, sources({ npcs: [npc("npcs/fanatic.json", "Cult Fanatic")] }), opts);
-    expect(combatants).toHaveLength(3);
-    expect(combatants.every((c) => c.sourceId === undefined)).toBe(true);
+  it("forces an NPC to a single individual even if the stored count is higher, keeping its sourceId", () => {
+    const e = encounter([npcMember("npcs/vex.json", "Vex", 3)]);
+    const { combatants } = buildCombatants(e, sources({ npcs: [npc("npcs/vex.json", "Vex")] }), opts);
+    expect(combatants).toHaveLength(1);
+    expect(combatants[0].name).toBe("Vex"); // not "Vex 1"
+    expect(combatants[0].sourceId).toBe("npcs/vex.json");
   });
 
   // ── Inclusion ─────────────────────────────────────────────
@@ -380,12 +395,21 @@ describe("buildCombatants", () => {
     expect(combatants.map((c) => c.hp)).toEqual([1, 4]);
   });
 
-  it("rolls HP from an NPC's hpFormula too", () => {
+  it("rolls HP from an NPC's hpFormula when the NPC has no decided HP", () => {
+    // No hp/hpMax on the record, just a formula - so rolling is what fills it in.
+    const undecided: NpcRef = { filename: "npcs/vex.json", id: "x", name: "Vex", ac: 13, hpFormula: "3d6" };
+    const e = encounter([{ ...npcMember("npcs/vex.json", "Vex"), rollHp: true }]);
+    const { combatants } = buildCombatants(e, sources({ npcs: [undecided] }), opts, rngConst(0));
+    expect(combatants[0]).toMatchObject({ hp: 3, maxHp: 3 }); // 1+1+1
+  });
+
+  it("ignores an NPC's formula once its HP is decided (a named individual's HP is specific)", () => {
+    // hp is set, so even with rollHp and a formula the decided value wins.
     const e = encounter([{ ...npcMember("npcs/vex.json", "Vex"), rollHp: true }]);
     const { combatants } = buildCombatants(
-      e, sources({ npcs: [npc("npcs/vex.json", "Vex", 12, 13, undefined, "3d6")] }), opts, rngConst(0),
+      e, sources({ npcs: [npc("npcs/vex.json", "Vex", 38, 13, undefined, "3d6")] }), opts, rngConst(0.999),
     );
-    expect(combatants[0].hp).toBe(3); // 1+1+1
+    expect(combatants[0]).toMatchObject({ hp: 38, maxHp: 38 });
   });
 });
 
