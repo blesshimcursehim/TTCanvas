@@ -11,6 +11,7 @@ import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { SheetChrome } from "../shared/sheet-primitives/SheetChrome";
 import { SectionHead } from "../shared/sheet-primitives/SectionHead";
 import { AbilityGrid } from "../shared/sheet-primitives/AbilityGrid";
+import { RollableStat } from "../shared/sheet-primitives/RollableStat";
 import { NamedEntryList } from "../shared/sheet-primitives/NamedEntryList";
 import { CropModal } from "../party-tracker/CropModal";
 import { renderMarkdown } from "../shared/markdownRenderer";
@@ -327,6 +328,7 @@ export function CreatureSheetModal({ entry, isNew, folders, onSave, onDelete, on
               scores={draft.abilityScores ?? DEFAULT_SCORES}
               editing={editing}
               onChange={(scores) => patch({ abilityScores: scores })}
+              subject={draft.name}
             />
 
             <SectionHead style={{ marginTop: 14 }}>Saving Throws</SectionHead>
@@ -342,10 +344,15 @@ export function CreatureSheetModal({ entry, isNew, folders, onSave, onDelete, on
                       value={draft.savingThrows?.[k] !== undefined ? draft.savingThrows[k] : ""}
                       onChange={(e) => patchSave(k, e.target.value)}
                     />
+                  ) : draft.savingThrows?.[k] !== undefined ? (
+                    <RollableStat
+                      className={styles.saveValue}
+                      bonus={draft.savingThrows[k]!}
+                      label={`${ABILITY_LABELS[k]} save`}
+                      subject={draft.name}
+                    />
                   ) : (
-                    <span className={styles.saveValue}>
-                      {draft.savingThrows?.[k] !== undefined ? fmtBonus(draft.savingThrows[k]!) : "-"}
-                    </span>
+                    <span className={styles.saveValue}>-</span>
                   )}
                 </div>
               ))}
@@ -366,12 +373,16 @@ export function CreatureSheetModal({ entry, isNew, folders, onSave, onDelete, on
                 />
                 <span className={styles.hint}>Comma-separated: Skill +bonus</span>
               </div>
+            ) : draft.skillBonuses && Object.keys(draft.skillBonuses).length > 0 ? (
+              <div className={styles.skillList}>
+                {Object.entries(draft.skillBonuses).map(([s, b]) => (
+                  <RollableStat key={s} className={styles.fieldValue} bonus={b} label={s} subject={draft.name}>
+                    {s} {fmtBonus(b)}
+                  </RollableStat>
+                ))}
+              </div>
             ) : (
-              <p className={styles.fieldValue}>
-                {draft.skillBonuses && Object.keys(draft.skillBonuses).length > 0
-                  ? Object.entries(draft.skillBonuses).map(([s, b]) => `${s} ${fmtBonus(b)}`).join(", ")
-                  : "-"}
-              </p>
+              <p className={styles.fieldValue}>-</p>
             )}
 
             <SectionHead style={{ marginTop: 14 }}>Resistances &amp; Immunities</SectionHead>

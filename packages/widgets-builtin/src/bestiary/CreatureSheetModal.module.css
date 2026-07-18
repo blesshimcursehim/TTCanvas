@@ -203,6 +203,12 @@
   line-height: 1.4;
 }
 
+.skillList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
 .fieldInput {
   width: 100%;
   box-sizing: border-box;
