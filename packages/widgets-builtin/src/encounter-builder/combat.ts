@@ -58,7 +58,10 @@ export interface BuildResult {
  *  all three kinds instead of one near-duplicate loop each. */
 interface ResolvedSource {
   name: string;
+  /** Current HP the combatant enters with (a party member mid-adventure may be below full). */
   hp: number;
+  /** Maximum HP - separate from `hp`, since a party member can enter combat already hurt. */
+  maxHp: number;
   ac: number;
   /** Ability score, 10 (a +0 modifier) when the source has no statblock. */
   dex: number;
@@ -77,8 +80,9 @@ function resolveMember(member: EncounterMember, sources: CombatSources): Resolve
   if (kind === "bestiary") {
     const c = sources.bestiary.get(id);
     if (!c) return null;
+    // A Bestiary entry is a template with one static HP, so current and max are the same.
     return {
-      name: c.name, hp: c.hp, ac: c.ac, dex: c.abilityScores?.dex ?? 10, kind: "foe",
+      name: c.name, hp: c.hp, maxHp: c.hp, ac: c.ac, dex: c.abilityScores?.dex ?? 10, kind: "foe",
       portraitPath: c.portrait, // data URL; the map/player token loaders accept it inline
       hpFormula: c.hitDice,
     };
@@ -86,8 +90,9 @@ function resolveMember(member: EncounterMember, sources: CombatSources): Resolve
   if (kind === "party") {
     const m = sources.party.get(id);
     if (!m) return null;
+    // A party member enters combat at their recorded current HP, which may be below max.
     return {
-      name: m.name, hp: m.hp, ac: m.ac, dex: m.abilityScores?.dex ?? 10, kind: "pc",
+      name: m.name, hp: m.hp, maxHp: m.maxHp, ac: m.ac, dex: m.abilityScores?.dex ?? 10, kind: "pc",
       portraitPath: m.portraitPath ?? undefined, // vault file path from the Party Tracker
       identity: m.id,
       storedInitiative: m.initiative,
@@ -95,16 +100,20 @@ function resolveMember(member: EncounterMember, sources: CombatSources): Resolve
   }
   const n = sources.npcs.get(id);
   if (!n) return null;
+  // A named NPC's HP is a specific individual's, not a template average - so a formula is only for
+  // rolling when no HP has been decided yet. Once hp/hpMax are set, they win and rolling is off.
+  const hpDecided = n.hp !== undefined || n.hpMax !== undefined;
   return {
     name: n.name,
     // An NPC's combat fields are all optional - it may be a shopkeeper with no statblock at all.
     hp: n.hp ?? n.hpMax ?? 0,
+    maxHp: n.hpMax ?? n.hp ?? 0,
     ac: n.ac ?? 10,
     dex: n.abilityScores?.dex ?? 10,
     kind: member.kind ?? "foe",
     portraitPath: n.portrait,
     identity: n.filename,
-    hpFormula: n.hpFormula,
+    hpFormula: hpDecided ? undefined : n.hpFormula,
   };
 }
 
@@ -143,10 +152,10 @@ export function buildCombatants(
       continue;
     }
 
-    // A party member is one person: "Aria 1 / Aria 2" would be nonsense, and splitting one roster
-    // entry across copies would force dropping their identity (see below), breaking the party
-    // dedupe that "Start combat" relies on.
-    const count = member.source.kind === "party" ? 1 : Math.max(1, Math.floor(member.count) || 1);
+    // Only a Bestiary entry is a template that stacks. Party members and NPCs are named individuals:
+    // "Aria 1 / Aria 2" or "Agnes Holk 3" is nonsense, and splitting one entry across copies would
+    // force dropping its identity (see below), breaking the dedupe that "Start combat" relies on.
+    const count = member.source.kind === "bestiary" ? Math.max(1, Math.floor(member.count) || 1) : 1;
 
     const rollFor = () =>
       opts.autoRoll ? rollInitiative(rng) + abilityModifier(resolved.dex) : 0;
@@ -167,25 +176,29 @@ export function buildCombatants(
 
     // A combatant gets a sourceId only when it is the sole instance of an *individual* source.
     // Bestiary entries are templates - one entry legitimately spawns N interchangeable goblins, and
-    // two separate builds can each spawn a lone Bugbear from the same entry - so they never get one;
-    // every copy would otherwise share an identity, breaking map-token dedupe and the initiative
-    // spotlight (each instead falls back to its own combatant id, see CombatantRow's `sourceId ?? id`).
-    // Party members are individuals (count is pinned to 1 above). NPCs are individuals too, but are
-    // legitimately used as templates ("3 Cult Fanatics"), so they only keep their identity at count 1.
+    // two separate builds can each spawn a lone Bugbear from the same entry - so they never get one
+    // (identity is left unset even at count 1); every copy would otherwise share an identity, breaking
+    // map-token dedupe and the initiative spotlight (each instead falls back to its own combatant id,
+    // see CombatantRow's `sourceId ?? id`). Party members and NPCs are individuals, pinned to count 1
+    // above, and carry `identity`, so they always keep it. The `count === 1` guard is thus belt-and-
+    // braces for the individuals and the reason bestiary never qualifies.
     const sourceId = resolved.identity !== undefined && count === 1 ? resolved.identity : undefined;
 
     for (let i = 0; i < count; i++) {
       const initiative = asGroup
         ? (groupInitiative as number)
         : (resolved.storedInitiative || rollFor());
-      // Shared roll if set, else this copy's own roll, else the static average. A fresh combatant
-      // is at full health, so hp and maxHp take the same value.
-      const hp = sharedHp ?? (rollingHp ? rollHp(resolved.hpFormula, resolved.hp, rng) : resolved.hp);
+      // Rolled HP (shared roll if set, else this copy's own) makes a fresh combatant at full health,
+      // so current and max both take the rolled value. Otherwise keep the source's own current/max -
+      // which differ for a party member who walked in already hurt.
+      const rolled = rollingHp ? (sharedHp ?? rollHp(resolved.hpFormula, resolved.hp, rng)) : undefined;
+      const hp = rolled ?? resolved.hp;
+      const maxHp = rolled ?? resolved.maxHp;
       combatants.push({
         name: count > 1 ? `${resolved.name} ${i + 1}` : resolved.name,
         initiative,
         hp,
-        maxHp: hp,
+        maxHp,
         ac: resolved.ac,
         kind: resolved.kind,
         sourceId,

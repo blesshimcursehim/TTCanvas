@@ -265,7 +265,7 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
           </div>
 
           <div className={styles.fieldRow}>
-            <label className={styles.fieldLabel}>HP Formula
+            <label className={styles.fieldLabel}>Hit Dice
               {editing
                 ? <input className={styles.input} value={draft.hpFormula ?? ""} onChange={(e) => patch({ hpFormula: e.target.value || undefined })} placeholder="e.g. 4d8+4" />
                 : <span className={styles.fieldVal}>{draft.hpFormula || "-"}</span>}

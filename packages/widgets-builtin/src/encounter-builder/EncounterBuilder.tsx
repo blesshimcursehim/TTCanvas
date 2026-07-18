@@ -6,7 +6,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  useBestiary, useParty, useNpcs, useIT, useXp, abilityModifier,
+  useBestiary, useParty, useNpcs, useIT, abilityModifier,
   type CombatantKind,
 } from "@ttcanvas/core";
 import type { Encounter, EncounterMember, EncounterSource, EncounterBuilderState } from "./types";
@@ -56,7 +56,6 @@ export function EncounterBuilder({ state, onChange }: Props) {
   const { members: party } = useParty();
   const { npcs } = useNpcs();
   const { startCombat, combatantCount } = useIT();
-  const { awardEncounterXp } = useXp();
   const { encounters, selectedId } = state;
 
   const [adding, setAdding] = useState(false);
@@ -70,7 +69,7 @@ export function EncounterBuilder({ state, onChange }: Props) {
   const [autoRoll, setAutoRoll] = useState(true);
   // Shown when "Start combat" is pressed while a combat is already running - replace vs append.
   const [confirmStart, setConfirmStart] = useState(false);
-  const [lastStart, setLastStart] = useState<{ count: number; missing: number } | null>(null);
+  const [lastStart, setLastStart] = useState<{ count: number; missing: number; duplicates: number } | null>(null);
 
   const selected = encounters.find((e) => e.id === selectedId) ?? null;
 
@@ -110,13 +109,16 @@ export function EncounterBuilder({ state, onChange }: Props) {
     }
     const n = sources.npcs.get(id);
     if (!n) return null;
+    // Rolling is offered only when the NPC has no decided HP - a named individual's HP is specific,
+    // not a template average to re-roll (mirrors resolveMember in combat.ts).
+    const hpDecided = n.hp !== undefined || n.hpMax !== undefined;
     const bits = [n.cr ? `CR ${n.cr}` : null, n.hp ? `${n.hp} HP` : null, n.ac ? `AC ${n.ac}` : null]
       .filter((b): b is string => b !== null);
     return {
       name: n.name,
       meta: bits.length ? bits.join(" · ") : "no statblock",
       dexMod: n.abilityScores ? abilityModifier(n.abilityScores.dex) : 0,
-      hpFormula: rollableFormula(n.hpFormula),
+      hpFormula: hpDecided ? null : rollableFormula(n.hpFormula),
     };
   }
 
@@ -169,8 +171,9 @@ export function EncounterBuilder({ state, onChange }: Props) {
     if (!selected) return;
     const existing = selected.members.find((m) => sameSource(m.source, source));
     if (existing) {
-      // A party member is one person, so re-picking them is a no-op rather than a second copy.
-      if (source.kind !== "party") updateMember(existing.id, { count: existing.count + 1 });
+      // Only a Bestiary template stacks; re-picking a named individual (party member or NPC) is a
+      // no-op rather than a second copy.
+      if (source.kind === "bestiary") updateMember(existing.id, { count: existing.count + 1 });
     } else {
       const member: EncounterMember = { id: crypto.randomUUID(), source, name, count: 1, kind };
       updateEncounter(selected.id, { members: [...selected.members, member] });
@@ -213,9 +216,11 @@ export function EncounterBuilder({ state, onChange }: Props) {
   function runStartCombat(mode: "replace" | "append") {
     if (!selected) return;
     const { combatants, missing, groups } = buildCombatants(selected, sources, { autoRoll });
-    startCombat(combatants, groups, mode, { id: selected.id, name: selected.name, rewardXp: selected.rewardXp });
+    // startCombat returns how many it accepted; append drops combatants already in the fight, so
+    // the feedback must report `added`, not the built count, or it claims "Sent 4" when 0 landed.
+    const added = startCombat(combatants, groups, mode, { id: selected.id, name: selected.name, rewardXp: selected.rewardXp });
     setConfirmStart(false);
-    setLastStart({ count: combatants.length, missing });
+    setLastStart({ count: added, missing, duplicates: combatants.length - added });
   }
 
   // Primary "Start combat": straight through when the tracker is empty, otherwise ask
@@ -357,31 +362,23 @@ export function EncounterBuilder({ state, onChange }: Props) {
               onChange={(e) => updateEncounter(selected.id, { notes: e.target.value || undefined })}
             />
 
-            {/* Reward XP - GM-entered, offered by the end-combat review. Never derived from CR. The
-                inline "Award" is the general path for a fight that never went through the tracker;
-                it splits the reward across the whole party. */}
-            <div className={styles.rewardRow}>
+            {/* Reward XP - GM-entered, never derived from CR. The end-combat review is the only place
+                it is awarded, so the GM confirms who was in on it there rather than firing blind here. */}
+            <label className={styles.rewardRow}>
               <span className={styles.rewardLabel}>Reward XP</span>
               <input
                 className={styles.rewardInput}
                 type="number"
                 min={0}
                 placeholder="none"
+                aria-label="Reward XP"
                 value={selected.rewardXp ?? ""}
                 onChange={(e) => {
                   const n = parseInt(e.target.value, 10);
                   updateEncounter(selected.id, { rewardXp: Number.isFinite(n) && n > 0 ? n : undefined });
                 }}
               />
-              <button
-                className={styles.rewardBtn}
-                onClick={() => selected.rewardXp && awardEncounterXp(selected.rewardXp, party.map((m) => m.id), `Encounter: ${selected.name}`)}
-                disabled={!selected.rewardXp || party.length === 0}
-                title={party.length === 0 ? "No party members to award" : "Split this reward across the whole party"}
-              >
-                Award to party
-              </button>
-            </div>
+            </label>
 
             {/* Member list */}
             <div className={styles.memberList}>
@@ -389,7 +386,8 @@ export function EncounterBuilder({ state, onChange }: Props) {
               {selected.members.map((m) => {
                 const view = rowView(m);
                 const excluded = m.included === false;
-                const isParty = m.source.kind === "party";
+                // Only a Bestiary template stacks; party members and NPCs are individuals (count 1).
+                const isStackable = m.source.kind === "bestiary";
                 return (
                   <div key={m.id} className={`${styles.memberRow} ${excluded ? styles.memberRowExcluded : ""}`}>
                     <input
@@ -422,17 +420,17 @@ export function EncounterBuilder({ state, onChange }: Props) {
                         onChange={(k) => updateMember(m.id, { kind: k })}
                       />
                     )}
-                    {isParty ? (
-                      // The roster holds individuals - "Aria 1 / Aria 2" would be a bug, so no stepper.
-                      <span className={styles.countStatic} title="Party members are individuals">1</span>
-                    ) : (
+                    {isStackable ? (
                       <div className={styles.countStepper}>
                         <button className={styles.stepBtn} onClick={() => setMemberCount(m.id, m.count - 1)} disabled={m.count <= 1} title="Fewer">−</button>
                         <span className={styles.countValue}>{m.count}</span>
                         <button className={styles.stepBtn} onClick={() => setMemberCount(m.id, m.count + 1)} title="More">+</button>
                       </div>
+                    ) : (
+                      // A named individual (party member or NPC) is always one, so no stepper.
+                      <span className={styles.countStatic} title="A named individual, not a template">1</span>
                     )}
-                    {!isParty && m.count > 1 && (
+                    {isStackable && m.count > 1 && (
                       <label className={styles.groupCheck} title="Roll one shared initiative for the whole stack, instead of one per copy">
                         <input
                           type="checkbox"
@@ -543,6 +541,7 @@ export function EncounterBuilder({ state, onChange }: Props) {
               {lastStart && (
                 <div className={styles.startResult}>
                   Sent {lastStart.count} to the Initiative Tracker.
+                  {lastStart.duplicates > 0 && <span className={styles.startMissing}> {lastStart.duplicates} already in combat.</span>}
                   {lastStart.missing > 0 && <span className={styles.startMissing}> {lastStart.missing} missing source{lastStart.missing !== 1 ? "s" : ""} skipped.</span>}
                 </div>
               )}

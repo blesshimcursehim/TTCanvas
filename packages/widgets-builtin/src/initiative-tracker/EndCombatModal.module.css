@@ -20,6 +20,9 @@
   flex-direction: column;
   overflow: hidden;
   box-shadow: var(--shadow);
+  /* Focused programmatically for keyboard entry (tabIndex -1); no ring on the container itself,
+     its interactive children keep their own focus styles. */
+  outline: none;
 }
 
 .header {

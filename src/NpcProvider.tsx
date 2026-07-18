@@ -4,10 +4,11 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { NpcContext, useVault, type NpcRef, type NpcContextValue } from "@ttcanvas/core";
 import { parseNpcJson, type ParsedNpc } from "@ttcanvas/widgets-builtin";
+import { logWarn, logError } from "./diagnostics/log";
 
 /**
  * Scans `npcs/*.json` once and shares the result, so widgets that only need to *reference* NPCs
@@ -43,10 +44,18 @@ export function NpcProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const { vaultPath, vaultVersion, listFiles, readFile } = vault;
+  const lastPathRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!vaultPath) {
+    // A vault *switch* must drop the previous vault's NPCs immediately, before the new scan runs, so
+    // consumers (Encounter Builder, Gazetteer, Relationship Web) can't offer a stale NPC and save a
+    // cross-vault reference during the scan window. A same-vault re-scan (vaultVersion bump, e.g. the
+    // NPC Library finishing a write) keeps the current list visible - no flicker.
+    if (lastPathRef.current !== vaultPath) {
+      lastPathRef.current = vaultPath;
       setNpcs([]);
+    }
+    if (!vaultPath) {
       setLoading(false);
       return;
     }
@@ -60,7 +69,8 @@ export function NpcProvider({ children }: { children: ReactNode }) {
             // parseNpcJson never throws (it falls back to a blank NPC), so this only guards the read.
             try {
               return toNpcRef(parseNpcJson(filename, await readFile(filename)));
-            } catch {
+            } catch (err) {
+              logWarn(`NpcProvider: failed to read NPC "${filename}"`, err);
               return null;
             }
           }),
@@ -72,7 +82,10 @@ export function NpcProvider({ children }: { children: ReactNode }) {
               .sort((a, b) => a.name.localeCompare(b.name)),
           );
         }
-      } catch {
+      } catch (err) {
+        // A whole-scan failure (the listing itself) leaves the library looking empty; log it so the
+        // cause is visible rather than silently swallowed. Surfacing it to the GM is filed in bugs.md.
+        logError("NpcProvider: failed to scan the NPC library", err);
         if (!cancelled) setNpcs([]);
       } finally {
         if (!cancelled) setLoading(false);

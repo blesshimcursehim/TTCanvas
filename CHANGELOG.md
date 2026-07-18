@@ -8,20 +8,22 @@ All notable changes are documented here.
 
 - **Party members and NPCs can be added to an encounter properly.** Encounter Builder used to be a
   Bestiary-only tool, with the whole party riding along on a single "Also add party" checkbox and NPC
-  Library entries not available at all. Now all three go in as rows, and every row gets the same
-  controls: how many, whether the stack shares one initiative roll, the DEX hint, and live name, HP
-  and AC that follow the original record. An NPC can join as a foe or an ally, since NPCs are
-  sometimes on your side. Party members are always one person, so they show a fixed count of 1 rather
-  than a stepper.
+  Library entries not available at all. Now all three go in as rows with live name, HP and AC that
+  follow the original record. An NPC can join as a foe or an ally, since NPCs are sometimes on your
+  side. Only Bestiary creatures stack, with a count and a shared-initiative option, because they are
+  templates: party members and NPCs are named individuals, so they show a fixed count of 1 rather than
+  a stepper (no "Agnes Holk 2").
 - **Leave a row out without deleting it.** Each row has a tickbox, so the ogres asleep in the next
   room can stay in the encounter as prep and stay out of the fight. The tick is saved with the
   encounter rather than reset each session, so it survives a reload.
 - **Roll a creature's HP instead of using the average.** A Bestiary creature with a hit-dice formula
-  (or an NPC with one) gets a "Roll HP" tick on its encounter row, so a stack of four goblins lands in
-  the Initiative Tracker with four different totals rather than four identical ones. Each copy rolls
-  its own by default, or tick "shared" to roll once for the whole stack. It reuses the Dice Roller's
-  own evaluator, and falls back to the static average if a formula is missing or not valid dice
-  notation. Party HP is left alone, since that is real and already tracked.
+  gets a "Roll HP" tick on its encounter row, so a stack of four goblins lands in the Initiative
+  Tracker with four different totals rather than four identical ones. Each copy rolls its own by
+  default, or tick "shared" to roll once for the whole stack. It reuses the Dice Roller's own
+  evaluator, and falls back to the static average if a formula is missing or not valid dice notation.
+  Party HP is left alone, since that is real and already tracked; an NPC only offers the roll when its
+  HP has not already been decided on its sheet, since a named individual's HP is specific, not an
+  average to re-roll.
 - **"Start combat" is now safe to press twice.** It used to pile a fresh copy of the whole encounter
   onto whatever was already in the Initiative Tracker every time, and never brought the tracker into
   view. Now, with a fight already running, it asks first: replace it, append, or cancel. Replace wipes
@@ -41,11 +43,9 @@ All notable changes are documented here.
   field. Start that encounter and, when you end the combat, the review offers to split the reward
   across the party (you pick who was in on it), routing it through the XP Tracker exactly as a manual
   award would, undo history and all. The amount is always yours to type, never guessed from a
-  creature's challenge rating. There's also an "Award to party" button on the encounter itself for a
-  fight that never went through the tracker. When an award pushes a character past a level threshold,
-  the XP Tracker shows a banner offering to bump their sheet level on the Party Tracker to match. This
-  replaces the old level-up flash, which vanished after a few seconds and couldn't actually change the
-  sheet.
+  creature's challenge rating. When an award pushes a character past a level threshold, the XP Tracker
+  shows a banner offering to bump their sheet level on the Party Tracker to match. This replaces the
+  old level-up flash, which vanished after a few seconds and couldn't actually change the sheet.
 
 - **Pick a 12-hour or 24-hour clock** - Preferences, under Appearance, now has a Clock setting with
   System, 24-hour and 12-hour. System follows this app's locale, which is what the title bar has
