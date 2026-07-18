@@ -4,7 +4,7 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import type { CalDate, CalendarDef, IntercalaryPeriod } from "@ttcanvas/core";
+import type { CalDate, CalEvent, CalendarDef, IntercalaryPeriod } from "@ttcanvas/core";
 
 export function validateCalendarDef(def: CalendarDef): string[] {
   const errs: string[] = [];
@@ -204,13 +204,47 @@ export function advanceTime(
 // All events active on a given day (started on or before, ends on or after).
 export function eventsOnDay(
   date: CalDate,
-  events: import("@ttcanvas/core").CalEvent[],
+  events: CalEvent[],
   def: CalendarDef,
-): import("@ttcanvas/core").CalEvent[] {
+): CalEvent[] {
   const abs = calDateToAbsDay(date, def);
   return events.filter((e) => {
     const start = calDateToAbsDay(e.start, def);
     const end = start + (e.duration ?? 1) - 1;
     return abs >= start && abs <= end;
   });
+}
+
+// Events that *begin* in the half-open day span (prev, current] a forward advance just crossed -
+// the "Festival of Ash begins today" reminders. Empty when the advance stayed on the same day
+// (hours only) or moved backwards (an undo), so neither ever nags. Sorted by start day so a long
+// jump that skips several starts reads in order.
+export function eventsStartingBetween(
+  prev: CalDate,
+  current: CalDate,
+  events: CalEvent[],
+  def: CalendarDef,
+): CalEvent[] {
+  const from = calDateToAbsDay(prev, def);
+  const to = calDateToAbsDay(current, def);
+  if (to <= from) return [];
+  return events
+    .filter((e) => {
+      const start = calDateToAbsDay(e.start, def);
+      return start > from && start <= to;
+    })
+    .sort((a, b) => calDateToAbsDay(a.start, def) - calDateToAbsDay(b.start, def));
+}
+
+// One-line toast summary for the events a forward advance crossed. "begins today" when the single
+// event starts on the day just landed on, otherwise the dated form (a longer jump may have passed
+// its start), and a titles list when several begin at once.
+export function describeCrossedEvents(events: CalEvent[], current: CalDate, def: CalendarDef): string {
+  if (events.length === 1) {
+    const e = events[0];
+    return calDateEq(e.start, current)
+      ? `${e.title} begins today`
+      : `${e.title} begins ${formatCalDate(e.start, def)}`;
+  }
+  return `${events.length} calendar events begin: ${events.map((e) => e.title).join(", ")}`;
 }

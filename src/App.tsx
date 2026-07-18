@@ -36,7 +36,7 @@ import { NpcProvider } from "./NpcProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
 import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
-import { advanceTimeSeconds, formatDateOverlay, mimeForImageExt, buildTurnOrder, applyEncounterAward, type XpTrackerState } from "@ttcanvas/widgets-builtin";
+import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, type XpTrackerState } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
 
@@ -826,11 +826,18 @@ function App() {
       return { next, date: r.date, hour: r.hour, minute: r.minute };
     };
 
-    // The overlay push is a display nicety, not the authoritative record, so reading it off the
-    // ref (occasionally one-commit stale) is fine here - unlike the state write below, it doesn't
-    // need to survive two advances landing in the same batch.
-    const approx = computeNext((singletonStatesRef.current["time-tracker"] ?? DEFAULT_TIME_STATE) as TimeTrackerState);
+    // The overlay push and event reminder are display niceties, not the authoritative record, so
+    // reading off the ref (occasionally one-commit stale) is fine here - unlike the state write
+    // below, they don't need to survive two advances landing in the same batch.
+    const baseTime = (singletonStatesRef.current["time-tracker"] ?? DEFAULT_TIME_STATE) as TimeTrackerState;
+    const approx = computeNext(baseTime);
     if (approx?.next.showOnPlayer) pushDateOverlay(formatDateOverlay(approx.date, approx.hour, approx.minute, calDef));
+    // Remind (never trigger) when a round-driven advance crosses a calendar event's start day - rare
+    // at six-second rounds, but it keeps parity with the Time Tracker's own advance buttons.
+    if (approx && baseTime.currentDate) {
+      const crossed = eventsStartingBetween(baseTime.currentDate, approx.date, cal.events, calDef);
+      if (crossed.length) showToast(describeCrossedEvents(crossed, approx.date, calDef), "info");
+    }
 
     // Thread the base clock through the functional updater's `prev`, not the ref, so two advances
     // landing in the same batch (before the ref's useLayoutEffect refresh) each apply on top of
@@ -840,7 +847,7 @@ function App() {
       const computed = computeNext(t);
       return computed ? { ...prev, "time-tracker": computed.next } : prev;
     });
-  }, [setSingletonStates]);
+  }, [setSingletonStates, showToast]);
 
   // Bring a singleton widget into view (unhide + raise it, or add it if it is not on the canvas yet).
   // Shared by every "open X" handler and by startCombat so acting on an entity always surfaces its
