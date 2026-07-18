@@ -870,24 +870,36 @@ function App() {
   // the tracker. "replace" wipes the live combat; "append" merges, skipping any combatant whose
   // sourceId is already present so a party member or lone NPC can't be duplicated. Foes carry no
   // sourceId by design (see combat.ts), so a repeated monster stack still appends - reinforcements.
+  // Returns how many were actually added (append drops duplicates), so the caller reports the
+  // accepted count, not the built count. IDs and the accept/skip split are computed outside the
+  // updater - React 19 StrictMode double-invokes it, so keeping them out avoids re-rolled IDs and
+  // keeps the returned count deterministic. Reads the effective state (singletonStates ?? instance
+  // ?? default, like patchMembers) so an "append" onto a tracker whose state still lives on the
+  // widget instance - an un-migrated workspace, see the render path's singletonStates[type] ?? state
+  // - merges into it instead of wiping it back to empty.
   const startCombat = useCallback((
     cs: Omit<import("@ttcanvas/core").Combatant, "id">[],
     groups: import("@ttcanvas/core").InitiativeGroup[],
     mode: import("@ttcanvas/core").StartCombatMode,
     encounter?: import("@ttcanvas/core").CombatEncounterRef,
-  ) => {
-    if (cs.length === 0) return;
+  ): number => {
+    if (cs.length === 0) return 0;
+    const current = (singletonStatesRef.current["initiative-tracker"]
+      ?? widgetsRef.current.find((w) => w.type === "initiative-tracker")?.state
+      ?? DEFAULT_IT_STATE) as InitiativeTrackerState;
+    const stamp = Date.now();
+    const withIds = cs.map((c, i) => ({ ...c, id: `${stamp}-${i}-${Math.random().toString(36).slice(2, 7)}` }));
+    const present = new Set(current.combatants.flatMap((c) => (c.sourceId ? [c.sourceId] : [])));
+    const fresh = mode === "replace" ? withIds : withIds.filter((c) => !c.sourceId || !present.has(c.sourceId));
     setSingletonStates((ss) => {
-      const it = (ss["initiative-tracker"] ?? DEFAULT_IT_STATE) as InitiativeTrackerState;
-      const stamp = Date.now();
-      const withIds = cs.map((c, i) => ({ ...c, id: `${stamp}-${i}-${Math.random().toString(36).slice(2, 7)}` }));
+      const it = (ss["initiative-tracker"]
+        ?? widgetsRef.current.find((w) => w.type === "initiative-tracker")?.state
+        ?? DEFAULT_IT_STATE) as InitiativeTrackerState;
       if (mode === "replace") {
         return { ...ss, "initiative-tracker": {
           ...it, combatants: withIds, groups, currentId: null, round: 1, roundAdvances: [], encounter,
         } };
       }
-      const present = new Set(it.combatants.flatMap((c) => (c.sourceId ? [c.sourceId] : [])));
-      const fresh = withIds.filter((c) => !c.sourceId || !present.has(c.sourceId));
       return { ...ss, "initiative-tracker": {
         ...it,
         combatants: [...it.combatants, ...fresh],
@@ -897,6 +909,7 @@ function App() {
       } };
     });
     revealWidget("initiative-tracker");
+    return fresh.length;
   }, [setSingletonStates, revealWidget]);
 
   // One-way hand-back into the Party Tracker roster (end-combat HP, confirmed level-ups). The
@@ -934,7 +947,12 @@ function App() {
     const id = crypto.randomUUID();
     const at = Date.now();
     setSingletonStates((ss) => {
-      const xp = (ss["xp-tracker"] ?? DEFAULT_XP_STATE) as XpTrackerState;
+      // Effective state (singletonStates ?? instance ?? default, like patchMembers): awarding onto
+      // an XP Tracker whose state still lives on the widget instance - an un-migrated workspace -
+      // must build on it, not reset its totals, thresholds and history to the default.
+      const xp = (ss["xp-tracker"]
+        ?? widgetsRef.current.find((w) => w.type === "xp-tracker")?.state
+        ?? DEFAULT_XP_STATE) as XpTrackerState;
       return { ...ss, "xp-tracker": applyEncounterAward(xp, { total, recipientIds, label, id, at }) };
     });
     revealWidget("xp-tracker");

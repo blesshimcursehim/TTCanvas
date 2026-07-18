@@ -115,14 +115,15 @@ export interface ITContextValue {
    * "append" merges, skipping any combatant whose sourceId is already present so a party member or
    * lone NPC can't be added twice. `groups` carries any pre-formed group-initiative groups, and
    * `encounter` is the snapshot stored for the end-combat review. Replaces the old always-additive
-   * addCombatants.
+   * addCombatants. Returns how many combatants were actually added - fewer than built when append
+   * drops duplicates - so the caller can report the accepted count rather than the built count.
    */
   startCombat: (
     cs: Omit<Combatant, "id">[],
     groups: InitiativeGroup[],
     mode: StartCombatMode,
     encounter?: CombatEncounterRef,
-  ) => void;
+  ) => number;
   /**
    * How many combatants are in the tracker right now - lets the Encounter Builder warn before
    * replacing a live combat. Deliberately a count, not the list: exposing combatants[] would bounce
@@ -139,7 +140,7 @@ export interface ITContextValue {
 }
 
 const defaultValue: ITContextValue = {
-  addCombatant: () => {}, startCombat: () => {}, combatantCount: 0, activeSourceIds: [],
+  addCombatant: () => {}, startCombat: () => 0, combatantCount: 0, activeSourceIds: [],
 };
 
 export const ITContext = createContext<ITContextValue>(defaultValue);
