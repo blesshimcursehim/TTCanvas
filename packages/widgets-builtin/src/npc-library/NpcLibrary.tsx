@@ -602,7 +602,7 @@ export function NpcLibrary({ state, onChange }: Props) {
               npc={displayNpc}
               editing={editing}
               onPick={(loc) => patchDraft({ location: loc.name, locationRef: loc.filename })}
-              onUnlink={() => patchDraft({ locationRef: undefined })}
+              onUnlink={(liveName) => patchDraft({ locationRef: undefined, location: liveName })}
               onTextChange={(v) => setNpc("location", v || undefined)}
             />
 
@@ -785,7 +785,11 @@ export function NpcLibrary({ state, onChange }: Props) {
 // since it's navigation rather than an edit.
 function LocationField({ npc, editing, onPick, onUnlink, onTextChange }: {
   npc: ParsedNpc; editing: boolean;
-  onPick: (loc: GazetteerLocationRef) => void; onUnlink: () => void; onTextChange: (v: string) => void;
+  onPick: (loc: GazetteerLocationRef) => void;
+  /** Passed the currently-displayed live name, so unlinking after a Gazetteer rename keeps the name
+   *  the GM was just looking at instead of reverting to whatever `location` was cached at link time. */
+  onUnlink: (liveName: string | undefined) => void;
+  onTextChange: (v: string) => void;
 }) {
   const { locations } = useGazetteerLocations();
   const [picking, setPicking] = useState(false);
@@ -809,7 +813,7 @@ function LocationField({ npc, editing, onPick, onUnlink, onTextChange }: {
           <button type="button" className={styles.locationChipBody} onClick={openGazetteer} title={`Open ${liveName ?? "place"} in Gazetteer`}>
             {liveName || "(missing place)"}
           </button>
-          {editing && <button className={styles.locationChipRemove} onClick={onUnlink} aria-label="Unlink location">×</button>}
+          {editing && <button className={styles.locationChipRemove} onClick={() => onUnlink(liveName)} aria-label="Unlink location">×</button>}
         </span>
       ) : editing ? (
         <div className={styles.locationEditRow}>

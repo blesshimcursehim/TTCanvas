@@ -22,7 +22,16 @@ import { EDGE_TYPES } from "./types";
 import { seedPosition } from "./layout";
 import { buildResolveIndex, resolveLink, extractWikilinkTargets, type SourceDoc } from "../shared/wikilinks";
 
-export interface LinkSuggestion {
+/** A faction/place target resolves by case-insensitive label match, since neither has a first-class
+ *  node kind of its own; an NPC target instead resolves by ref, like every other npc node. Modelled
+ *  as a discriminated union (rather than an optional `targetRef` alongside a three-way `targetKind`)
+ *  so a "npc" target without a ref simply isn't constructible, and `applySuggestions` can branch on
+ *  `targetKind` without an assertion. */
+type LinkSuggestionTarget =
+  | { targetKind: "faction" | "place"; targetRef?: undefined }
+  | { targetKind: "npc"; targetRef: string };
+
+export type LinkSuggestion = {
   /** Stable identity for the review checkbox and self-dedupe: from + edge type + target. */
   key: string;
   /** Whether the "from" side is an NPC (the common case) or a Gazetteer place (a place's notes
@@ -32,14 +41,10 @@ export interface LinkSuggestion {
   fromName: string;
   /** The faction/place/NPC name to link the "from" side to. */
   target: string;
-  targetKind: "faction" | "place" | "npc";
-  /** Set only when targetKind is "npc": resolves by identity like every other npc node, rather than
-   *  by label match (which faction/place targets use, since they have no first-class node kind). */
-  targetRef?: string;
   /** "member" (NPC -> faction) or "custom" (NPC/place -> place/NPC, carrying the edgeLabel). */
   edgeType: EdgeType;
   edgeLabel?: string;
-}
+} & LinkSuggestionTarget;
 
 const norm = (s: string) => s.trim().toLowerCase();
 
@@ -167,11 +172,11 @@ export function suggestMentionLinks(
       const fromNode = findNpcNode(state.nodes, doc.ref);
       const toNode = hit.kind === "npc" ? findNpcNode(state.nodes, hit.ref) : findTargetNode(state.nodes, "custom", targetName);
       if (fromNode && toNode && edgeExists(state.edges, fromNode.id, toNode.id, "custom", "mentions")) continue;
-      out.push({
-        key, fromKind: "npc", fromRef: doc.ref, fromName,
-        target: targetName, targetKind: hit.kind, targetRef: hit.kind === "npc" ? hit.ref : undefined,
-        edgeType: "custom", edgeLabel: "mentions",
-      });
+      out.push(
+        hit.kind === "npc"
+          ? { key, fromKind: "npc", fromRef: doc.ref, fromName, target: targetName, targetKind: "npc", targetRef: hit.ref, edgeType: "custom", edgeLabel: "mentions" }
+          : { key, fromKind: "npc", fromRef: doc.ref, fromName, target: targetName, targetKind: "place", targetRef: undefined, edgeType: "custom", edgeLabel: "mentions" },
+      );
     }
   }
   return out;
@@ -227,9 +232,9 @@ export function applySuggestions(state: RelationshipWebState, accepted: LinkSugg
 
   for (const s of accepted) {
     const from = s.fromKind === "npc" ? ensureNpcNode(s.fromRef, s.fromName) : ensureTargetNode("custom", s.fromName);
-    const to = s.targetKind === "npc" && s.targetRef
+    const to = s.targetKind === "npc"
       ? ensureNpcNode(s.targetRef, s.target)
-      : ensureTargetNode(nodeKindFor(s.targetKind as "faction" | "place"), s.target);
+      : ensureTargetNode(nodeKindFor(s.targetKind), s.target);
     if (!edgeExists(edges, from, to, s.edgeType, s.edgeLabel)) {
       edges.push({ id: crypto.randomUUID(), from, to, type: s.edgeType, ...(s.edgeLabel ? { label: s.edgeLabel } : {}) });
     }

@@ -26,6 +26,11 @@ export function parseNpcJson(filename: string, raw: string): ParsedNpc {
       delete obj.customLabel;
       delete obj.customValue;
     }
+    // a hand-edited or imported file can carry a malformed locationRef; treat it as unlinked rather
+    // than pass a non-string/blank value on to consumers that dispatch it as a vault filename
+    if (obj.locationRef !== undefined && (typeof obj.locationRef !== "string" || !obj.locationRef.trim())) {
+      delete obj.locationRef;
+    }
     return { ...obj, filename };
   } catch {
     return makeBlankNpc(filename);
