@@ -40,6 +40,10 @@ export interface ParsedNpc {
   // library metadata
   relationship?: NpcRelationship;
   location?: string;
+  /** Gazetteer location filename ("locations/x.json") this NPC's location is linked to. `location`
+   *  stays the cached/display name (kept fresh from the source when this is set, same convention as
+   *  Gazetteer's own `LinkedEntity`); absent means `location` is plain free text. */
+  locationRef?: string;
   faction?: string;
   customFields?: NpcCustomField[];
   lastSeen?: string;

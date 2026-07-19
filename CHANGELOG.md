@@ -52,6 +52,20 @@ All notable changes are documented here.
   always done, so nothing changes unless you choose otherwise. On Linux, System can land on a
   different format than your desktop's own 24-hour toggle, since that's a separate setting the
   app has no reliable way to read - pick 24-hour or 12-hour directly if that happens.
+- **NPC Generator now offers to open what you just saved, or roll another.** Saving used to just
+  flash "Saved" and stop there. It now also offers "Open in NPC Library" and "Generate another", the
+  second re-rolling the same way "Re-roll all" does, so anything you've locked (race, class, and so
+  on) carries over if you're rolling a few similar NPCs in a row. Either option disappears the moment
+  you touch the form again.
+- **Relationship Web's link suggestions now also come from Gazetteer and NPC notes.** "Suggest"
+  already proposed links from an NPC's own faction and location fields. It now also reads a Gazetteer
+  place's linked NPCs, and any `[[wikilink]]` in an NPC's notes that points at another NPC or place,
+  offering that pair as a "mentions" link. Everything still goes through the same review step,
+  nothing is added to the graph until you tick it and confirm.
+- **An NPC's Location can now link to a real Gazetteer place.** It's always been free text. You can
+  now search for an actual entry and link it instead, and the name shown on the sheet stays live from
+  there, so renaming the place in Gazetteer updates every NPC linked to it. Unlink at any point to go
+  back to plain text.
 
 ### Changes
 

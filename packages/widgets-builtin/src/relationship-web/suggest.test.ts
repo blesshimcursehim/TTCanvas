@@ -19,6 +19,7 @@ function location(filename: string, name: string, extra: Partial<GazetteerLocati
 }
 
 const EMPTY: RelationshipWebState = { nodes: [], edges: [], selectedId: null };
+const NO_PLACES: GazetteerLocationRef[] = [];
 
 function node(id: string, kind: RelNode["kind"], label: string, ref: string | null): RelNode {
   return { id, kind, label, ref, x: 0, y: 0 };
@@ -27,7 +28,7 @@ function node(id: string, kind: RelNode["kind"], label: string, ref: string | nu
 describe("suggestLinksFromNpcs", () => {
   it("proposes a member edge for a faction and a located-in edge for a location", () => {
     const npcs = [npc("npcs/vex.json", "Vex", { faction: "Zhentarim", location: "Waterdeep" })];
-    const s = suggestLinksFromNpcs(npcs, EMPTY);
+    const s = suggestLinksFromNpcs(npcs, NO_PLACES, EMPTY);
     expect(s).toHaveLength(2);
     expect(s[0]).toMatchObject({ fromName: "Vex", target: "Zhentarim", edgeType: "member", targetKind: "faction" });
     expect(s[1]).toMatchObject({ fromName: "Vex", target: "Waterdeep", edgeType: "custom", targetKind: "place", edgeLabel: "located in" });
@@ -35,7 +36,7 @@ describe("suggestLinksFromNpcs", () => {
 
   it("ignores NPCs with no faction or location, and blank/whitespace fields", () => {
     const npcs = [npc("a.json", "A"), npc("b.json", "B", { faction: "   " })];
-    expect(suggestLinksFromNpcs(npcs, EMPTY)).toEqual([]);
+    expect(suggestLinksFromNpcs(npcs, NO_PLACES, EMPTY)).toEqual([]);
   });
 
   it("skips a link the graph already records", () => {
@@ -44,7 +45,7 @@ describe("suggestLinksFromNpcs", () => {
       edges: [{ id: "e1", from: "n1", to: "f1", type: "member" }],
       selectedId: null,
     };
-    const s = suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { faction: "Zhentarim" })], state);
+    const s = suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { faction: "Zhentarim" })], NO_PLACES, state);
     expect(s).toEqual([]);
   });
 
@@ -54,7 +55,7 @@ describe("suggestLinksFromNpcs", () => {
       edges: [],
       selectedId: null,
     };
-    expect(suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { faction: "Zhentarim" })], state)).toHaveLength(1);
+    expect(suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { faction: "Zhentarim" })], NO_PLACES, state)).toHaveLength(1);
   });
 
   it("still suggests a location link when only an unrelated custom edge connects the two", () => {
@@ -63,7 +64,7 @@ describe("suggestLinksFromNpcs", () => {
       edges: [{ id: "e1", from: "n1", to: "p1", type: "custom", label: "rival in" }],
       selectedId: null,
     };
-    const s = suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { location: "Waterdeep" })], state);
+    const s = suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { location: "Waterdeep" })], NO_PLACES, state);
     expect(s).toHaveLength(1);
     expect(s[0]).toMatchObject({ target: "Waterdeep", edgeLabel: "located in" });
   });
@@ -74,7 +75,7 @@ describe("suggestLinksFromNpcs", () => {
       edges: [{ id: "e1", from: "p1", to: "n1", type: "custom", label: "located in" }],
       selectedId: null,
     };
-    expect(suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { location: "Waterdeep" })], state)).toEqual([]);
+    expect(suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { location: "Waterdeep" })], NO_PLACES, state)).toEqual([]);
   });
 
   it("dedupes against a hand-typed edge label regardless of case or surrounding space", () => {
@@ -83,7 +84,20 @@ describe("suggestLinksFromNpcs", () => {
       edges: [{ id: "e1", from: "n1", to: "p1", type: "custom", label: " Located In " }],
       selectedId: null,
     };
-    expect(suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { location: "Waterdeep" })], state)).toEqual([]);
+    expect(suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { location: "Waterdeep" })], NO_PLACES, state)).toEqual([]);
+  });
+
+  it("prefers a linked place's live name over the cached location string", () => {
+    const npcs = [npc("npcs/vex.json", "Vex", { location: "Watrdeep (typo)", locationRef: "locations/waterdeep.json" })];
+    const locations = [location("locations/waterdeep.json", "Waterdeep")];
+    const s = suggestLinksFromNpcs(npcs, locations, EMPTY);
+    expect(s.find((x) => x.targetKind === "place")).toMatchObject({ target: "Waterdeep" });
+  });
+
+  it("falls back to the cached string when the location ref is dangling", () => {
+    const npcs = [npc("npcs/vex.json", "Vex", { location: "Waterdeep", locationRef: "locations/deleted.json" })];
+    const s = suggestLinksFromNpcs(npcs, NO_PLACES, EMPTY);
+    expect(s.find((x) => x.targetKind === "place")).toMatchObject({ target: "Waterdeep" });
   });
 });
 
@@ -156,7 +170,7 @@ describe("suggestMentionLinks", () => {
 
 describe("applySuggestions", () => {
   it("creates the NPC node, faction node and member edge from an empty graph", () => {
-    const s = suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { faction: "Zhentarim" })], EMPTY);
+    const s = suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { faction: "Zhentarim" })], NO_PLACES, EMPTY);
     const next = applySuggestions(EMPTY, s);
     expect(next.nodes.map((n) => [n.kind, n.label])).toEqual([["npc", "Vex"], ["faction", "Zhentarim"]]);
     expect(next.edges).toHaveLength(1);
@@ -169,22 +183,22 @@ describe("applySuggestions", () => {
       npc("a.json", "Aria", { faction: "Harpers" }),
       npc("b.json", "Borin", { faction: "harpers" }),
     ];
-    const next = applySuggestions(EMPTY, suggestLinksFromNpcs(npcs, EMPTY));
+    const next = applySuggestions(EMPTY, suggestLinksFromNpcs(npcs, NO_PLACES, EMPTY));
     expect(next.nodes.filter((n) => n.kind === "faction")).toHaveLength(1);
     expect(next.nodes.filter((n) => n.kind === "npc")).toHaveLength(2);
     expect(next.edges).toHaveLength(2);
   });
 
   it("labels a location edge and represents the place as a custom node", () => {
-    const next = applySuggestions(EMPTY, suggestLinksFromNpcs([npc("a.json", "Aria", { location: "Neverwinter" })], EMPTY));
+    const next = applySuggestions(EMPTY, suggestLinksFromNpcs([npc("a.json", "Aria", { location: "Neverwinter" })], NO_PLACES, EMPTY));
     expect(next.nodes.find((n) => n.kind === "custom")?.label).toBe("Neverwinter");
     expect(next.edges[0]).toMatchObject({ type: "custom", label: "located in" });
   });
 
   it("does not duplicate an edge that already exists", () => {
-    const first = applySuggestions(EMPTY, suggestLinksFromNpcs([npc("a.json", "Aria", { faction: "Harpers" })], EMPTY));
+    const first = applySuggestions(EMPTY, suggestLinksFromNpcs([npc("a.json", "Aria", { faction: "Harpers" })], NO_PLACES, EMPTY));
     // Re-running the suggestion against the now-populated graph yields nothing to add.
-    const again = suggestLinksFromNpcs([npc("a.json", "Aria", { faction: "Harpers" })], first);
+    const again = suggestLinksFromNpcs([npc("a.json", "Aria", { faction: "Harpers" })], NO_PLACES, first);
     expect(again).toEqual([]);
     const next = applySuggestions(first, again);
     expect(next.edges).toHaveLength(1);

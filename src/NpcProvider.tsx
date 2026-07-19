@@ -37,6 +37,7 @@ function toNpcRef(npc: ParsedNpc): NpcRef {
     abilityScores: npc.abilityScores,
     faction: npcMetaValue(npc, "faction"),
     location: npcMetaValue(npc, "location"),
+    locationRef: npc.locationRef,
   };
 }
 

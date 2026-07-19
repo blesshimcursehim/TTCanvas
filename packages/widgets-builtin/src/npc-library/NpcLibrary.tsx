@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useVault, pushCharacterScene } from "@ttcanvas/core";
+import { useVault, useGazetteerLocations, pushCharacterScene, type GazetteerLocationRef } from "@ttcanvas/core";
 import { CropModal } from "../party-tracker/CropModal";
 import type { NpcLibraryState, ParsedNpc, NpcRelationship } from "./types";
 import {
@@ -597,15 +597,22 @@ export function NpcLibrary({ state, onChange }: Props) {
               )}
             </div>
 
-            {/* Metadata fields */}
-            {(["location", "lastSeen"] as const).map((key) => (
-              <div key={key} className={styles.metaField}>
-                <div className={styles.sectionHead}>{key === "lastSeen" ? "Last seen" : "Location"}</div>
-                {editing
-                  ? <input className={styles.metaInput} value={draft?.[key] ?? ""} onChange={(e) => setNpc(key, e.target.value || undefined)} placeholder="-" />
-                  : <span className={styles.metaVal}>{displayNpc[key] || "-"}</span>}
-              </div>
-            ))}
+            {/* Location */}
+            <LocationField
+              npc={displayNpc}
+              editing={editing}
+              onPick={(loc) => patchDraft({ location: loc.name, locationRef: loc.filename })}
+              onUnlink={() => patchDraft({ locationRef: undefined })}
+              onTextChange={(v) => setNpc("location", v || undefined)}
+            />
+
+            {/* Last seen */}
+            <div className={styles.metaField}>
+              <div className={styles.sectionHead}>Last seen</div>
+              {editing
+                ? <input className={styles.metaInput} value={draft?.lastSeen ?? ""} onChange={(e) => setNpc("lastSeen", e.target.value || undefined)} placeholder="-" />
+                : <span className={styles.metaVal}>{displayNpc.lastSeen || "-"}</span>}
+            </div>
 
             {/* Custom fields */}
             {editing ? (
@@ -766,6 +773,68 @@ export function NpcLibrary({ state, onChange }: Props) {
           onSkip={() => applyImport(pendingImport, "skip")}
           onReplace={() => applyImport(pendingImport, "replace")}
         />
+      )}
+    </div>
+  );
+}
+
+// Location field: free text, or - once linked to a real Gazetteer place (locationRef) - a chip
+// showing the place's live name (falls back to the cached `location` string if the ref is dangling
+// or hasn't loaded yet), clickable to open Gazetteer. Mirrors Gazetteer's own linked-NPC chip
+// convention. Unlinking is edit-gated like every other mutable field here; opening the chip isn't,
+// since it's navigation rather than an edit.
+function LocationField({ npc, editing, onPick, onUnlink, onTextChange }: {
+  npc: ParsedNpc; editing: boolean;
+  onPick: (loc: GazetteerLocationRef) => void; onUnlink: () => void; onTextChange: (v: string) => void;
+}) {
+  const { locations } = useGazetteerLocations();
+  const [picking, setPicking] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const linked = npc.locationRef ? locations.find((l) => l.filename === npc.locationRef) : undefined;
+  const liveName = linked?.name ?? npc.location;
+
+  function openGazetteer() {
+    if (npc.locationRef) window.dispatchEvent(new CustomEvent("ttcanvas:open-location", { detail: { filename: npc.locationRef } }));
+  }
+
+  const q = query.trim().toLowerCase();
+  const results = locations.filter((l) => !q || l.name.toLowerCase().includes(q));
+
+  return (
+    <div className={styles.metaField}>
+      <div className={styles.sectionHead}>Location</div>
+      {npc.locationRef ? (
+        <span className={styles.locationChip}>
+          <button type="button" className={styles.locationChipBody} onClick={openGazetteer} title={`Open ${liveName ?? "place"} in Gazetteer`}>
+            {liveName || "(missing place)"}
+          </button>
+          {editing && <button className={styles.locationChipRemove} onClick={onUnlink} aria-label="Unlink location">×</button>}
+        </span>
+      ) : editing ? (
+        <div className={styles.locationEditRow}>
+          <input className={styles.metaInput} value={npc.location ?? ""} onChange={(e) => onTextChange(e.target.value)} placeholder="-" />
+          <button type="button" className={styles.locationLinkBtn} onClick={() => { setPicking((v) => !v); setQuery(""); }}>Link…</button>
+        </div>
+      ) : (
+        <span className={styles.metaVal}>{npc.location || "-"}</span>
+      )}
+      {editing && picking && (
+        <div className={styles.locationPicker}>
+          <input
+            className={styles.metaInput} value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search places" aria-label="Search Gazetteer places" autoFocus
+          />
+          <div className={styles.locationPickerList}>
+            {results.length === 0
+              ? <p className={styles.locationPickerEmpty}>No places to link.</p>
+              : results.map((l) => (
+                  <button key={l.filename} className={styles.locationPickerRow} onClick={() => { onPick(l); setPicking(false); }}>
+                    {l.name}
+                  </button>
+                ))}
+          </div>
+        </div>
       )}
     </div>
   );

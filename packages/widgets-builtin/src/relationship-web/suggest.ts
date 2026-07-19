@@ -70,14 +70,20 @@ const edgeExists = (edges: RelEdge[], from: string, to: string, type: EdgeType, 
 /**
  * Proposed links from NPC metadata, minus any the graph already records. An NPC that is not yet a
  * node still yields suggestions - accepting one adds the node - so this can bootstrap an empty web.
+ * A location linked to a real Gazetteer place (`locationRef`) suggests the place's live name instead
+ * of the possibly-stale cached `location` string, falling back to it if the ref is dangling.
  */
-export function suggestLinksFromNpcs(npcs: NpcRef[], state: RelationshipWebState): LinkSuggestion[] {
+export function suggestLinksFromNpcs(
+  npcs: NpcRef[], locations: GazetteerLocationRef[], state: RelationshipWebState,
+): LinkSuggestion[] {
+  const locByFile = new Map(locations.map((l) => [l.filename, l]));
   const out: LinkSuggestion[] = [];
   const seen = new Set<string>();
   for (const npc of npcs) {
+    const liveLocation = npc.locationRef ? locByFile.get(npc.locationRef)?.name : undefined;
     const fields: { value?: string; targetKind: "faction" | "place"; edgeType: EdgeType; edgeLabel?: string }[] = [
       { value: npc.faction, targetKind: "faction", edgeType: "member" },
-      { value: npc.location, targetKind: "place", edgeType: "custom", edgeLabel: "located in" },
+      { value: liveLocation ?? npc.location, targetKind: "place", edgeType: "custom", edgeLabel: "located in" },
     ];
     for (const f of fields) {
       const target = f.value?.trim();
@@ -178,7 +184,7 @@ export function suggestLinks(
   npcs: NpcRef[], locations: GazetteerLocationRef[], npcNoteSources: SourceDoc[], state: RelationshipWebState,
 ): LinkSuggestion[] {
   const combined = [
-    ...suggestLinksFromNpcs(npcs, state),
+    ...suggestLinksFromNpcs(npcs, locations, state),
     ...suggestLinksFromGazetteer(locations, npcs, state),
     ...suggestMentionLinks(npcNoteSources, npcs, locations, state),
   ];
