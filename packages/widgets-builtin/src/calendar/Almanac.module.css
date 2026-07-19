@@ -6,14 +6,25 @@
 
 .tabBar {
   flex-shrink: 0;
+  display: flex;
+  justify-content: center;
   padding: 8px 10px;
   border-bottom: 1px solid var(--line-soft);
 }
 
-/* Gives the active tab a definite height so its child's `height: 100%` (TimeTracker's .wrap,
+/* Gives the active pane a definite height so its child's `height: 100%` (TimeTracker's .wrap,
    CalendarView's .wrap, the calendar empty state) resolves and fills the widget body. */
 .body {
   flex: 1;
   min-height: 0;
   position: relative;
+}
+
+/* Both panes stay mounted so switching tabs never loses the other's transient state (a half-typed
+   event, the selected day, the custom jump amount); the inactive one is just hidden. */
+.pane {
+  height: 100%;
+}
+.paneHidden {
+  display: none;
 }

@@ -7,7 +7,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useVault, useCalendar } from "@ttcanvas/core";
-import { getAllWidgets } from "../registry";
+import type { CalDate } from "@ttcanvas/core";
+import { getAddableWidgets } from "../registry";
 import styles from "./CommandPalette.module.css";
 
 function fileToLabel(path: string): string {
@@ -31,10 +32,11 @@ interface Props {
   onFocus: (type: string) => void;
   onOpenNpc: (filename: string) => void;
   onOpenFile: (filename: string) => void;
+  onOpenCalendarEvent: (date: CalDate) => void;
   onClose: () => void;
 }
 
-export function CommandPalette({ openTypes, onAdd, onFocus, onOpenNpc, onOpenFile, onClose }: Props) {
+export function CommandPalette({ openTypes, onAdd, onFocus, onOpenNpc, onOpenFile, onOpenCalendarEvent, onClose }: Props) {
   const [query, setQuery] = useState("");
   const [npcFiles, setNpcFiles] = useState<string[]>([]);
   const [vaultFiles, setVaultFiles] = useState<string[]>([]);
@@ -58,8 +60,8 @@ export function CommandPalette({ openTypes, onAdd, onFocus, onOpenNpc, onOpenFil
 
   const results: ResultItem[] = [];
 
-  getAllWidgets()
-    .filter((w) => !w.hidden && (hit(w.title) || hit(w.category)))
+  getAddableWidgets()
+    .filter((w) => hit(w.title) || hit(w.category))
     .slice(0, MAX_PER_GROUP)
     .forEach((w) => {
       const isOpen = openTypes.has(w.type);
@@ -107,7 +109,7 @@ export function CommandPalette({ openTypes, onAdd, onFocus, onOpenNpc, onOpenFil
         group: "Calendar Events",
         label: e.title,
         sub: e.note,
-        action: () => { onFocus("custom-calendar"); onClose(); },
+        action: () => { onOpenCalendarEvent(e.start); onClose(); },
       });
     });
 

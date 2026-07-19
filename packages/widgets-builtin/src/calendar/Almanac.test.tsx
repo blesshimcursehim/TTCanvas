@@ -31,8 +31,8 @@ const START: CalDate = { year: 1, month: 0, day: 1 };
 // import/export controls, so the provider must be present even though this test never exercises them.
 const vault = { vaultPath: "/v", vaultVersion: 1 } as unknown as VaultContextValue;
 
-function renderAlmanac(def: CalendarDef | null) {
-  const state: CalendarState = { def, events: [] };
+function renderAlmanac(state: CalendarState, onChange: (s: CalendarState) => void = () => {}) {
+  const def = state.def;
   const cal: CalendarContextValue = {
     def, events: [], setCalendarState: () => {},
     currentDate: def ? START : null, currentHour: 8, currentMinute: 0, currentSecond: 0,
@@ -42,34 +42,41 @@ function renderAlmanac(def: CalendarDef | null) {
     <VaultContext.Provider value={vault}>
       <CalendarContext.Provider value={cal}>
         <ToastContext.Provider value={{ showToast: vi.fn() }}>
-          <Almanac state={state} onChange={() => {}} />
+          <Almanac state={state} onChange={onChange} />
         </ToastContext.Provider>
       </CalendarContext.Provider>
     </VaultContext.Provider>,
   );
 }
 
-// The "+1d" advance button is unique to the embedded TimeTracker (Clock tab); "No calendar configured"
-// is unique to the embedded Calendar's empty state (Calendar tab). Each is a reliable proxy for which
-// tab is mounted, without coupling to either child's internals.
+// Both panes are always mounted (so a tab switch never loses in-progress state), so which tab is
+// *active* is read from the toggle's aria-pressed, not from whether the other pane's content exists.
 describe("Almanac tab composition", () => {
   it("opens a configured calendar on the everyday Clock tab", () => {
-    renderAlmanac(DEF);
-    expect(screen.getByText("+1d")).toBeTruthy();
-    expect(screen.queryByText("No calendar configured")).toBeNull();
+    renderAlmanac({ def: DEF, events: [] });
+    expect(screen.getByRole("button", { name: "Clock", pressed: true })).toBeTruthy();
+    expect(screen.getByText("+1d")).toBeTruthy(); // the clock pane is mounted
   });
 
   it("opens a fresh calendar on the Calendar tab so setup comes first", () => {
-    renderAlmanac(null);
+    renderAlmanac({ def: null, events: [] });
+    expect(screen.getByRole("button", { name: "Calendar", pressed: true })).toBeTruthy();
     expect(screen.getByText("No calendar configured")).toBeTruthy();
-    expect(screen.queryByText("+1d")).toBeNull();
   });
 
-  it("switches the body between the clock and the calendar", () => {
-    renderAlmanac(DEF);
+  it("switches the active tab between clock and calendar", () => {
+    renderAlmanac({ def: DEF, events: [] });
     fireEvent.click(screen.getByRole("button", { name: "Calendar" }));
-    expect(screen.queryByText("+1d")).toBeNull();
+    expect(screen.getByRole("button", { name: "Calendar", pressed: true })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Clock" }));
-    expect(screen.getByText("+1d")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Clock", pressed: true })).toBeTruthy();
+  });
+
+  it("honours a one-shot open request: shows the Calendar tab and clears the request", () => {
+    const onChange = vi.fn();
+    // def is set, so the default tab would be Clock - the request must override it to Calendar.
+    renderAlmanac({ def: DEF, events: [], openRequest: { date: START } }, onChange);
+    expect(screen.getByRole("button", { name: "Calendar", pressed: true })).toBeTruthy();
+    expect(onChange).toHaveBeenCalledWith({ def: DEF, events: [] });
   });
 });

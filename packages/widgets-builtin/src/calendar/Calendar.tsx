@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { useCalendar } from "@ttcanvas/core";
-import type { CalendarState } from "@ttcanvas/core";
+import type { CalendarState, CalDate } from "@ttcanvas/core";
 import { CalendarSetup } from "./CalendarSetup";
 import { CalendarView } from "./CalendarView";
 import styles from "./Calendar.module.css";
@@ -14,9 +14,11 @@ import styles from "./Calendar.module.css";
 interface Props {
   state: CalendarState;
   onChange: (s: CalendarState) => void;
+  /** When set, the view jumps to this date's month (used by the Almanac to open a searched event). */
+  focusDate?: CalDate | null;
 }
 
-export function Calendar({ state, onChange }: Props) {
+export function Calendar({ state, onChange, focusDate }: Props) {
   const calCtx = useCalendar();
   const [showSetup, setShowSetup] = useState(state.def === null);
 
@@ -50,6 +52,7 @@ export function Calendar({ state, onChange }: Props) {
           state={state}
           onChange={onChange}
           onEdit={() => setShowSetup(true)}
+          focusDate={focusDate}
         />
       )}
       {showSetup && (

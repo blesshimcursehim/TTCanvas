@@ -44,6 +44,10 @@ export interface CalEvent {
 export interface CalendarState {
   def: CalendarDef | null;
   events: CalEvent[];
+  /** Transient one-shot request (e.g. from a Command Palette calendar-event pick) asking the Almanac
+   *  to show its Calendar tab and navigate to `date`'s month. The widget consumes and clears it the
+   *  same frame, so the save debounce keeps it off disk - same pattern as Bestiary's openRequestId. */
+  openRequest?: { date: CalDate };
 }
 
 export interface TimeAdvance {
@@ -73,6 +77,11 @@ export interface NamedJump {
 export const JUMP_UNIT_MINUTES: Record<JumpUnit, number> = {
   min: 1, hour: 60, day: 1440, week: 10080,
 };
+
+/** Upper bound on a jump's magnitude, shared by the schema and the editor input. Keeps the linear
+ *  calendar conversion (absDayToCalDate loops per year) fast and the value sane - 9999 weeks is
+ *  already ~190 years, well beyond any real use. */
+export const MAX_JUMP_AMOUNT = 9999;
 
 /** Signed minute delta a jump advances (or, when negative, rewinds) the clock by. */
 export function jumpMinutes(j: NamedJump): number {

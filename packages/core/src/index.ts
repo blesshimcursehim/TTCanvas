@@ -25,7 +25,7 @@ export type {
   CalendarDef, MonthDef, IntercalaryPeriod, CalDate, CalEvent, CalendarState,
   TimeAdvance, TimeTrackerState, NamedJump, JumpUnit,
 } from "./calendarTypes";
-export { JUMP_UNIT_MINUTES, jumpMinutes, DEFAULT_JUMPS } from "./calendarTypes";
+export { JUMP_UNIT_MINUTES, jumpMinutes, DEFAULT_JUMPS, MAX_JUMP_AMOUNT } from "./calendarTypes";
 export { ollamaCheck, ollamaListModels, ollamaGenerate, openaiListModels, openaiGenerate } from "./ollama";
 export type { OllamaChunk } from "./ollama";
 export { pushPlayerScene, pushCharacterScene, pushTextScene, pushHandoutScene, pushLocationScene, pushDateOverlay, pushInitiativeOverlay, pushMapPing, PING_LIFETIME_MS, pushClockOverlay, pushDiceOverlay } from "./playerScene";

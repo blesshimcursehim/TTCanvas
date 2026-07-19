@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useRef, useState } from "react";
-import { getAllWidgets } from "../registry";
+import { getAddableWidgets } from "../registry";
 import { Icon } from "../icons/Icon";
 import { useDismissOnOutsideClick } from "../hooks/useDismissOnOutsideClick";
 import styles from "./WidgetPicker.module.css";
@@ -20,7 +20,7 @@ interface Props {
 }
 
 export function WidgetPicker({ openTypes, onAdd, onFocus, open, onOpenChange, disabledWidgetTypes }: Props) {
-  const widgets = getAllWidgets().filter((w) => !w.hidden && !disabledWidgetTypes.includes(w.type));
+  const widgets = getAddableWidgets().filter((w) => !disabledWidgetTypes.includes(w.type));
   const categories = [...new Set(widgets.map((w) => w.category))];
   const onCanvasCount = openTypes.size;
 

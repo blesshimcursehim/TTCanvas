@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { z } from "zod";
-import { DEFAULT_JUMPS } from "@ttcanvas/core";
+import { DEFAULT_JUMPS, MAX_JUMP_AMOUNT } from "@ttcanvas/core";
 import { createDefaultNpcGeneratorState } from "@ttcanvas/widgets-builtin";
 
 // ---------------------------------------------------------------------------
@@ -339,6 +339,9 @@ const calendarSchema = z
   .object({
     def: z.unknown().catch(null),
     events: z.array(z.unknown()).catch([]),
+    // Transient one-shot (Almanac consumes and clears it) - kept in the schema, not stripped, so it
+    // survives the per-render parse and reaches the widget. Validated inside the widget.
+    openRequest: z.unknown().optional(),
   })
   .catch({ def: null, events: [] });
 
@@ -350,10 +353,13 @@ export function parseCalendarState(raw: unknown): unknown {
 // time-tracker
 // ---------------------------------------------------------------------------
 
+// amount must be a non-zero integer within the shared bound: the editor only produces such values, so
+// a fraction, zero (which can't be re-signed), or a runaway magnitude (which could stall the calendar
+// conversion) means a hand-edited or corrupt entry - drop it rather than let it through.
 const jumpSchema = z.object({
   id: z.string(),
   label: z.string(),
-  amount: z.number(),
+  amount: z.number().int().refine((n) => n !== 0 && Math.abs(n) <= MAX_JUMP_AMOUNT),
   unit: z.enum(["min", "hour", "day", "week"]),
 });
 

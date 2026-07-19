@@ -36,7 +36,7 @@ import { NpcProvider } from "./NpcProvider";
 import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
 import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
@@ -1047,6 +1047,17 @@ function App() {
     revealWidget("gazetteer");
   }, [revealWidget]);
 
+  // Open the Almanac to its Calendar tab, navigated to a searched event's month. Writes a one-shot
+  // request into the calendar singleton (merged so def/events survive) that the widget consumes and
+  // clears on mount, then reveals it - robust whether or not the Almanac is currently on the canvas.
+  const handleOpenCalendarEvent = useCallback((date: CalDate) => {
+    setSingletonStates((ss) => {
+      const cur = (ss["custom-calendar"] ?? DEFAULT_CAL_STATE) as CalendarState;
+      return { ...ss, "custom-calendar": { ...cur, openRequest: { date } } };
+    });
+    revealWidget("custom-calendar");
+  }, [revealWidget]);
+
   const handleOpenFile = useCallback((filename: string) => {
     setSingletonStates((ss) => ({
       ...ss,
@@ -1314,6 +1325,7 @@ function App() {
               onFocus={focusByType}
               onOpenNpc={handleOpenNpc}
               onOpenFile={handleOpenFile}
+              onOpenCalendarEvent={handleOpenCalendarEvent}
               onClose={() => setPaletteOpen(false)}
             />
           )}

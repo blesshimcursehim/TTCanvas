@@ -224,6 +224,11 @@
   outline: none;
   cursor: pointer;
 }
+.jumpUnitSel:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+  border-color: var(--accent-line);
+}
 
 .jumpDirBtn,
 .jumpMoveBtn,

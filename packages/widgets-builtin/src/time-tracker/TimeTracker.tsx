@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState } from "react";
-import { useCalendar, useToast, pushDateOverlay, jumpMinutes } from "@ttcanvas/core";
+import { useCalendar, useToast, pushDateOverlay, jumpMinutes, MAX_JUMP_AMOUNT } from "@ttcanvas/core";
 import type { TimeTrackerState, TimeAdvance, NamedJump, JumpUnit } from "@ttcanvas/core";
 import { formatCalDate, formatTime, timeOfDay, formatDateOverlay, advanceTime, eventsStartingBetween, describeCrossedEvents } from "../calendar/utils";
 import styles from "./TimeTracker.module.css";
@@ -60,8 +60,9 @@ export function TimeTracker({ state, onChange }: Props) {
   function handleCustom() {
     const raw = customInput.trim();
     if (!raw) return;
-    const n = parseInt(raw, 10);
-    if (isNaN(n) || n <= 0) return;
+    const parsed = parseInt(raw, 10);
+    if (isNaN(parsed) || parsed <= 0) return;
+    const n = Math.min(parsed, MAX_JUMP_AMOUNT);
     const mag = customUnit === "h" ? n * 60 : customUnit === "d" ? n * 1440 : n;
     advance(mag * customDir, `${customDir < 0 ? "−" : "+"}${n}${customUnit}`);
     setCustomInput("");
@@ -185,9 +186,10 @@ export function TimeTracker({ state, onChange }: Props) {
                 className={styles.jumpMagInput}
                 type="number"
                 min={1}
+                max={MAX_JUMP_AMOUNT}
                 value={Math.abs(j.amount)}
                 onChange={(e) => {
-                  const mag = Math.max(1, Math.floor(Number(e.target.value) || 1));
+                  const mag = Math.min(MAX_JUMP_AMOUNT, Math.max(1, Math.floor(Number(e.target.value) || 1)));
                   updateJump(j.id, { amount: (j.amount < 0 ? -1 : 1) * mag });
                 }}
                 aria-label="Jump amount"
@@ -242,6 +244,7 @@ export function TimeTracker({ state, onChange }: Props) {
           className={styles.customInput}
           type="number"
           min={1}
+          max={MAX_JUMP_AMOUNT}
           placeholder="-"
           value={customInput}
           onChange={(e) => setCustomInput(e.target.value)}

@@ -274,6 +274,24 @@ describe("advanceTimeSeconds", () => {
     expect(a.minute).toBe(b.minute);
     expect(b.second).toBe(0);
   });
+
+  it("clamps to the epoch floor when rewinding past the start of day 1", () => {
+    // One hour before day 1 00:30 has no valid date - pin the whole timestamp at day 1 00:00:00,
+    // not day 1 23:30 (which an earlier separate date/time clamp produced).
+    const r = advanceTimeSeconds({ year: 1, month: 0, day: 1 }, 0, 30, 0, -3600, UNIFORM);
+    expect(calDateEq(r.date, { year: 1, month: 0, day: 1 })).toBe(true);
+    expect(r.hour).toBe(0);
+    expect(r.minute).toBe(0);
+    expect(r.second).toBe(0);
+  });
+
+  it("clamps a large rewind that overshoots the epoch to the floor", () => {
+    const r = advanceTimeSeconds({ year: 1, month: 0, day: 3 }, 12, 0, 0, -100 * 86400, UNIFORM);
+    expect(calDateEq(r.date, { year: 1, month: 0, day: 1 })).toBe(true);
+    expect(r.hour).toBe(0);
+    expect(r.minute).toBe(0);
+    expect(r.second).toBe(0);
+  });
 });
 
 describe("formatTime with seconds", () => {

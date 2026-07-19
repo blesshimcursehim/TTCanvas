@@ -71,6 +71,13 @@ export function getAllWidgets(): WidgetDefinition[] {
   return Array.from(registry.values());
 }
 
+/** Widgets a user can actually add - excludes `hidden` (retired) types. The single source the Add
+ *  Widget picker, Command Palette and Preferences list all share, so a retired widget disappears
+ *  from every one of them at once. */
+export function getAddableWidgets(): WidgetDefinition[] {
+  return getAllWidgets().filter((w) => !w.hidden);
+}
+
 export function getModWidgetTypes(): string[] {
   return Array.from(modTypes);
 }
