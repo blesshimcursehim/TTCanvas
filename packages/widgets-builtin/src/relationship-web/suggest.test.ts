@@ -51,6 +51,26 @@ describe("suggestLinksFromNpcs", () => {
     };
     expect(suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { faction: "Zhentarim" })], state)).toHaveLength(1);
   });
+
+  it("still suggests a location link when only an unrelated custom edge connects the two", () => {
+    const state: RelationshipWebState = {
+      nodes: [node("n1", "npc", "Vex", "npcs/vex.json"), node("p1", "custom", "Waterdeep", null)],
+      edges: [{ id: "e1", from: "n1", to: "p1", type: "custom", label: "rival in" }],
+      selectedId: null,
+    };
+    const s = suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { location: "Waterdeep" })], state);
+    expect(s).toHaveLength(1);
+    expect(s[0]).toMatchObject({ target: "Waterdeep", edgeLabel: "located in" });
+  });
+
+  it("recognises a reverse located-in edge, since custom edges are undirected", () => {
+    const state: RelationshipWebState = {
+      nodes: [node("n1", "npc", "Vex", "npcs/vex.json"), node("p1", "custom", "Waterdeep", null)],
+      edges: [{ id: "e1", from: "p1", to: "n1", type: "custom", label: "located in" }],
+      selectedId: null,
+    };
+    expect(suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { location: "Waterdeep" })], state)).toEqual([]);
+  });
 });
 
 describe("applySuggestions", () => {

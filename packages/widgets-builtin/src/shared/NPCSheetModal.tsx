@@ -201,12 +201,28 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
                 );
               })}
             </div>
+          ) : draft.savingThrows?.length ? (
+            <div className={styles.saveThrowChips}>
+              {draft.savingThrows.map((s) => {
+                const key = s as keyof AbilityScores;
+                const label = ABILITY_LABELS[key] ?? s;
+                return draft.abilityScores ? (
+                  <RollableStat
+                    key={s}
+                    className={styles.saveChip}
+                    bonus={Math.floor((draft.abilityScores[key] - 10) / 2)}
+                    label={`${label} save`}
+                    subject={draft.name}
+                  >
+                    {label}
+                  </RollableStat>
+                ) : (
+                  <span key={s} className={styles.saveChip}>{label}</span>
+                );
+              })}
+            </div>
           ) : (
-            <p className={styles.saveThrowText}>
-              {draft.savingThrows?.length
-                ? draft.savingThrows.map((s) => ABILITY_LABELS[s as keyof AbilityScores] ?? s).join(", ")
-                : <em className={styles.empty}>None</em>}
-            </p>
+            <p className={styles.saveThrowText}><em className={styles.empty}>None</em></p>
           )}
 
           <SectionHead style={{ marginTop: 16 }}>Skills</SectionHead>

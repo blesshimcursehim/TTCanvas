@@ -20,7 +20,7 @@ export { createDefaultNpcGeneratorState } from "./npc-generator/tables";
 
 export { NpcLibrary } from "./npc-library/NpcLibrary";
 export type { NpcLibraryState, ParsedNpc } from "./npc-library/types";
-export { parseNpcJson } from "./npc-library/npcFormat";
+export { parseNpcJson, npcMetaValue } from "./npc-library/npcFormat";
 
 export { SessionNotes } from "./session-notes/SessionNotes";
 export type { SessionNotesState } from "./session-notes/types";
