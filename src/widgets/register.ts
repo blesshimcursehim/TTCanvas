@@ -16,7 +16,7 @@ import {
   DiceRoller, type DiceRollerState,
   type MapDisplayState,
   SoundBoard, type SoundBoardState,
-  Calendar, type CalendarState,
+  Almanac, type CalendarState,
   TimeTracker, type TimeTrackerState,
   Bestiary, type BestiaryState,
   SessionRecorder, type SessionRecorderState,
@@ -277,25 +277,30 @@ registerWidget({
 
 registerWidget({
   type: "custom-calendar",
-  title: "Calendar",
-  help: "# Calendar\n\nSet up your campaign's months, weekdays and current date, then add dated events. The Calendar supplies dates to the timeline and game-time tools.\n\nCalendar events are shared data, so changing them updates every layout that uses this campaign.",
+  title: "Almanac",
+  help: "# Almanac\n\nYour campaign's clock and calendar in one place.\n\nThe **Clock** tab advances the shared in-game time in common increments or a custom amount, and keeps a history you can review or undo. The **Calendar** tab sets up your months, weekdays and current date, and holds dated events.\n\nCalendar events are shared data, so changing them updates every layout that uses this campaign. Cast the date and time to show them in the Player Window. When an advance crosses an event's start day, a reminder toast names it - a nudge only, it never changes the scene.",
   icon: "calendar",
   category: "World",
-  defaultSize: { width: 420, height: 380 },
+  defaultSize: { width: 420, height: 420 },
   defaultState: { def: null, events: [] } satisfies CalendarState,
   singleton: true,
-  minWidth: 280,
-  minHeight: 240,
+  minWidth: 300,
+  minHeight: 280,
   parseState: parseCalendarState,
-  component: Calendar as WidgetComponent,
+  component: Almanac as WidgetComponent,
 });
 
+// Retired: folded into the Almanac (custom-calendar) above. Kept registered - and so still renderable
+// and state-parseable - so any Time Tracker already placed on a canvas keeps working, but hidden from
+// the Add Widget picker and Command Palette so no new one is created. Same "leave the old identifier
+// alone" approach as the Session Recorder -> Session Logger rename.
 registerWidget({
   type: "time-tracker",
   title: "Time Tracker",
-  help: "# Time Tracker\n\nAdvance the shared campaign time in common increments or enter a custom amount. The history records each change so you can review or undo it.\n\nSet up the Calendar first. Cast the current date and time to show it in the Player Window. When an advance crosses a Calendar event's start day, a reminder toast names it - a nudge only, it never changes the scene.",
+  help: "# Time Tracker\n\nAdvance the shared campaign time in common increments or enter a custom amount. The history records each change so you can review or undo it.\n\nThis widget has been folded into the **Almanac**, which holds the same clock alongside the calendar. Add an Almanac from the Add Widget menu to get both.",
   icon: "clock",
   category: "World",
+  hidden: true,
   defaultSize: { width: 280, height: 240 },
   defaultState: {
     currentDate: null,

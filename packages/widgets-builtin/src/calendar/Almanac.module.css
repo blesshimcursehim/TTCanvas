@@ -1,0 +1,19 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.tabBar {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+/* Gives the active tab a definite height so its child's `height: 100%` (TimeTracker's .wrap,
+   CalendarView's .wrap, the calendar empty state) resolves and fills the widget body. */
+.body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}

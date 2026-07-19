@@ -20,7 +20,7 @@ interface Props {
 }
 
 export function WidgetPicker({ openTypes, onAdd, onFocus, open, onOpenChange, disabledWidgetTypes }: Props) {
-  const widgets = getAllWidgets().filter((w) => !disabledWidgetTypes.includes(w.type));
+  const widgets = getAllWidgets().filter((w) => !w.hidden && !disabledWidgetTypes.includes(w.type));
   const categories = [...new Set(widgets.map((w) => w.category))];
   const onCanvasCount = openTypes.size;
 

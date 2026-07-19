@@ -59,7 +59,7 @@ export function CommandPalette({ openTypes, onAdd, onFocus, onOpenNpc, onOpenFil
   const results: ResultItem[] = [];
 
   getAllWidgets()
-    .filter((w) => hit(w.title) || hit(w.category))
+    .filter((w) => !w.hidden && (hit(w.title) || hit(w.category)))
     .slice(0, MAX_PER_GROUP)
     .forEach((w) => {
       const isOpen = openTypes.has(w.type);

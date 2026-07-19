@@ -120,7 +120,7 @@ export function TimeTracker({ state, onChange }: Props) {
           </div>
         )}
         {!def && (
-          <div className={styles.noDef}>Open the Calendar widget to set up a calendar first.</div>
+          <div className={styles.noDef}>Set up a calendar first, on the Calendar tab.</div>
         )}
       </div>
 

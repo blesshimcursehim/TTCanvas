@@ -21,6 +21,10 @@ export interface WidgetDefinition {
   defaultSize: { width: number; height: number };
   defaultState: unknown | (() => unknown);
   singleton?: boolean;
+  /** Registered and renderable (so already-placed instances keep working and their state still
+   *  parses), but not offered in the Add Widget picker or Command Palette. For retired widget types
+   *  that a newer widget subsumes - e.g. `time-tracker`, folded into the Almanac. */
+  hidden?: boolean;
   minWidth?: number;
   minHeight?: number;
   component: WidgetComponent;
