@@ -5,6 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { z } from "zod";
+import { DEFAULT_JUMPS } from "@ttcanvas/core";
 import { createDefaultNpcGeneratorState } from "@ttcanvas/widgets-builtin";
 
 // ---------------------------------------------------------------------------
@@ -349,6 +350,29 @@ export function parseCalendarState(raw: unknown): unknown {
 // time-tracker
 // ---------------------------------------------------------------------------
 
+const jumpSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  amount: z.number(),
+  unit: z.enum(["min", "hour", "day", "week"]),
+});
+
+// Absent (a Time Tracker saved before jumps existed) seeds the defaults; a present list keeps only its
+// valid entries - one corrupt jump is dropped, not the whole bar - and may be intentionally empty. A
+// non-array or otherwise unparseable value falls back to the defaults.
+const jumpsSchema = z
+  .array(z.unknown())
+  .optional()
+  .transform((arr) =>
+    arr === undefined
+      ? [...DEFAULT_JUMPS]
+      : arr.flatMap((item) => {
+          const r = jumpSchema.safeParse(item);
+          return r.success ? [r.data] : [];
+        }),
+  )
+  .catch([...DEFAULT_JUMPS]);
+
 const timeTrackerSchema = z
   .object({
     currentDate: z.unknown().catch(null),
@@ -357,10 +381,11 @@ const timeTrackerSchema = z
     currentSecond: z.number().catch(0),
     history: z.array(z.unknown()).catch([]),
     showOnPlayer: z.boolean().catch(false),
+    jumps: jumpsSchema,
   })
   .catch({
     currentDate: null, currentHour: 8, currentMinute: 0, currentSecond: 0,
-    history: [], showOnPlayer: false,
+    history: [], showOnPlayer: false, jumps: [...DEFAULT_JUMPS],
   });
 
 export function parseTimeTrackerState(raw: unknown): unknown {

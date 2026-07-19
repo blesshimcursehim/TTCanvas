@@ -7,7 +7,7 @@
 
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CalendarContext, ToastContext, VaultContext } from "@ttcanvas/core";
+import { CalendarContext, ToastContext, VaultContext, DEFAULT_JUMPS } from "@ttcanvas/core";
 import type { CalendarContextValue, CalDate, CalendarDef, CalendarState, VaultContextValue } from "@ttcanvas/core";
 import { Almanac } from "./Almanac";
 
@@ -36,7 +36,7 @@ function renderAlmanac(def: CalendarDef | null) {
   const cal: CalendarContextValue = {
     def, events: [], setCalendarState: () => {},
     currentDate: def ? START : null, currentHour: 8, currentMinute: 0, currentSecond: 0,
-    history: [], showOnPlayer: false, setTimeState: () => {},
+    history: [], showOnPlayer: false, jumps: [...DEFAULT_JUMPS], setTimeState: () => {},
   };
   render(
     <VaultContext.Provider value={vault}>

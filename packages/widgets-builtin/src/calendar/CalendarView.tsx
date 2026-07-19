@@ -87,13 +87,15 @@ export function CalendarView({ state, onChange, onEdit }: Props) {
       setNewTitle("");
       setNewNote("");
       setNewDuration("1");
-      // sync Time Tracker
+      // sync the clock to the picked day, preserving the rest of the time state (seconds, jumps)
       calCtx.setTimeState({
         currentDate: date,
         currentHour: calCtx.currentHour,
         currentMinute: calCtx.currentMinute,
+        currentSecond: calCtx.currentSecond,
         history: calCtx.history,
         showOnPlayer: calCtx.showOnPlayer,
+        jumps: calCtx.jumps,
       });
     }
   }

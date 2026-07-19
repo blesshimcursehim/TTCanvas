@@ -5,6 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { lazy } from "react";
+import { DEFAULT_JUMPS } from "@ttcanvas/core";
 import { registerWidget, type WidgetComponent } from "../registry";
 import { StickyNote, type StickyNoteState } from "./StickyNote";
 import {
@@ -309,6 +310,7 @@ registerWidget({
     currentSecond: 0,
     history: [],
     showOnPlayer: false,
+    jumps: [...DEFAULT_JUMPS],
   } satisfies TimeTrackerState,
   singleton: true,
   minWidth: 220,

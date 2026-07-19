@@ -47,6 +47,7 @@ export function Almanac({ state, onChange }: Props) {
     currentSecond: cal.currentSecond,
     history: cal.history,
     showOnPlayer: cal.showOnPlayer,
+    jumps: cal.jumps,
   };
 
   return (

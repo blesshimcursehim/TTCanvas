@@ -30,6 +30,7 @@ export function Calendar({ state, onChange }: Props) {
         currentMinute: 0,
         history: [],
         showOnPlayer: false,
+        jumps: calCtx.jumps, // preserve the clock's advance presets across first-time setup
       });
     }
     setShowSetup(false);

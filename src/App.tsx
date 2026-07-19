@@ -36,7 +36,7 @@ import { NpcProvider } from "./NpcProvider";
 import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
 import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
@@ -52,6 +52,7 @@ const CANVAS_AREA: React.CSSProperties = {
 const DEFAULT_CAL_STATE: CalendarState = { def: null, events: [] };
 const DEFAULT_TIME_STATE: TimeTrackerState = {
   currentDate: null, currentHour: 8, currentMinute: 0, currentSecond: 0, history: [], showOnPlayer: false,
+  jumps: [...DEFAULT_JUMPS],
 };
 const DEFAULT_IT_STATE: InitiativeTrackerState = {
   combatants: [], currentId: null, round: 1, showOnPlayer: false, autoAdvanceTime: false, roundSeconds: 6,
@@ -1002,6 +1003,9 @@ function App() {
     currentSecond: timeState.currentSecond ?? 0,
     history: timeState.history,
     showOnPlayer: timeState.showOnPlayer,
+    // Singleton states load straight from the workspace JSON (no parseState), so a Time Tracker saved
+    // before jumps existed has none - seed the defaults here, the same way currentSecond is defaulted.
+    jumps: timeState.jumps ?? [...DEFAULT_JUMPS],
     setTimeState,
   }), [calState, timeState, setCalendarState, setTimeState]);
 
