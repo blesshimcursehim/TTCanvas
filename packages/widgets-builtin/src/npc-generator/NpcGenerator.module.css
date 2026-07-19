@@ -397,6 +397,31 @@
 
 .collisionCancel:hover { background: var(--surface-2); }
 
+/* ── Post-save follow-up ──────────────────────────────── */
+
+.postSaveRow {
+  display: flex;
+  gap: 8px;
+}
+
+.postSaveBtn {
+  flex: 1;
+  padding: 7px 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.postSaveBtn:hover {
+  background: var(--surface-2);
+  border-color: var(--accent-line, var(--accent));
+}
+
 /* ── Action buttons ───────────────────────────────────── */
 
 .actions {

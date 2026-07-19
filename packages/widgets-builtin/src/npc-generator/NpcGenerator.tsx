@@ -88,7 +88,10 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   const vault = useContext(VaultContext);
   const { config: aiConfig } = useAI();
 
-  const patch = (fields: Partial<NpcGeneratorState>) => onChange({ ...state, ...fields });
+  const patch = (fields: Partial<NpcGeneratorState>) => {
+    setSavedFilename(null);
+    onChange({ ...state, ...fields });
+  };
   const toggleLock = (field: keyof NpcGeneratorState["locked"]) =>
     patch({ locked: { ...state.locked, [field]: !state.locked[field] } });
 
@@ -105,6 +108,10 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   // needing every name-changing code path to remember to reset a separate flag.
   const [collisionName, setCollisionName] = useState<string | null>(null);
   const nameCollision = collisionName !== null && collisionName === state.name;
+  // The just-saved file, so "Open in NPC Library" / "Generate another" can follow up. Cleared inside
+  // `patch` (every field edit's single choke point) rather than on a timer, so it survives as long as
+  // the form still reflects what was saved and disappears the moment the GM changes anything.
+  const [savedFilename, setSavedFilename] = useState<string | null>(null);
   const streamBuf = useRef("");
   const cancelGenRef = useRef<(() => void) | null>(null);
   useEffect(() => () => { cancelGenRef.current?.(); }, []);
@@ -146,6 +153,24 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
       hook: state.locked.hook ? state.hook : generateHook(),
       voice: state.locked.voice ? state.voice : generateVoice(),
       age: state.locked.age ? state.age : generateAge(state.race),
+    });
+  };
+
+  // Follow-up to a successful save: rolls a new NPC the same way "Re-roll all" does (respecting
+  // locks, so a GM bulk-rolling several similar NPCs keeps what they locked), plus clears the
+  // relationship badge and rolls fresh stats, since those describe the NPC that was just saved.
+  const handleGenerateAnother = () => {
+    patch({
+      name: state.locked.name ? state.name : generateName(state.gender),
+      occupation: state.locked.occupation ? state.occupation : generateOccupation(),
+      trait: state.locked.trait ? state.trait : generateTrait(),
+      hook: state.locked.hook ? state.hook : generateHook(),
+      voice: state.locked.voice ? state.voice : generateVoice(),
+      age: state.locked.age ? state.age : generateAge(state.race),
+      relationship: null,
+      ...(state.generateStats
+        ? { stats: generateStats({ dndClass: state.dndClass, level: state.level, race: state.race }) }
+        : {}),
     });
   };
 
@@ -261,6 +286,7 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
       await vault.writeFile(filename, serializeNpcJson(npc));
       setCollisionName(null);
       setSaved(true);
+      setSavedFilename(filename);
       setTimeout(() => setSaved(false), 2000);
     } catch {
       setSaveError(true);
@@ -492,6 +518,20 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
           {saved ? "Saved ✓" : saveError ? "Save failed" : "Save to library"}
         </button>
       </div>
+
+      {savedFilename && (
+        <div className={styles.postSaveRow} role="status">
+          <button
+            className={styles.postSaveBtn}
+            onClick={() => window.dispatchEvent(new CustomEvent("ttcanvas:open-npc", { detail: { filename: savedFilename } }))}
+          >
+            Open in NPC Library
+          </button>
+          <button className={styles.postSaveBtn} onClick={handleGenerateAnother}>
+            Generate another
+          </button>
+        </div>
+      )}
     </div>
   );
 }
