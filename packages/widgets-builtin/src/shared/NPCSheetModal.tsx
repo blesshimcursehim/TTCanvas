@@ -12,7 +12,7 @@ import { AbilityGrid } from "./sheet-primitives/AbilityGrid";
 import { RollableStat } from "./sheet-primitives/RollableStat";
 import { NamedEntryList } from "./sheet-primitives/NamedEntryList";
 import type { AbilityScores, NamedEntry } from "@ttcanvas/core";
-import { abilityModifier, proficiencyBonus } from "@ttcanvas/core";
+import { abilityModifier, proficiencyBonus, proficiencyBonusForCr } from "@ttcanvas/core";
 import styles from "./NPCSheetModal.module.css";
 
 const TABS = ["Overview", "Abilities", "Combat", "Spellcasting", "Notes"] as const;
@@ -55,12 +55,21 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
     setDraft((d) => ({ ...d, ...p }));
   }
 
-  // A saving throw's total: ability modifier plus the proficiency bonus when the NPC is proficient
-  // in that save and has a level set (many library NPCs have none, so proficiency stays off there).
+  // The NPC's proficiency bonus, from whichever measure it's built on: level for class-leveled NPCs,
+  // else Challenge Rating for statblock monsters, else the +2 baseline every creature has. (Most
+  // library NPCs have no level, so gating on level alone would drop proficiency for CR-rated saves.)
+  function npcProficiencyBonus(): number {
+    if (draft.level) return proficiencyBonus(draft.level);
+    if (draft.cr) return proficiencyBonusForCr(draft.cr);
+    return 2;
+  }
+
+  // A saving throw's total: ability modifier (default score 10) plus the proficiency bonus when the
+  // NPC is proficient in that save.
   function saveBonus(key: keyof AbilityScores): number {
     const score = draft.abilityScores?.[key] ?? 10;
     const proficient = (draft.savingThrows ?? []).includes(key);
-    return abilityModifier(score) + (proficient && draft.level ? proficiencyBonus(draft.level) : 0);
+    return abilityModifier(score) + (proficient ? npcProficiencyBonus() : 0);
   }
 
   function set<K extends keyof ParsedNpc>(key: K, val: ParsedNpc[K]) {
@@ -204,7 +213,7 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
                       }}
                     />
                     <span>{ABILITY_LABELS[key]}</span>
-                    {draft.abilityScores && <span className={styles.saveBonus}>{fmtBonus(saveBonus(key))}</span>}
+                    <span className={styles.saveBonus}>{fmtBonus(saveBonus(key))}</span>
                   </label>
                 );
               })}
@@ -214,7 +223,7 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
               {draft.savingThrows.map((s) => {
                 const key = s as keyof AbilityScores;
                 const label = ABILITY_LABELS[key] ?? s;
-                return draft.abilityScores ? (
+                return (
                   <RollableStat
                     key={s}
                     className={styles.saveChip}
@@ -224,8 +233,6 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
                   >
                     {label} {fmtBonus(saveBonus(key))}
                   </RollableStat>
-                ) : (
-                  <span key={s} className={styles.saveChip}>{label}</span>
                 );
               })}
             </div>
