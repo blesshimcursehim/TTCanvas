@@ -178,7 +178,7 @@ registerWidget({
 registerWidget({
   type: "relationship-web",
   title: "Relationship Web",
-  help: "# Relationship Web\n\nBuild a graph of people, places, factions and other campaign elements. Add nodes, connect them with labelled edges, then drag nodes into a useful arrangement.\n\nUse **Tidy** to lay out the graph automatically. The expand button opens a larger view for dense webs.",
+  help: "# Relationship Web\n\nBuild a graph of people, places, factions and other campaign elements. Add nodes, connect them with labelled edges, then drag nodes into a useful arrangement.\n\nUse **Suggest** to turn the faction and location already recorded on your NPC Library entries into proposed links - review the list and add only the ones you want. Use **Tidy** to lay out the graph automatically. The expand button opens a larger view for dense webs.",
   icon: "web",
   category: "NPC Management",
   defaultSize: { width: 480, height: 420 },

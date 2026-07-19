@@ -35,6 +35,10 @@ export interface NpcRef {
   ac?: number;
   /** Rich-statblock ability scores, if filled in - lets initiative rolls add a DEX modifier. */
   abilityScores?: AbilityScores;
+  /** Free-text faction/location from the library entry - lets the Relationship Web suggest links
+   *  from metadata the GM already recorded, instead of re-typing them into the graph. */
+  faction?: string;
+  location?: string;
 }
 
 export interface NpcContextValue {

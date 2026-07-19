@@ -5,9 +5,9 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { StrictMode } from "react";
+import { StrictMode, useState } from "react";
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
-import { render, cleanup, waitFor } from "@testing-library/react";
+import { render, cleanup, waitFor, screen, fireEvent } from "@testing-library/react";
 import { VaultContext, PartyContext, NpcContext } from "@ttcanvas/core";
 import type { VaultContextValue, PartyContextValue, NpcContextValue } from "@ttcanvas/core";
 import { RelationshipWeb } from "./RelationshipWeb";
@@ -79,5 +79,64 @@ describe("RelationshipWeb portraits", () => {
     );
     expect(document.querySelector("image")).toBeNull();
     expect([...document.querySelectorAll('[class*="nodeInitials"]')].some((n) => n.textContent === "TG")).toBe(true);
+  });
+});
+
+describe("RelationshipWeb suggest-from-NPCs", () => {
+  const withFaction: NpcContextValue = {
+    npcs: [{ filename: "npcs/vex.json", id: "vex", name: "Vex", faction: "Zhentarim" }],
+    loading: false,
+  };
+
+  // Owns state so onChange round-trips back into the widget, letting us assert the applied graph.
+  function Harness({ ctx, onState }: { ctx: NpcContextValue; onState: (s: RelationshipWebState) => void }) {
+    const [state, setState] = useState<RelationshipWebState>({ nodes: [], edges: [], selectedId: null });
+    return (
+      <VaultContext.Provider value={vault}>
+        <NpcContext.Provider value={ctx}>
+          <PartyContext.Provider value={party}>
+            <RelationshipWeb state={state} onChange={(s) => { setState(s); onState(s); }} />
+          </PartyContext.Provider>
+        </NpcContext.Provider>
+      </VaultContext.Provider>
+    );
+  }
+
+  it("imports a checked suggestion as an NPC node, faction node and member edge", () => {
+    let latest: RelationshipWebState | null = null;
+    render(<Harness ctx={withFaction} onState={(s) => { latest = s; }} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Suggest \(1\)/ }));
+    expect(screen.getByText("Zhentarim")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Add 1 link/ }));
+
+    expect(latest).not.toBeNull();
+    expect(latest!.nodes.map((n) => [n.kind, n.label])).toEqual([["npc", "Vex"], ["faction", "Zhentarim"]]);
+    expect(latest!.edges).toHaveLength(1);
+    expect(latest!.edges[0].type).toBe("member");
+  });
+
+  it("adds nothing for an unchecked suggestion", () => {
+    let latest: RelationshipWebState | null = null;
+    render(<Harness ctx={withFaction} onState={(s) => { latest = s; }} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Suggest \(1\)/ }));
+    fireEvent.click(screen.getByRole("checkbox")); // uncheck the only row
+    expect(screen.getByRole("button", { name: /Add 0 links/ })).toBeDisabled();
+    expect(latest).toBeNull();
+  });
+
+  it("disables Suggest when no NPC metadata yields a new link", () => {
+    const bare: NpcContextValue = { npcs: [{ filename: "a.json", id: "a", name: "A" }], loading: false };
+    render(
+      <VaultContext.Provider value={vault}>
+        <NpcContext.Provider value={bare}>
+          <PartyContext.Provider value={party}>
+            <RelationshipWeb state={{ nodes: [], edges: [], selectedId: null }} onChange={() => {}} />
+          </PartyContext.Provider>
+        </NpcContext.Provider>
+      </VaultContext.Provider>,
+    );
+    expect(screen.getByRole("button", { name: /Suggest/ })).toBeDisabled();
   });
 });
