@@ -608,6 +608,30 @@ describe("parseTimeTrackerState", () => {
     const result = parseTimeTrackerState({ currentDate: null, currentHour: 14, currentMinute: 30, currentSecond: 42, history: [], showOnPlayer: false }) as { currentSecond: number };
     expect(result.currentSecond).toBe(42);
   });
+  it("seeds the four default jumps when the field is absent (pre-jumps saves)", () => {
+    const result = parseTimeTrackerState({ currentDate: null, currentHour: 8, currentMinute: 0, history: [], showOnPlayer: false }) as { jumps: unknown[] };
+    expect(result.jumps).toHaveLength(4);
+  });
+  it("keeps a valid jumps list, dropping only the corrupt entries", () => {
+    const result = parseTimeTrackerState({
+      currentDate: null, currentHour: 8, currentMinute: 0, history: [], showOnPlayer: false,
+      jumps: [
+        { id: "a", label: "Long Rest", amount: 8, unit: "hour" },
+        { id: "b", label: "bad amount", amount: "lots", unit: "hour" },
+        { id: "c", label: "Rewind", amount: -1, unit: "day" },
+        { id: "d", label: "bad unit", amount: 1, unit: "fortnight" },
+      ],
+    }) as { jumps: { id: string }[] };
+    expect(result.jumps.map((j) => j.id)).toEqual(["a", "c"]);
+  });
+  it("respects an intentionally empty jumps list (not seeded back to defaults)", () => {
+    const result = parseTimeTrackerState({ currentDate: null, currentHour: 8, currentMinute: 0, history: [], showOnPlayer: false, jumps: [] }) as { jumps: unknown[] };
+    expect(result.jumps).toEqual([]);
+  });
+  it("falls back to defaults when jumps is a non-array", () => {
+    const result = parseTimeTrackerState({ currentDate: null, currentHour: 8, currentMinute: 0, history: [], showOnPlayer: false, jumps: "oops" }) as { jumps: unknown[] };
+    expect(result.jumps).toHaveLength(4);
+  });
 });
 
 describe("parseRelationshipWebState", () => {

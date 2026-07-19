@@ -5,7 +5,8 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { createContext, useContext } from "react";
-import type { CalendarDef, CalEvent, CalDate, CalendarState, TimeAdvance, TimeTrackerState } from "./calendarTypes";
+import type { CalendarDef, CalEvent, CalDate, CalendarState, TimeAdvance, TimeTrackerState, NamedJump } from "./calendarTypes";
+import { DEFAULT_JUMPS } from "./calendarTypes";
 
 export interface CalendarContextValue {
   def: CalendarDef | null;
@@ -17,6 +18,7 @@ export interface CalendarContextValue {
   currentSecond: number;
   history: TimeAdvance[];
   showOnPlayer: boolean;
+  jumps: NamedJump[];
   setTimeState: (s: TimeTrackerState) => void;
 }
 
@@ -30,6 +32,7 @@ const DEFAULT: CalendarContextValue = {
   currentSecond: 0,
   history: [],
   showOnPlayer: false,
+  jumps: [...DEFAULT_JUMPS],
   setTimeState: () => {},
 };
 

@@ -51,6 +51,7 @@ export { SoundBoard } from "./sound-board/SoundBoard";
 export type { SoundBoardState, SoundPad as SoundPadDef, SoundScene, SoundTrack } from "./sound-board/types";
 
 export { Calendar } from "./calendar/Calendar";
+export { Almanac } from "./calendar/Almanac";
 export type { CalendarState } from "@ttcanvas/core";
 
 export { TimeTracker } from "./time-tracker/TimeTracker";

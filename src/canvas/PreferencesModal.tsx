@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { getAllWidgets } from "../registry";
+import { getAddableWidgets } from "../registry";
 import type { AppTheme, AppAccent, AppDensity, AppClockFormat, AppConfig } from "../appConfig";
 import { useToast, type AIProvider } from "@ttcanvas/core";
 import {
@@ -187,7 +187,7 @@ export function PreferencesModal({
   onWidgetToggle, onModUninstall,
 }: Props) {
   const [pane, setPane] = useState<Pane>("appearance");
-  const allWidgets = getAllWidgets();
+  const addableWidgets = getAddableWidgets();
 
   function handleBackdrop(e: React.MouseEvent) {
     if (e.target === e.currentTarget) onClose();
@@ -318,7 +318,7 @@ export function PreferencesModal({
           {pane === "canvas" && (
             <div className={styles.pane}>
               <div className={styles.sectionHead}>Widgets</div>
-              {allWidgets.filter((w) => !modWidgetTypes.includes(w.type)).map((w) => (
+              {addableWidgets.filter((w) => !modWidgetTypes.includes(w.type)).map((w) => (
                 <label key={w.type} className={styles.checkRow}>
                   <input
                     type="checkbox"
@@ -408,7 +408,7 @@ export function PreferencesModal({
               meta={{
                 version,
                 aiProvider: config.aiProvider,
-                enabledWidgets: allWidgets.filter((w) => !disabledWidgetTypes.includes(w.type)).map((w) => w.type),
+                enabledWidgets: addableWidgets.filter((w) => !disabledWidgetTypes.includes(w.type)).map((w) => w.type),
                 disabledWidgets: disabledWidgetTypes,
                 mods: modWidgetTypes,
               }}

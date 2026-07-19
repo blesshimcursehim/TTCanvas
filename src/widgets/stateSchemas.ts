@@ -5,6 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { z } from "zod";
+import { DEFAULT_JUMPS, MAX_JUMP_AMOUNT } from "@ttcanvas/core";
 import { createDefaultNpcGeneratorState } from "@ttcanvas/widgets-builtin";
 
 // ---------------------------------------------------------------------------
@@ -338,6 +339,9 @@ const calendarSchema = z
   .object({
     def: z.unknown().catch(null),
     events: z.array(z.unknown()).catch([]),
+    // Transient one-shot (Almanac consumes and clears it) - kept in the schema, not stripped, so it
+    // survives the per-render parse and reaches the widget. Validated inside the widget.
+    openRequest: z.unknown().optional(),
   })
   .catch({ def: null, events: [] });
 
@@ -349,6 +353,32 @@ export function parseCalendarState(raw: unknown): unknown {
 // time-tracker
 // ---------------------------------------------------------------------------
 
+// amount must be a non-zero integer within the shared bound: the editor only produces such values, so
+// a fraction, zero (which can't be re-signed), or a runaway magnitude (which could stall the calendar
+// conversion) means a hand-edited or corrupt entry - drop it rather than let it through.
+const jumpSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  amount: z.number().int().refine((n) => n !== 0 && Math.abs(n) <= MAX_JUMP_AMOUNT),
+  unit: z.enum(["min", "hour", "day", "week"]),
+});
+
+// Absent (a Time Tracker saved before jumps existed) seeds the defaults; a present list keeps only its
+// valid entries - one corrupt jump is dropped, not the whole bar - and may be intentionally empty. A
+// non-array or otherwise unparseable value falls back to the defaults.
+const jumpsSchema = z
+  .array(z.unknown())
+  .optional()
+  .transform((arr) =>
+    arr === undefined
+      ? [...DEFAULT_JUMPS]
+      : arr.flatMap((item) => {
+          const r = jumpSchema.safeParse(item);
+          return r.success ? [r.data] : [];
+        }),
+  )
+  .catch([...DEFAULT_JUMPS]);
+
 const timeTrackerSchema = z
   .object({
     currentDate: z.unknown().catch(null),
@@ -357,10 +387,11 @@ const timeTrackerSchema = z
     currentSecond: z.number().catch(0),
     history: z.array(z.unknown()).catch([]),
     showOnPlayer: z.boolean().catch(false),
+    jumps: jumpsSchema,
   })
   .catch({
     currentDate: null, currentHour: 8, currentMinute: 0, currentSecond: 0,
-    history: [], showOnPlayer: false,
+    history: [], showOnPlayer: false, jumps: [...DEFAULT_JUMPS],
   });
 
 export function parseTimeTrackerState(raw: unknown): unknown {

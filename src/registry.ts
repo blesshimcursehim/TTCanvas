@@ -21,6 +21,10 @@ export interface WidgetDefinition {
   defaultSize: { width: number; height: number };
   defaultState: unknown | (() => unknown);
   singleton?: boolean;
+  /** Registered and renderable (so already-placed instances keep working and their state still
+   *  parses), but not offered in the Add Widget picker or Command Palette. For retired widget types
+   *  that a newer widget subsumes - e.g. `time-tracker`, folded into the Almanac. */
+  hidden?: boolean;
   minWidth?: number;
   minHeight?: number;
   component: WidgetComponent;
@@ -65,6 +69,13 @@ export function getWidget(type: string): WidgetDefinition | undefined {
 
 export function getAllWidgets(): WidgetDefinition[] {
   return Array.from(registry.values());
+}
+
+/** Widgets a user can actually add - excludes `hidden` (retired) types. The single source the Add
+ *  Widget picker, Command Palette and Preferences list all share, so a retired widget disappears
+ *  from every one of them at once. */
+export function getAddableWidgets(): WidgetDefinition[] {
+  return getAllWidgets().filter((w) => !w.hidden);
 }
 
 export function getModWidgetTypes(): string[] {

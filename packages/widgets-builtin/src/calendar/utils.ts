@@ -163,8 +163,13 @@ export function calDateEq(a: CalDate, b: CalDate): boolean {
     a.intercalaryIdx === b.intercalaryIdx;
 }
 
-// Advance from a given date+time by deltaSeconds (negative rewinds),
-// returning new date+time with seconds carried into minutes/hours/days.
+const SECONDS_PER_DAY = 86400;
+
+// Advance from a given date+time by deltaSeconds (negative rewinds), returning the new date+time with
+// seconds carried into minutes/hours/days. The whole timestamp is clamped at the epoch floor (day 1,
+// 00:00:00) as one value: clamping the date separately from the wrapped time-of-day (as an earlier
+// version did) let a rewind past the start pin the date at day 1 while the clock wrapped forward to
+// 23:xx, so "one hour before day 1 00:30" wrongly read as day 1 23:30 instead of the floor.
 export function advanceTimeSeconds(
   date: CalDate,
   hour: number,
@@ -173,18 +178,16 @@ export function advanceTimeSeconds(
   deltaSeconds: number,
   def: CalendarDef,
 ): { date: CalDate; hour: number; minute: number; second: number } {
-  const totalSec = hour * 3600 + minute * 60 + second + deltaSeconds;
-  const extraDays = Math.floor(totalSec / 86400);
-  const remainingSec = ((totalSec % 86400) + 86400) % 86400;
-  const newHour = Math.floor(remainingSec / 3600);
-  const newMinute = Math.floor((remainingSec % 3600) / 60);
-  const newSecond = remainingSec % 60;
-  const newAbsDay = calDateToAbsDay(date, def) + extraDays;
+  // Absolute seconds since the epoch floor. calDateToAbsDay is 1-based, so day 1 -> 0 days of offset.
+  const abs = (calDateToAbsDay(date, def) - 1) * SECONDS_PER_DAY + hour * 3600 + minute * 60 + second + deltaSeconds;
+  const clamped = Math.max(0, abs);
+  const dayIndex = Math.floor(clamped / SECONDS_PER_DAY);
+  const remainingSec = clamped - dayIndex * SECONDS_PER_DAY;
   return {
-    date: absDayToCalDate(Math.max(1, newAbsDay), def),
-    hour: newHour,
-    minute: newMinute,
-    second: newSecond,
+    date: absDayToCalDate(dayIndex + 1, def),
+    hour: Math.floor(remainingSec / 3600),
+    minute: Math.floor((remainingSec % 3600) / 60),
+    second: remainingSec % 60,
   };
 }
 
