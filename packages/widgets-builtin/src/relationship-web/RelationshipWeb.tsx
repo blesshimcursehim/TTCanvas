@@ -398,7 +398,7 @@ function SuggestPanel({ suggestions, onApply, onClose }: {
         <span className={styles.panelTitle}>Suggested links</span>
         <button className={styles.iconBtn} onClick={onClose} aria-label="Close">✕</button>
       </div>
-      <p className={styles.suggestHint}>From the faction and location on your NPC Library entries. Nothing is added until you confirm.</p>
+      <p className={styles.suggestHint}>From NPC faction and location fields, Gazetteer-linked places, and [[wikilink]] mentions in NPC notes. Nothing is added until you confirm.</p>
       <div className={styles.pickList}>
         {suggestions.map((s) => (
           <label key={s.key} className={styles.suggestRow}>

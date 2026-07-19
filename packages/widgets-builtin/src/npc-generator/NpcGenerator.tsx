@@ -90,6 +90,11 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
 
   const patch = (fields: Partial<NpcGeneratorState>) => {
     setSavedFilename(null);
+    setSaved(false);
+    if (saveResetRef.current) {
+      clearTimeout(saveResetRef.current);
+      saveResetRef.current = null;
+    }
     onChange({ ...state, ...fields });
   };
   const toggleLock = (field: keyof NpcGeneratorState["locked"]) =>
@@ -112,9 +117,15 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   // `patch` (every field edit's single choke point) rather than on a timer, so it survives as long as
   // the form still reflects what was saved and disappears the moment the GM changes anything.
   const [savedFilename, setSavedFilename] = useState<string | null>(null);
+  // Tracks the pending "Saved ✓" -> idle timeout so a second save (or any edit, via `patch`) can
+  // cancel a still-running one instead of layering independent timers that clear `saved` too early.
+  const saveResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamBuf = useRef("");
   const cancelGenRef = useRef<(() => void) | null>(null);
-  useEffect(() => () => { cancelGenRef.current?.(); }, []);
+  useEffect(() => () => {
+    cancelGenRef.current?.();
+    if (saveResetRef.current) clearTimeout(saveResetRef.current);
+  }, []);
 
   useEffect(() => {
     ollamaCheck().then(setOllamaAvailable).catch(() => {});
@@ -287,7 +298,8 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
       setCollisionName(null);
       setSaved(true);
       setSavedFilename(filename);
-      setTimeout(() => setSaved(false), 2000);
+      if (saveResetRef.current) clearTimeout(saveResetRef.current);
+      saveResetRef.current = setTimeout(() => setSaved(false), 2000);
     } catch {
       setSaveError(true);
       setTimeout(() => setSaveError(false), 3000);
