@@ -12,7 +12,7 @@ import { AbilityGrid } from "./sheet-primitives/AbilityGrid";
 import { RollableStat } from "./sheet-primitives/RollableStat";
 import { NamedEntryList } from "./sheet-primitives/NamedEntryList";
 import type { AbilityScores, SpellSlots } from "@ttcanvas/core";
-import { useVault, pushCharacterScene } from "@ttcanvas/core";
+import { useVault, pushCharacterScene, abilityModifier, proficiencyBonus } from "@ttcanvas/core";
 import { portraitColor } from "../party-tracker/CharacterCard";
 import styles from "./PCSheetModal.module.css";
 
@@ -40,9 +40,8 @@ const DEFAULT_SCORES: AbilityScores = { str: 10, dex: 10, con: 10, int: 10, wis:
 const DEFAULT_CURRENCY: PCCurrency = { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
 const SPELL_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-function mod(score: number) {
-  const m = Math.floor((score - 10) / 2);
-  return m >= 0 ? `+${m}` : `${m}`;
+function fmtBonus(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`;
 }
 
 interface Props {
@@ -85,6 +84,15 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
     const slot = draft.spellcasting?.slots?.[level] ?? { total: 0, used: 0 };
     const used = idx < slot.used ? idx : idx + 1;
     patchSlots(level, { used: Math.min(used, slot.total) });
+  }
+
+  // A saving throw's total bonus: the ability modifier, plus the level-based proficiency bonus when
+  // the character is proficient in that save. Skills stay explicit numbers (the GM types the total),
+  // so proficiency is only computed here, for saves.
+  function saveBonus(key: keyof AbilityScores): number {
+    const score = draft.abilityScores?.[key] ?? 10;
+    const proficient = (draft.savingThrows ?? []).includes(key);
+    return abilityModifier(score) + (proficient && draft.level ? proficiencyBonus(draft.level) : 0);
   }
 
   function patchDeathSaves(field: "successes" | "failures", idx: number) {
@@ -205,7 +213,7 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
                     />
                     <span>{ABILITY_LABELS[key]}</span>
                     {draft.abilityScores && (
-                      <span className={styles.saveBonus}>{mod(draft.abilityScores[key])}</span>
+                      <span className={styles.saveBonus}>{fmtBonus(saveBonus(key))}</span>
                     )}
                   </label>
                 );
@@ -220,11 +228,11 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
                   <RollableStat
                     key={s}
                     className={styles.saveChip}
-                    bonus={Math.floor((draft.abilityScores[key] - 10) / 2)}
+                    bonus={saveBonus(key)}
                     label={`${label} save`}
                     subject={draft.name}
                   >
-                    {label}
+                    {label} {fmtBonus(saveBonus(key))}
                   </RollableStat>
                 ) : (
                   <span key={s} className={styles.saveChip}>{label}</span>

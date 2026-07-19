@@ -131,6 +131,17 @@ export function abilityModifier(score: number): number {
   return Math.floor((score - 10) / 2);
 }
 
+/**
+ * SRD 5.2.1 proficiency bonus for a character level: +2 at levels 1-4, then +1 every four levels up
+ * to +6 at 17-20 (`2 + floor((level - 1) / 4)`), clamped to that range. Unlike the always-on ability
+ * modifier, it is added only where a character is proficient - a trained saving throw, skill or
+ * attack - which is the difference between the two.
+ */
+export function proficiencyBonus(level: number): number {
+  const clamped = Math.min(20, Math.max(1, Math.floor(level)));
+  return 2 + Math.floor((clamped - 1) / 4);
+}
+
 export interface NamedEntry {
   name: string;
   description: string;
