@@ -35,6 +35,8 @@ function toNpcRef(npc: ParsedNpc): NpcRef {
     hpFormula: npc.hpFormula,
     ac: npc.ac,
     abilityScores: npc.abilityScores,
+    faction: npc.faction,
+    location: npc.location,
   };
 }
 

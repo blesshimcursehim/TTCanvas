@@ -13,6 +13,7 @@ import { mimeForImageExt } from "../shared/mime";
 import type { RelationshipWebState, RelNode, RelEdge, NodeKind, EdgeType } from "./types";
 import { EDGE_TYPES } from "./types";
 import { relaxLayout, seedPosition } from "./layout";
+import { suggestLinksFromNpcs, applySuggestions, type LinkSuggestion } from "./suggest";
 import { WebCanvas } from "./WebCanvas";
 import styles from "./RelationshipWeb.module.css";
 
@@ -29,8 +30,12 @@ export function RelationshipWeb({ state, onChange }: Props) {
   const { npcs } = useNpcs();
   const [expanded, setExpanded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [showSuggest, setShowSuggest] = useState(false);
   const [linking, setLinking] = useState(false);
   const [linkSource, setLinkSource] = useState<string | null>(null);
+
+  // Links the graph doesn't already record, derived from NPC faction/location metadata.
+  const suggestions = useMemo(() => suggestLinksFromNpcs(npcs, state), [npcs, state]);
 
   const npcByFile = useMemo(() => new Map(npcs.map((n) => [n.filename, n])), [npcs]);
   const partyById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
@@ -142,6 +147,11 @@ export function RelationshipWeb({ state, onChange }: Props) {
     onChange({ ...state, nodes: state.nodes.map((n) => ({ ...n, ...relaxed.get(n.id) })) });
   }
 
+  function applyAccepted(accepted: LinkSuggestion[]) {
+    if (accepted.length) onChange(applySuggestions(state, accepted));
+    setShowSuggest(false);
+  }
+
   function onNodeActivate(id: string) {
     if (!linking) { onChange({ ...state, selectedId: id }); return; }
     if (!linkSource) { setLinkSource(id); return; }
@@ -161,7 +171,7 @@ export function RelationshipWeb({ state, onChange }: Props) {
   // ── Render pieces ──
   const toolbar = (
     <div className={styles.toolbar}>
-      <button className={styles.toolBtn} onClick={() => setShowAdd((v) => !v)} aria-pressed={showAdd}>+ Node</button>
+      <button className={styles.toolBtn} onClick={() => { setShowAdd((v) => !v); setShowSuggest(false); }} aria-pressed={showAdd}>+ Node</button>
       <button
         className={`${styles.toolBtn} ${linking ? styles.toolActive : ""}`}
         onClick={toggleLink}
@@ -172,6 +182,15 @@ export function RelationshipWeb({ state, onChange }: Props) {
         + Link
       </button>
       <button className={styles.toolBtn} onClick={tidy} disabled={state.nodes.length < 2} title="Auto-arrange the web">Tidy</button>
+      <button
+        className={styles.toolBtn}
+        onClick={() => { setShowSuggest((v) => !v); setShowAdd(false); }}
+        aria-pressed={showSuggest}
+        disabled={suggestions.length === 0}
+        title={suggestions.length === 0 ? "No new links to suggest from your NPCs" : "Suggest links from NPC faction and location"}
+      >
+        Suggest{suggestions.length ? ` (${suggestions.length})` : ""}
+      </button>
       <span className={styles.spacer} />
       <button
         className={styles.toolBtn}
@@ -192,6 +211,10 @@ export function RelationshipWeb({ state, onChange }: Props) {
       onAdd={addNode}
       onClose={() => setShowAdd(false)}
     />
+  );
+
+  const suggestPanel = showSuggest && (
+    <SuggestPanel suggestions={suggestions} onApply={applyAccepted} onClose={() => setShowSuggest(false)} />
   );
 
   // Resolve an edge endpoint's name, tolerating a dangling id (e.g. from loaded state) rather than
@@ -237,6 +260,7 @@ export function RelationshipWeb({ state, onChange }: Props) {
       )}
       {linking && <div className={styles.linkHint}>{linkSource ? "Click the second node to connect" : "Click the first node"}</div>}
       {addPanel}
+      {suggestPanel}
       {inspector}
     </div>
   );
@@ -326,6 +350,49 @@ function AddPanel({ npcs, members, nodes, onAdd, onClose }: {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ── Suggested-links panel ───────────────────────────────────────
+
+/** Review step for "Suggest": lists proposed links from NPC metadata, all pre-checked, and adds
+ * only the ones still ticked when confirmed - so the import never changes the graph silently. */
+function SuggestPanel({ suggestions, onApply, onClose }: {
+  suggestions: LinkSuggestion[];
+  onApply: (accepted: LinkSuggestion[]) => void;
+  onClose: () => void;
+}) {
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(suggestions.map((s) => s.key)));
+  const toggle = (key: string) =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const accepted = suggestions.filter((s) => checked.has(s.key));
+
+  return (
+    <div className={styles.panel}>
+      <div className={styles.panelHead}>
+        <span className={styles.panelTitle}>Suggested links</span>
+        <button className={styles.iconBtn} onClick={onClose} aria-label="Close">✕</button>
+      </div>
+      <p className={styles.suggestHint}>From the faction and location on your NPC Library entries. Nothing is added until you confirm.</p>
+      <div className={styles.pickList}>
+        {suggestions.map((s) => (
+          <label key={s.key} className={styles.suggestRow}>
+            <input type="checkbox" checked={checked.has(s.key)} onChange={() => toggle(s.key)} />
+            <span className={styles.suggestText}>
+              <strong>{s.npcName}</strong> {s.edgeType === "member" ? "member of" : "located in"} <strong>{s.target}</strong>
+            </span>
+          </label>
+        ))}
+      </div>
+      <button className={styles.addBtn} onClick={() => onApply(accepted)} disabled={accepted.length === 0}>
+        Add {accepted.length} link{accepted.length === 1 ? "" : "s"}
+      </button>
     </div>
   );
 }
