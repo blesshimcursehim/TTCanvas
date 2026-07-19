@@ -43,12 +43,19 @@ export function serializeNpcJson(npc: ParsedNpc): string {
  * deletes the field - inside customFields under a same-named label. A reader that checks only the
  * field misses most existing data, so callers (e.g. the Relationship Web link suggester) use this.
  * The field wins when both are present, since a fresh edit writes the field.
+ *
+ * Reads defensively: `npc` is spread from unvalidated vault JSON (parseNpcJson), so the static types
+ * are not guarantees - a hand-edited file can carry a non-string field or a malformed customFields
+ * entry. A throw here would drop the whole NPC from shared consumers (see NpcProvider), so anything
+ * not a usable string is simply ignored.
  */
 export function npcMetaValue(npc: ParsedNpc, key: "faction" | "location"): string | undefined {
-  const direct = npc[key]?.trim();
+  const raw = npc[key];
+  const direct = typeof raw === "string" ? raw.trim() : "";
   if (direct) return direct;
-  const match = npc.customFields?.find((c) => c.label.trim().toLowerCase() === key);
-  return match?.value.trim() || undefined;
+  const fields = Array.isArray(npc.customFields) ? npc.customFields : [];
+  const match = fields.find((c) => typeof c?.label === "string" && c.label.trim().toLowerCase() === key);
+  return typeof match?.value === "string" ? match.value.trim() || undefined : undefined;
 }
 
 // ── .md migration (legacy format) ─────────────────────────────────────────

@@ -42,15 +42,16 @@ const findTargetNode = (nodes: RelNode[], kind: "faction" | "custom", label: str
 
 // A link the graph already records. Undirected types (a location's "located in", allies, ...) match
 // the reverse orientation too, so the same relationship drawn either way is recognised. A labelled
-// suggestion (the "located in" edge) only dedupes against the same label, so an unrelated custom
-// edge between the two nodes doesn't mask it; an unlabelled type (member) ignores labels.
+// suggestion (the "located in" edge) only dedupes against the same label - compared case- and
+// whitespace-insensitively, so a hand-typed "Located in" still matches - which keeps an unrelated
+// custom edge between the two nodes from masking it; an unlabelled type (member) ignores labels.
 const edgeExists = (edges: RelEdge[], from: string, to: string, type: EdgeType, label?: string) =>
   edges.some((e) => {
     if (e.type !== type) return false;
     const sameEnds = e.from === from && e.to === to;
     const reversed = !EDGE_TYPES[type].directed && e.from === to && e.to === from;
     if (!sameEnds && !reversed) return false;
-    return label === undefined || (e.label ?? undefined) === label;
+    return label === undefined || norm(e.label ?? "") === norm(label);
   });
 
 /**

@@ -142,6 +142,22 @@ export function proficiencyBonus(level: number): number {
   return 2 + Math.floor((clamped - 1) / 4);
 }
 
+/**
+ * SRD 5.2.1 proficiency bonus for a monster/NPC Challenge Rating: +2 up to CR 4, then +1 every four
+ * CR (`2 + floor((CR - 1) / 4)` for CR >= 1), reaching +9 at CR 30. Fractional and CR 0 creatures all
+ * sit at +2. Statblock NPCs are rated by CR rather than level, so their proficient saves derive from
+ * this. `cr` is a string ("1/2", "5", ...); an unparseable value falls back to the +2 baseline every
+ * creature has.
+ */
+export function proficiencyBonusForCr(cr: string): number {
+  const t = cr.trim();
+  const slash = t.indexOf("/");
+  // A CR like "1/2" is a fraction; anything below 1 stays in the +2 tier, so exact value is moot.
+  const value = slash === -1 ? Number(t) : Number(t.slice(0, slash)) / Number(t.slice(slash + 1));
+  if (!Number.isFinite(value)) return 2;
+  return 2 + Math.floor((Math.max(1, value) - 1) / 4);
+}
+
 export interface NamedEntry {
   name: string;
   description: string;

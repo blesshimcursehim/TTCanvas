@@ -212,9 +212,7 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
                       }}
                     />
                     <span>{ABILITY_LABELS[key]}</span>
-                    {draft.abilityScores && (
-                      <span className={styles.saveBonus}>{fmtBonus(saveBonus(key))}</span>
-                    )}
+                    <span className={styles.saveBonus}>{fmtBonus(saveBonus(key))}</span>
                   </label>
                 );
               })}
@@ -224,7 +222,7 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
               {draft.savingThrows.map((s) => {
                 const key = s as keyof AbilityScores;
                 const label = ABILITY_LABELS[key] ?? s;
-                return draft.abilityScores ? (
+                return (
                   <RollableStat
                     key={s}
                     className={styles.saveChip}
@@ -234,8 +232,6 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
                   >
                     {label} {fmtBonus(saveBonus(key))}
                   </RollableStat>
-                ) : (
-                  <span key={s} className={styles.saveChip}>{label}</span>
                 );
               })}
             </div>

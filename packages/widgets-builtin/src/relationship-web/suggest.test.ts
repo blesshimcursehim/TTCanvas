@@ -71,6 +71,15 @@ describe("suggestLinksFromNpcs", () => {
     };
     expect(suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { location: "Waterdeep" })], state)).toEqual([]);
   });
+
+  it("dedupes against a hand-typed edge label regardless of case or surrounding space", () => {
+    const state: RelationshipWebState = {
+      nodes: [node("n1", "npc", "Vex", "npcs/vex.json"), node("p1", "custom", "Waterdeep", null)],
+      edges: [{ id: "e1", from: "n1", to: "p1", type: "custom", label: " Located In " }],
+      selectedId: null,
+    };
+    expect(suggestLinksFromNpcs([npc("npcs/vex.json", "Vex", { location: "Waterdeep" })], state)).toEqual([]);
+  });
 });
 
 describe("applySuggestions", () => {
