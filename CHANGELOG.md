@@ -66,6 +66,12 @@ All notable changes are documented here.
   now search for an actual entry and link it instead, and the name shown on the sheet stays live from
   there, so renaming the place in Gazetteer updates every NPC linked to it. Unlink at any point to go
   back to plain text.
+- **Name your own time jumps, and rewind as well as advance.** The clock's fixed +1h / +8h / +1d / +1w
+  buttons are now a set you own. Hit Edit to rename them, change the amount and unit, reorder them, or
+  add your own, so a "Long Rest" that jumps eight hours, or a "Rewind a day" that goes back one, is a
+  button you make rather than a fixed choice. Any jump can run backwards, and so can the custom amount,
+  with a +/- toggle beside it. Your existing four carry over as the starting set, so nothing changes
+  unless you want it to.
 
 ### Changes
 
@@ -83,6 +89,13 @@ All notable changes are documented here.
   canvas and is no longer available. Any Session Clock you had open is removed cleanly the next time
   the vault opens, and you don't need to do anything. Its count doesn't come with it, so the new timer
   starts fresh.
+
+- **The Calendar and Time Tracker are now one widget, the Almanac.** They already shared the same
+  dates and events, so they've been folded into a single widget with a Clock tab and a Calendar tab,
+  still in the World category. Anything you already have on the canvas keeps working, and a Time
+  Tracker on its own still runs as it did, you just add the Almanac now instead of the two separately.
+  Searching a calendar event in the Command Palette opens the Almanac straight to that month on the
+  Calendar tab.
 
 ### Fixes
 
