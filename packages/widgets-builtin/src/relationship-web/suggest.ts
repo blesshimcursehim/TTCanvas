@@ -12,6 +12,7 @@
 
 import type { NpcRef } from "@ttcanvas/core";
 import type { RelNode, RelEdge, RelationshipWebState, EdgeType } from "./types";
+import { EDGE_TYPES } from "./types";
 import { seedPosition } from "./layout";
 
 export interface LinkSuggestion {
@@ -39,8 +40,18 @@ const findNpcNode = (nodes: RelNode[], file: string) =>
 const findTargetNode = (nodes: RelNode[], kind: "faction" | "custom", label: string) =>
   nodes.find((n) => n.kind === kind && norm(n.label) === norm(label));
 
-const edgeExists = (edges: RelEdge[], from: string, to: string, type: EdgeType) =>
-  edges.some((e) => e.type === type && e.from === from && e.to === to);
+// A link the graph already records. Undirected types (a location's "located in", allies, ...) match
+// the reverse orientation too, so the same relationship drawn either way is recognised. A labelled
+// suggestion (the "located in" edge) only dedupes against the same label, so an unrelated custom
+// edge between the two nodes doesn't mask it; an unlabelled type (member) ignores labels.
+const edgeExists = (edges: RelEdge[], from: string, to: string, type: EdgeType, label?: string) =>
+  edges.some((e) => {
+    if (e.type !== type) return false;
+    const sameEnds = e.from === from && e.to === to;
+    const reversed = !EDGE_TYPES[type].directed && e.from === to && e.to === from;
+    if (!sameEnds && !reversed) return false;
+    return label === undefined || (e.label ?? undefined) === label;
+  });
 
 /**
  * Proposed links from NPC metadata, minus any the graph already records. An NPC that is not yet a
@@ -62,7 +73,7 @@ export function suggestLinksFromNpcs(npcs: NpcRef[], state: RelationshipWebState
       seen.add(key);
       const npcNode = findNpcNode(state.nodes, npc.filename);
       const targetNode = findTargetNode(state.nodes, nodeKindFor(f.targetKind), target);
-      if (npcNode && targetNode && edgeExists(state.edges, npcNode.id, targetNode.id, f.edgeType)) continue;
+      if (npcNode && targetNode && edgeExists(state.edges, npcNode.id, targetNode.id, f.edgeType, f.edgeLabel)) continue;
       out.push({ key, npcFile: npc.filename, npcName: npc.name, target, targetKind: f.targetKind, edgeType: f.edgeType, edgeLabel: f.edgeLabel });
     }
   }
@@ -98,7 +109,7 @@ export function applySuggestions(state: RelationshipWebState, accepted: LinkSugg
   for (const s of accepted) {
     const from = ensureNpcNode(s.npcFile, s.npcName);
     const to = ensureTargetNode(nodeKindFor(s.targetKind), s.target);
-    if (!edgeExists(edges, from, to, s.edgeType)) {
+    if (!edgeExists(edges, from, to, s.edgeType, s.edgeLabel)) {
       edges.push({ id: crypto.randomUUID(), from, to, type: s.edgeType, ...(s.edgeLabel ? { label: s.edgeLabel } : {}) });
     }
   }

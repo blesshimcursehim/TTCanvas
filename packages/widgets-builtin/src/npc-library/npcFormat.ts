@@ -37,6 +37,20 @@ export function serializeNpcJson(npc: ParsedNpc): string {
   return JSON.stringify(rest, null, 2);
 }
 
+/**
+ * The effective faction/location for an NPC. Either can live on the field itself or - after the
+ * legacy migration in parseNpcJson, which moves a bare `faction` into a "Faction" custom field and
+ * deletes the field - inside customFields under a same-named label. A reader that checks only the
+ * field misses most existing data, so callers (e.g. the Relationship Web link suggester) use this.
+ * The field wins when both are present, since a fresh edit writes the field.
+ */
+export function npcMetaValue(npc: ParsedNpc, key: "faction" | "location"): string | undefined {
+  const direct = npc[key]?.trim();
+  if (direct) return direct;
+  const match = npc.customFields?.find((c) => c.label.trim().toLowerCase() === key);
+  return match?.value.trim() || undefined;
+}
+
 // ── .md migration (legacy format) ─────────────────────────────────────────
 
 export function parseLegacyMd(filename: string, content: string): ParsedNpc {
