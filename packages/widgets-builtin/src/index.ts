@@ -31,6 +31,7 @@ export { CampaignTimeline } from "./campaign-timeline/CampaignTimeline";
 export type { CampaignTimelineState, TimelineEntry } from "./campaign-timeline/types";
 export { Gazetteer } from "./gazetteer/Gazetteer";
 export type { GazetteerState, GazetteerLocation, LinkedEntity, LocationKind } from "./gazetteer/types";
+export { parseLocationJson } from "./gazetteer/gazetteerFormat";
 export { DiceRoller } from "./dice-roller/DiceRoller";
 export type { DiceRollerState, RollMacro, RollEntry } from "./dice-roller/types";
 // The pure evaluator is exported so the Roll Tables engine can reuse it for count expressions.

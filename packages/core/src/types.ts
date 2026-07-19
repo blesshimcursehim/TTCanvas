@@ -167,6 +167,22 @@ export interface NamedEntry {
  *  NpcContext exposes it to widgets, and core cannot import from widgets-builtin. */
 export type NpcRelationship = "ally" | "neutral" | "wary" | "hostile";
 
+/** The kind of place a Gazetteer location represents. Lives here rather than in gazetteer/types.ts
+ *  for the same reason as NpcRelationship: GazetteerContext exposes it to widgets. */
+export type LocationKind = "region" | "settlement" | "landmark" | "dungeon" | "wilderness" | "poi" | "custom";
+
+/** A link from a Gazetteer place to an NPC or a faction. NPCs mirror an NPC Library file and cache
+ *  the name so the chip still reads if the file is missing; factions are free-standing labels (ref
+ *  null) as factions are not first-class entities in the vault. Lives here for the same reason as
+ *  LocationKind. */
+export interface LinkedEntity {
+  kind: "npc" | "faction";
+  /** NPC Library filename ("npcs/vex.json") for kind "npc"; null for a free-standing faction. */
+  ref: string | null;
+  /** Cached display name - kept fresh from the source for linked NPCs, owned outright for factions. */
+  label: string;
+}
+
 export interface SpellSlots {
   [level: number]: { total: number; used: number };
 }
