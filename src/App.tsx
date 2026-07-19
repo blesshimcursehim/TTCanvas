@@ -35,8 +35,8 @@ import { VaultProvider } from "./VaultProvider";
 import { NpcProvider } from "./NpcProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
-import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, type XpTrackerState } from "@ttcanvas/widgets-builtin";
+import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
 
@@ -57,6 +57,7 @@ const DEFAULT_IT_STATE: InitiativeTrackerState = {
 };
 
 const DEFAULT_XP_STATE: XpTrackerState = { mode: "party", partyXp: 0, perPc: {} };
+const DEFAULT_DICE_STATE: DiceRollerState = { macros: [], history: [], input: "", adv: null, query: "", castId: null };
 
 /**
  * Serializes async writes to one file so callers never race each other, and
@@ -965,6 +966,22 @@ function App() {
     revealWidget("xp-tracker");
   }, [setSingletonStates, revealWidget]);
 
+  // Route a sheet's click-to-roll into the Dice Roller's history, then reveal it. The entry (with
+  // its id/at) is built outside the updater so React 19 StrictMode's double-invoke prepends the same
+  // row rather than two. Effective state (singletonStates ?? instance ?? default) so a roll never
+  // wipes an un-migrated Dice Roller's macros or history.
+  const rollToDiceRoller = useCallback((expr: string, adv: "advantage" | "disadvantage" | null, label: string) => {
+    const entry = buildRollEntry(expr, adv, label);
+    if (!entry) return;
+    setSingletonStates((ss) => {
+      const dr = (ss["dice-roller"]
+        ?? widgetsRef.current.find((w) => w.type === "dice-roller")?.state
+        ?? DEFAULT_DICE_STATE) as DiceRollerState;
+      return { ...ss, "dice-roller": { ...dr, history: [entry, ...dr.history].slice(0, MAX_HISTORY) } };
+    });
+    revealWidget("dice-roller");
+  }, [setSingletonStates, revealWidget]);
+
   const aiContextValue = useMemo(() => ({
     config: {
       provider: appConfig.aiProvider,
@@ -998,6 +1015,7 @@ function App() {
   );
   const partyContextValue = useMemo(() => ({ members: partyMembers, patchMembers }), [partyMembers, patchMembers]);
   const xpContextValue = useMemo(() => ({ mode: xpMode, awardEncounterXp }), [xpMode, awardEncounterXp]);
+  const diceContextValue = useMemo(() => ({ roll: rollToDiceRoller }), [rollToDiceRoller]);
   const bestiaryContextValue = useMemo(() => ({ creatures: bestiaryCreatures }), [bestiaryCreatures]);
 
   const railWidgets: RailWidget[] = useMemo(
@@ -1164,6 +1182,7 @@ function App() {
       <ITContext.Provider value={itContextValue}>
       <PartyContext.Provider value={partyContextValue}>
       <XpContext.Provider value={xpContextValue}>
+      <DiceContext.Provider value={diceContextValue}>
       <BestiaryContext.Provider value={bestiaryContextValue}>
         {/* Resolves cross-entity [[links]] from entity bodies; inside the provider so it can read the
             vault. Session Notes' own links stay note-only (separate channel), keeping Obsidian intact. */}
@@ -1326,6 +1345,7 @@ function App() {
           )}
         </div>
       </BestiaryContext.Provider>
+      </DiceContext.Provider>
       </XpContext.Provider>
       </PartyContext.Provider>
       </ITContext.Provider>

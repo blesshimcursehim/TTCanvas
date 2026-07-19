@@ -36,6 +36,7 @@ export type { DiceRollerState, RollMacro, RollEntry } from "./dice-roller/types"
 // The pure evaluator is exported so the Roll Tables engine can reuse it for count expressions.
 export { parseExpression, rollExpression, evaluate, formatBreakdown } from "./dice-roller/dice";
 export type { DiceExpr, RollBreakdown, RollOutcome, AdvMode } from "./dice-roller/dice";
+export { buildRollEntry, MAX_HISTORY } from "./dice-roller/rollEntry";
 
 // MapDisplay itself is deliberately not re-exported here: it's reached only
 // through the "./map-display" subpath export (package.json) so the app can

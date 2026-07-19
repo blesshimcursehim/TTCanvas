@@ -86,7 +86,7 @@ registerWidget({
 registerWidget({
   type: "party-tracker",
   title: "Party Tracker",
-  help: "# Party Tracker\n\nAdd the player characters in **Manage party**, then keep their hit points, armour class, resources and conditions up to date. The shared party list is available to other widgets.\n\nOpen a character card to edit its details or portrait.",
+  help: "# Party Tracker\n\nAdd the player characters in **Manage party**, then keep their hit points, armour class, resources and conditions up to date. The shared party list is available to other widgets.\n\nOpen a character card to edit its details or portrait. On the Abilities tab, click an ability modifier or skill to roll it in the Dice Roller - hold Shift for advantage or Alt for disadvantage.",
   icon: "users",
   category: "Combat",
   defaultSize: { width: 700, height: 540 },
@@ -134,7 +134,7 @@ registerWidget({
 registerWidget({
   type: "npc-library",
   title: "NPC Library",
-  help: "# NPC Library\n\nCreate and organise NPCs stored as individual files in your vault. Select an NPC to edit its profile, notes, portrait and relationships.\n\nUse `[[wikilinks]]` in NPC notes to link to notes, places or other NPCs. Prefix a target with `place:` or `npc:` when the name is ambiguous.",
+  help: "# NPC Library\n\nCreate and organise NPCs stored as individual files in your vault. Select an NPC to edit its profile, notes, portrait and relationships.\n\nUse `[[wikilinks]]` in NPC notes to link to notes, places or other NPCs. Prefix a target with `place:` or `npc:` when the name is ambiguous.\n\nOn a stat block's Abilities tab, click an ability modifier or skill to roll it in the Dice Roller - hold Shift for advantage or Alt for disadvantage.",
   icon: "library",
   category: "NPC Management",
   defaultSize: { width: 500, height: 420 },
@@ -315,7 +315,7 @@ registerWidget({
 registerWidget({
   type: "bestiary",
   title: "Bestiary",
-  help: "# Bestiary\n\nCreate, import and organise creature stat blocks for your campaign. Select an entry to edit it or open its formatted creature sheet.\n\nImport accepts TTCanvas bestiary exports. Use folders to keep a large collection manageable.",
+  help: "# Bestiary\n\nCreate, import and organise creature stat blocks for your campaign. Select an entry to edit it or open its formatted creature sheet.\n\nImport accepts TTCanvas bestiary exports. Use folders to keep a large collection manageable.\n\nOn the creature sheet's Abilities tab, click an ability modifier, saving throw or skill to roll it in the Dice Roller - hold Shift for advantage or Alt for disadvantage.",
   icon: "skull",
   category: "Combat",
   defaultSize: { width: 520, height: 420 },

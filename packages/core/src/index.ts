@@ -15,6 +15,8 @@ export { NpcContext, useNpcs } from "./NpcContext";
 export type { NpcContextValue, NpcRef } from "./NpcContext";
 export { XpContext, useXp } from "./XpContext";
 export type { XpContextValue } from "./XpContext";
+export { DiceContext, useDice } from "./DiceContext";
+export type { DiceContextValue } from "./DiceContext";
 export { CalendarContext, useCalendar } from "./CalendarContext";
 export type { CalendarContextValue } from "./CalendarContext";
 export type {

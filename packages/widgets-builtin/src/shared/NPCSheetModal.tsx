@@ -9,6 +9,7 @@ import type { ParsedNpc, NpcRelationship } from "../npc-library/types";
 import { SheetChrome } from "./sheet-primitives/SheetChrome";
 import { SectionHead } from "./sheet-primitives/SectionHead";
 import { AbilityGrid } from "./sheet-primitives/AbilityGrid";
+import { RollableStat } from "./sheet-primitives/RollableStat";
 import { NamedEntryList } from "./sheet-primitives/NamedEntryList";
 import type { AbilityScores, NamedEntry } from "@ttcanvas/core";
 import styles from "./NPCSheetModal.module.css";
@@ -176,6 +177,7 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
             scores={draft.abilityScores ?? DEFAULT_SCORES}
             editing={editing}
             onChange={(s) => patch({ abilityScores: s })}
+            subject={draft.name}
           />
 
           <SectionHead style={{ marginTop: 16 }}>Saving Throws</SectionHead>
@@ -227,8 +229,10 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
                         patch({ skills });
                       }}
                     />
+                  ) : bonus != null ? (
+                    <RollableStat className={styles.skillBonus} bonus={bonus} label={skill} subject={draft.name} />
                   ) : (
-                    <span className={styles.skillBonus}>{bonus != null ? (bonus >= 0 ? `+${bonus}` : `${bonus}`) : "-"}</span>
+                    <span className={styles.skillBonus}>-</span>
                   )}
                 </div>
               );
