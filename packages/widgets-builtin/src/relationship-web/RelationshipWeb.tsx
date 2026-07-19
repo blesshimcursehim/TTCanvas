@@ -6,14 +6,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useVault, useParty, useNpcs, type NpcRef } from "@ttcanvas/core";
+import { useVault, useParty, useNpcs, useGazetteerLocations, type NpcRef } from "@ttcanvas/core";
 import { autoAccentColor } from "../npc-library/npcFormat";
 import { ConfirmDeleteButton as SharedConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { mimeForImageExt } from "../shared/mime";
+import { readEntitySource, type SourceDoc } from "../shared/wikilinks";
 import type { RelationshipWebState, RelNode, RelEdge, NodeKind, EdgeType } from "./types";
 import { EDGE_TYPES } from "./types";
 import { relaxLayout, seedPosition } from "./layout";
-import { suggestLinksFromNpcs, applySuggestions, type LinkSuggestion } from "./suggest";
+import { suggestLinks, applySuggestions, type LinkSuggestion } from "./suggest";
 import { WebCanvas } from "./WebCanvas";
 import styles from "./RelationshipWeb.module.css";
 
@@ -28,14 +29,32 @@ export function RelationshipWeb({ state, onChange }: Props) {
   const vault = useVault();
   const { members } = useParty();
   const { npcs } = useNpcs();
+  const { locations } = useGazetteerLocations();
   const [expanded, setExpanded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showSuggest, setShowSuggest] = useState(false);
   const [linking, setLinking] = useState(false);
   const [linkSource, setLinkSource] = useState<string | null>(null);
 
-  // Links the graph doesn't already record, derived from NPC faction/location metadata.
-  const suggestions = useMemo(() => suggestLinksFromNpcs(npcs, state), [npcs, state]);
+  // NPC notes, read directly (not part of the lightweight NpcContext projection), so wikilink
+  // mentions in them can be suggested as links. Re-scanned when the vault or NPC list changes.
+  const [npcNoteSources, setNpcNoteSources] = useState<SourceDoc[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const docs = await Promise.all(npcs.map((n) => readEntitySource(vault, n.filename, "npc", "notes")));
+      if (!cancelled) setNpcNoteSources(docs.filter((d): d is SourceDoc => d !== null));
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [npcs, vault.readFile, vault.vaultVersion]);
+
+  // Links the graph doesn't already record, derived from NPC faction/location metadata, Gazetteer's
+  // own linked NPCs, and wikilink mentions in NPC notes.
+  const suggestions = useMemo(
+    () => suggestLinks(npcs, locations, npcNoteSources, state),
+    [npcs, locations, npcNoteSources, state],
+  );
 
   const npcByFile = useMemo(() => new Map(npcs.map((n) => [n.filename, n])), [npcs]);
   const partyById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
@@ -385,7 +404,7 @@ function SuggestPanel({ suggestions, onApply, onClose }: {
           <label key={s.key} className={styles.suggestRow}>
             <input type="checkbox" checked={checked.has(s.key)} onChange={() => toggle(s.key)} />
             <span className={styles.suggestText}>
-              <strong>{s.npcName}</strong> {s.edgeType === "member" ? "member of" : "located in"} <strong>{s.target}</strong>
+              <strong>{s.fromName}</strong> {s.edgeLabel ?? EDGE_TYPES[s.edgeType].label.toLowerCase()} <strong>{s.target}</strong>
             </span>
           </label>
         ))}
