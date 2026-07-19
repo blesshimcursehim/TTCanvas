@@ -4,19 +4,10 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-/** The kind of place. Drives the tree glyph and the "in a Region / Settlement / ..." filter. */
-export type LocationKind = "region" | "settlement" | "landmark" | "dungeon" | "wilderness" | "poi" | "custom";
-
-/** A link from a place to an NPC or a faction. NPCs mirror an NPC Library file and cache the name so
- * the chip still reads if the file is missing (the Relationship Web convention); factions are
- * free-standing labels (ref null) as factions are not first-class entities in the vault. */
-export interface LinkedEntity {
-  kind: "npc" | "faction";
-  /** NPC Library filename ("npcs/vex.json") for kind "npc"; null for a free-standing faction. */
-  ref: string | null;
-  /** Cached display name - kept fresh from the source for linked NPCs, owned outright for factions. */
-  label: string;
-}
+// LocationKind and LinkedEntity live in core so GazetteerContext can expose them to widgets, and
+// core cannot import from widgets-builtin; re-exported here for this widget's own importers.
+export type { LocationKind, LinkedEntity } from "@ttcanvas/core";
+import type { LocationKind, LinkedEntity } from "@ttcanvas/core";
 
 /** A place. One JSON file per location under `locations/`, mirroring the NPC Library's file-per-entity
  * model. `filename` is transient (the vault path) and is stripped on serialize; `id` is the stable

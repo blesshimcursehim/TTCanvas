@@ -13,6 +13,8 @@ export { BestiaryContext, useBestiary } from "./BestiaryContext";
 export type { BestiaryContextValue, BestiaryCreatureRef } from "./BestiaryContext";
 export { NpcContext, useNpcs } from "./NpcContext";
 export type { NpcContextValue, NpcRef } from "./NpcContext";
+export { GazetteerContext, useGazetteerLocations } from "./GazetteerContext";
+export type { GazetteerContextValue, GazetteerLocationRef } from "./GazetteerContext";
 export { XpContext, useXp } from "./XpContext";
 export type { XpContextValue } from "./XpContext";
 export { DiceContext, useDice } from "./DiceContext";

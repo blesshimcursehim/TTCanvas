@@ -123,6 +123,27 @@ export function basenameLabel(path: string): string {
   return (path.split("/").pop() ?? path).replace(/\.md$/i, "");
 }
 
+/** The subset of the vault seam this file's vault reads need - just enough to stay decoupled from
+ *  the concrete VaultContext shape. */
+export interface VaultReader {
+  readFile(path: string): Promise<string>;
+}
+
+/** Read one entity's free-text body (an NPC's notes or a Gazetteer place's body) as a `SourceDoc`
+ *  for wikilink extraction, or null if unreadable/empty. Shared by Session Notes' backlinks corpus
+ *  and Relationship Web's wikilink-mention suggestions, which both read vault JSON this same way. */
+export async function readEntitySource(
+  vault: VaultReader, ref: string, kind: SourceKind, field: "notes" | "body",
+): Promise<SourceDoc | null> {
+  try {
+    const obj = JSON.parse(await vault.readFile(ref));
+    const text = typeof obj?.[field] === "string" ? obj[field] as string : "";
+    if (!text.trim()) return null;
+    const label = typeof obj?.name === "string" && obj.name.trim() ? obj.name as string : basenameLabel(ref);
+    return { kind, ref, label, text };
+  } catch { return null; }
+}
+
 /** A linkable target: a note, a Gazetteer place, or an NPC, named for `[[wikilink]]` resolution. */
 export interface ResolveEntry {
   kind: SourceKind;

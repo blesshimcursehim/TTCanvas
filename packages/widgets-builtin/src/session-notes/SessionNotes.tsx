@@ -9,7 +9,7 @@ import { createPortal } from "react-dom";
 import { useVault, useAI, ollamaCheck, ollamaListModels, ollamaGenerate, openaiGenerate } from "@ttcanvas/core";
 import type { SessionNotesState } from "./types";
 import { renderMarkdown } from "../shared/markdownRenderer";
-import { buildBacklinkIndex, linkGraph, linkKey, basenameLabel, type SourceDoc, type SourceKind } from "../shared/wikilinks";
+import { buildBacklinkIndex, linkGraph, linkKey, basenameLabel, readEntitySource, type SourceDoc, type SourceKind } from "../shared/wikilinks";
 import { WebCanvas } from "../relationship-web/WebCanvas";
 import { relaxLayout, seedPosition } from "../relationship-web/layout";
 import type { RelNode, RelEdge } from "../relationship-web/types";
@@ -104,15 +104,6 @@ export function SessionNotes({ state, onChange }: Props) {
   // they are skipped.
   useEffect(() => {
     let cancelled = false;
-    const readEntity = async (ref: string, kind: SourceKind, field: "notes" | "body"): Promise<SourceDoc | null> => {
-      try {
-        const obj = JSON.parse(await vault.readFile(ref));
-        const text = typeof obj?.[field] === "string" ? obj[field] as string : "";
-        if (!text.trim()) return null;
-        const label = typeof obj?.name === "string" && obj.name.trim() ? obj.name as string : basenameLabel(ref);
-        return { kind, ref, label, text };
-      } catch { return null; }
-    };
     (async () => {
       const notes: (SourceDoc | null)[] = state.notesFolder
         ? await Promise.all(files.filter((f) => f.endsWith(".md")).map(async (path): Promise<SourceDoc | null> => {
@@ -124,8 +115,8 @@ export function SessionNotes({ state, onChange }: Props) {
       try {
         const json = await vault.listFiles("json");
         entities = await Promise.all([
-          ...json.filter((f) => f.startsWith("npcs/")).map((ref) => readEntity(ref, "npc", "notes")),
-          ...json.filter((f) => f.startsWith("locations/")).map((ref) => readEntity(ref, "place", "body")),
+          ...json.filter((f) => f.startsWith("npcs/")).map((ref) => readEntitySource(vault, ref, "npc", "notes")),
+          ...json.filter((f) => f.startsWith("locations/")).map((ref) => readEntitySource(vault, ref, "place", "body")),
         ]);
       } catch { /* no vault entities */ }
       if (!cancelled) setSources([...notes, ...entities].filter((d): d is SourceDoc => d !== null));

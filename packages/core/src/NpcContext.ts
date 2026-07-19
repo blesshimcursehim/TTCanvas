@@ -39,6 +39,9 @@ export interface NpcRef {
    *  from metadata the GM already recorded, instead of re-typing them into the graph. */
   faction?: string;
   location?: string;
+  /** Gazetteer location filename this NPC's location is linked to, if any - lets consumers prefer
+   *  the place's live name over the possibly-stale cached `location` string. */
+  locationRef?: string;
 }
 
 export interface NpcContextValue {
