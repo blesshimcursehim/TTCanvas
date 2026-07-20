@@ -13,33 +13,9 @@ import { CropModal } from "./CropModal";
 import { mimeForImageExt } from "../shared/mime";
 import { CollectionIO } from "../shared/CollectionIO";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
-import {
-  dedupe,
-  hashContent,
-  readBundle,
-  buildBundle,
-  exportCollection,
-  type DedupeResult,
-} from "../shared/importExport";
+import { dedupe, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { validatePartyBundle, partyMemberContentKey } from "./partyImport";
 import styles from "./ManagePartyModal.module.css";
-
-// Ignore the id so re-importing the same character under a regenerated id is
-// still recognised as a duplicate rather than added twice.
-const partyMemberContentKey = (m: PartyMember): string => hashContent({ ...m, id: "" });
-
-function validatePartyBundle(parsed: unknown): PartyMember[] | null {
-  if (!parsed || typeof parsed !== "object") return null;
-  const bundle = parsed as Record<string, unknown>;
-  if (!Array.isArray(bundle.members)) return null;
-  // Light validation to match the other collection widgets: require a plain id
-  // and a non-empty name, pass the rest of the sheet through as-is.
-  return bundle.members.flatMap((m: unknown): PartyMember[] => {
-    if (!m || typeof m !== "object") return [];
-    const mem = m as Record<string, unknown>;
-    if (typeof mem.id !== "string" || typeof mem.name !== "string" || !mem.name.trim()) return [];
-    return [mem as unknown as PartyMember];
-  });
-}
 
 function useModalPortraitDataUrl(portraitPath: string | null | undefined): string | null {
   const vault = useVault();
