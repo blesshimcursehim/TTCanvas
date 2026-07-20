@@ -7,7 +7,8 @@
 use crate::error::CommandError;
 use crate::ipc_guard::require_main_window;
 use crate::vault_safety::{
-    ensure_contained_dir, is_allowed_player_image_dir, safe_join, validate_component,
+    ensure_contained_dir, is_allowed_player_image_dir, reject_symlink, safe_join,
+    validate_component,
 };
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::fs;
@@ -74,6 +75,10 @@ pub async fn write_vault_file(
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir)?;
         }
+        // Guard the final component right before writing: safe_join verified the
+        // containing dirs, but a dangling symlink planted at this exact name
+        // would still be followed by fs::write out of the vault (CR-011).
+        reject_symlink(&path)?;
         fs::write(&path, content)?;
         Ok(())
     })
@@ -200,7 +205,12 @@ pub async fn copy_to_vault_maps(
             counter += 1;
         }
 
-        fs::copy(Path::new(&source_path), maps_dir.join(&file_name))?;
+        // The collision loop above uses .exists() (follows symlinks), so a
+        // dangling symlink planted at file_name reads as a free name; reject it
+        // before fs::copy would follow it out of the vault (CR-011).
+        let dest = maps_dir.join(&file_name);
+        reject_symlink(&dest)?;
+        fs::copy(Path::new(&source_path), &dest)?;
 
         Ok(SavedImage {
             maps_folder: maps_dir.to_string_lossy().to_string(),
@@ -237,8 +247,13 @@ pub async fn copy_to_vault_portraits(
     tokio::task::spawn_blocking(move || -> Result<SavedPortrait, CommandError> {
         let portraits_dir = ensure_contained_dir(&vault_path, "portraits")?;
 
+        // ensure_contained_dir verified `portraits/` itself, but not this final
+        // {member_id}.{ext} component - a symlink pre-planted at that name would
+        // otherwise be followed by fs::copy out of the vault (CR-011).
         let file_name = format!("{}.{}", member_id, ext);
-        fs::copy(Path::new(&source_path), portraits_dir.join(&file_name))?;
+        let dest = portraits_dir.join(&file_name);
+        reject_symlink(&dest)?;
+        fs::copy(Path::new(&source_path), &dest)?;
 
         Ok(SavedPortrait {
             portraits_folder: portraits_dir.to_string_lossy().to_string(),
@@ -305,6 +320,11 @@ async fn read_base64(folder_path: String, file_name: String) -> Result<String, C
     validate_component(&file_name)?;
     let path = PathBuf::from(&folder_path).join(&file_name);
     tokio::task::spawn_blocking(move || -> Result<String, CommandError> {
+        // validate_component only checks the filename syntax; a symlink at that
+        // name (e.g. maps/portrait.png -> ~/.ssh/id_rsa) would still be followed
+        // by fs::read. Reject it before reading (CR-012). Legitimate map/portrait
+        // images are always real files, so this never blocks a valid read.
+        reject_symlink(&path)?;
         let bytes = fs::read(&path)?;
         Ok(general_purpose::STANDARD.encode(&bytes))
     })
@@ -359,24 +379,32 @@ pub async fn read_player_image_base64(
     read_base64(folder_path, file_name).await
 }
 
+/// Writes decoded base64 bytes to `vault_path`/`relative_path`. Takes a vault
+/// root plus a vault-relative path (rather than an arbitrary folder) so the
+/// destination is contained by `safe_join` - previously this trusted an
+/// arbitrary `folder_path` with only a filename-syntax check, letting a caller
+/// (or a mod in the main webview) write anywhere the process could
+/// (CR-011). Used for portraits, e.g. `relative_path = "portraits/<id>.jpg"`.
 #[tauri::command]
 pub async fn write_file_base64(
     window: tauri::WebviewWindow,
-    folder_path: String,
-    file_name: String,
+    vault_path: String,
+    relative_path: String,
     base64_content: String,
 ) -> Result<(), CommandError> {
     use base64::{Engine as _, engine::general_purpose};
     require_main_window(&window)?;
-    validate_component(&file_name)?;
+    let path = safe_join(&vault_path, &relative_path)?;
     let bytes = general_purpose::STANDARD
         .decode(&base64_content)
         .map_err(CommandError::from)?;
-    let path = PathBuf::from(&folder_path).join(&file_name);
     tokio::task::spawn_blocking(move || -> Result<(), CommandError> {
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir)?;
         }
+        // Guard the final component against a planted symlink before writing,
+        // as with write_vault_file (CR-011).
+        reject_symlink(&path)?;
         fs::write(&path, bytes)?;
         Ok(())
     })

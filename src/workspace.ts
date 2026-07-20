@@ -135,9 +135,39 @@ export function migrateWorkspace(raw: unknown): WorkspaceState {
   return reconcileSessionTimer(stripRetiredWidgets(parseWorkspace(raw)));
 }
 
-export async function loadWorkspace(vaultPath: string): Promise<WorkspaceState> {
+export interface LoadedWorkspace {
+  state: WorkspaceState;
+  /**
+   * False when the on-disk file was written by a newer build (version > 2) we don't
+   * understand: we render defaults so the app is usable, but must NOT autosave over
+   * the real file, or opening a vault in an older build would silently destroy it.
+   */
+  persistable: boolean;
+  /** User-facing explanation to surface when `persistable` is false. */
+  notice?: string;
+}
+
+// A numeric version above the one we can parse means the file came from a newer
+// build. Everything else (absent/1/2, or a completely malformed file the Rust
+// side already backed up) is safe to overwrite once loaded.
+export function isFutureWorkspaceVersion(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") return false;
+  const version = (raw as { version?: unknown }).version;
+  return typeof version === "number" && version > 2;
+}
+
+export async function loadWorkspace(vaultPath: string): Promise<LoadedWorkspace> {
   const raw = await invoke<unknown>("load_workspace", { vaultPath });
-  return migrateWorkspace(raw);
+  const state = migrateWorkspace(raw);
+  if (isFutureWorkspaceVersion(raw)) {
+    return {
+      state,
+      persistable: false,
+      notice:
+        "This vault was saved by a newer version of TTCanvas. It's open read-only so your changes here won't overwrite it - update TTCanvas to edit it.",
+    };
+  }
+  return { state, persistable: true };
 }
 
 export function saveWorkspace(vaultPath: string, state: WorkspaceState): Promise<void> {

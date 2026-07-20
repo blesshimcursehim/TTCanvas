@@ -114,6 +114,21 @@ All notable changes are documented here.
 - **NPC Generator no longer overwrites an existing NPC with the same name** - saving used to write straight to a name-derived filename, so a second NPC sharing a name silently clobbered the first one's file. Saving now checks the library first and, on a collision, offers "Save as new copy" or "Cancel" instead of overwriting.
 - **NPC Library - deleting an NPC now asks for confirmation** - the Remove button used to delete on a single click. It now behaves like every other delete action in the app, needing a second "Yes, delete" click before anything is removed.
 
+### Security
+
+- **Local-security hardening across the vault, player window and AI paths.** Vault reads and writes now
+  reject a symlink planted at the exact destination name, so a shared or synced vault can no longer
+  redirect them to a file outside the vault. The player window's permissions were narrowed to only what
+  it needs, so a compromised player view can no longer emit privileged events back to the main window.
+  Recovery paths that fall back to defaults, such as an unreadable config or a workspace written by a
+  newer build, no longer autosave over the original, so a transient read error or opening a vault in an
+  older build can't quietly discard your data. The AI stream reader is now bounded and gives up on an
+  endpoint that never responds.
+- **An AI API key is no longer sent over plaintext HTTP to a remote provider.** Pointing an
+  OpenAI-compatible endpoint at a plain `http://` address that isn't local now refuses to send the key
+  rather than sending it after only a warning. An `https://` endpoint, or a local one such as
+  `http://localhost`, still works exactly as before.
+
 ## v0.15.0 - 2026-07-15
 
 ### Features

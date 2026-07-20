@@ -118,9 +118,11 @@ export function VaultProvider({ vaultPath, onVaultPathChange, children }: Props)
   }, []);
 
   const writeFileBase64 = useCallback(
-    (folderPath: string, fileName: string, base64Content: string) =>
-      vault.writeFileBase64(folderPath, fileName, base64Content),
-    [],
+    (relativePath: string, base64Content: string) => {
+      if (!vaultPath) return Promise.reject(new Error("No vault is open"));
+      return vault.writeFileBase64(vaultPath, relativePath, base64Content);
+    },
+    [vaultPath],
   );
 
   const saveImageToVaultMaps = useCallback(

@@ -121,8 +121,7 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
     if (!cropState || !vault.vaultPath) return;
     setCropState(null);
     const base64 = croppedDataUrl.split(",")[1];
-    const portraitsFolder = `${vault.vaultPath}/portraits`;
-    await vault.writeFileBase64(portraitsFolder, `${cropState.memberId}.jpg`, base64);
+    await vault.writeFileBase64(`portraits/${cropState.memberId}.jpg`, base64);
     update(cropState.memberId, { portraitPath: `portraits/${cropState.memberId}.jpg` });
   }
 

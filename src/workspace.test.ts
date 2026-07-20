@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { describe, it, expect } from "vitest";
-import { migrateWorkspace } from "./workspace";
+import { migrateWorkspace, isFutureWorkspaceVersion } from "./workspace";
 
 describe("migrateWorkspace", () => {
   it("returns safe default for null", () => {
@@ -145,6 +145,27 @@ describe("migrateWorkspace", () => {
     expect(result.version).toBe(2);
     expect(result.activeLayout).toBe("Default");
     expect(result.layouts).toEqual({ Default: { widgets: [] } });
+  });
+});
+
+// A file from a newer build (version > 2) must load read-only so autosave never
+// overwrites it (CR-014); everything we understand or already backed up is safe.
+describe("isFutureWorkspaceVersion", () => {
+  it("flags a numeric version above 2", () => {
+    expect(isFutureWorkspaceVersion({ version: 3 })).toBe(true);
+    expect(isFutureWorkspaceVersion({ version: 99 })).toBe(true);
+  });
+
+  it("does not flag versions we understand, or an absent/empty file", () => {
+    expect(isFutureWorkspaceVersion({ version: 2 })).toBe(false);
+    expect(isFutureWorkspaceVersion({ version: 1 })).toBe(false);
+    expect(isFutureWorkspaceVersion({})).toBe(false);
+    expect(isFutureWorkspaceVersion(null)).toBe(false);
+    expect(isFutureWorkspaceVersion(undefined)).toBe(false);
+  });
+
+  it("does not flag a non-numeric version", () => {
+    expect(isFutureWorkspaceVersion({ version: "3" })).toBe(false);
   });
 });
 

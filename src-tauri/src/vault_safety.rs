@@ -63,6 +63,24 @@ pub(crate) fn verify_contained(vault_path: &str, target: &Path) -> Result<(), Co
     Ok(())
 }
 
+/// Rejects `path` when its final component is itself a symlink.
+/// `symlink_metadata` (lstat) does *not* follow the link - unlike
+/// `Path::exists()`/`metadata()`, which do - so a symlink planted at the exact
+/// destination name is caught here even when it's *dangling* (its target
+/// doesn't exist yet), the one case `verify_contained`'s `exists()`-based walk
+/// skips over. Call this right before the actual `fs::write`/`fs::copy`/
+/// `fs::read` so a planted final component can't redirect the operation out of
+/// the vault. A path that doesn't exist at all, or exists as a real file/dir,
+/// both pass.
+pub(crate) fn reject_symlink(path: &Path) -> Result<(), CommandError> {
+    match fs::symlink_metadata(path) {
+        Ok(meta) if meta.file_type().is_symlink() => Err(CommandError::Other(
+            "destination path is a symlink".to_string(),
+        )),
+        _ => Ok(()),
+    }
+}
+
 /// Joins `relative` onto `vault_path`, rejecting anything that isn't a plain
 /// relative path (no `..`, no root/drive prefix) and then verifying
 /// containment - so a symlink planted inside the vault can't be used to
@@ -219,6 +237,48 @@ mod tests {
 
         let _ = fs::remove_dir_all(&vault);
         let _ = fs::remove_dir_all(&outside);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn reject_symlink_rejects_a_dangling_final_component_symlink() {
+        // The case verify_contained's exists()-based walk misses: a symlink
+        // whose target doesn't exist yet, planted at the exact write target.
+        let vault = temp_vault("reject_symlink_dangling");
+        let link = vault.join("note.md");
+        std::os::unix::fs::symlink(vault.join("does-not-exist-yet"), &link).unwrap();
+
+        assert!(reject_symlink(&link).is_err());
+
+        let _ = fs::remove_dir_all(&vault);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn reject_symlink_rejects_a_symlink_to_an_existing_outside_file() {
+        let vault = temp_vault("reject_symlink_existing");
+        let outside = temp_vault("reject_symlink_outside");
+        let secret = outside.join("secret.txt");
+        fs::write(&secret, b"secret").unwrap();
+        let link = vault.join("map.png");
+        std::os::unix::fs::symlink(&secret, &link).unwrap();
+
+        assert!(reject_symlink(&link).is_err());
+
+        let _ = fs::remove_dir_all(&vault);
+        let _ = fs::remove_dir_all(&outside);
+    }
+
+    #[test]
+    fn reject_symlink_allows_a_real_file_and_a_nonexistent_path() {
+        let vault = temp_vault("reject_symlink_ok");
+        let real = vault.join("note.md");
+        fs::write(&real, b"hi").unwrap();
+
+        assert!(reject_symlink(&real).is_ok());
+        assert!(reject_symlink(&vault.join("not-there-yet.md")).is_ok());
+
+        let _ = fs::remove_dir_all(&vault);
     }
 
     #[test]

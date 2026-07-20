@@ -62,11 +62,11 @@ export function readFileBase64(folderPath: string, fileName: string): Promise<st
 }
 
 export function writeFileBase64(
-  folderPath: string,
-  fileName: string,
+  vaultPath: string,
+  relativePath: string,
   base64Content: string,
 ): Promise<void> {
-  return invoke("write_file_base64", { folderPath, fileName, base64Content });
+  return invoke("write_file_base64", { vaultPath, relativePath, base64Content });
 }
 
 /** Show a native save dialog and write content to the chosen path. Returns false if user cancelled. */
