@@ -181,6 +181,15 @@ describe("buildBundle / readBundle", () => {
     expect(readBundle(text, "ttcanvas-test", validate)).toBeNull();
   });
 
+  it("rejects a present-but-non-string type discriminator", () => {
+    // A malformed type (number, null, object) must not slip past to a validator
+    // that doesn't check the type itself.
+    for (const type of [7, null, { x: 1 }, ["a"]]) {
+      const text = JSON.stringify({ type, version: 1, items: [1] });
+      expect(readBundle(text, "ttcanvas-test", validate)).toBeNull();
+    }
+  });
+
   it("accepts a bundle with no type for back-compat with older exports", () => {
     const text = JSON.stringify({ version: 1, items: [9] });
     expect(readBundle(text, "ttcanvas-test", validate)).toEqual({ items: [9] });

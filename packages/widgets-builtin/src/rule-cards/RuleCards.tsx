@@ -212,7 +212,7 @@ export function RuleCards({ state, onChange }: Props) {
           <span>{cards.length} card{cards.length !== 1 ? "s" : ""}</span>
         </div>
         <WidgetSettingsCog>
-          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={cards.length === 0} />
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={cards.length === 0} onError={setImportError} />
           {importError && (
             <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
           )}

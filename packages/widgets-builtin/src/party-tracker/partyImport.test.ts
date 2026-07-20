@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from "vitest";
 import { dedupe } from "../shared/importExport";
-import { validatePartyBundle, partyMemberContentKey } from "./partyImport";
+import { validatePartyBundle, partyMemberContentKey, normalizeMember } from "./partyImport";
 import type { PartyMember } from "./types";
 
 // Minimal valid member; overrides fill in the fields a given test cares about.
@@ -28,6 +28,49 @@ const member = (over: Partial<PartyMember> & { id: string; name: string }): Part
     ...over,
   }) as PartyMember;
 
+describe("normalizeMember", () => {
+  it("drops a member without a string id or non-empty name", () => {
+    expect(normalizeMember({ name: "no id" })).toBeNull();
+    expect(normalizeMember({ id: "1", name: "   " })).toBeNull();
+    expect(normalizeMember({ id: 5, name: "num id" })).toBeNull();
+    expect(normalizeMember(null)).toBeNull();
+  });
+
+  it("coerces wrong-typed fields the UI touches so they can't crash a consumer", () => {
+    const norm = normalizeMember({
+      id: "1",
+      name: "Aria",
+      portraitPath: 42, // would crash on .split()
+      portraitFullPath: { nope: true },
+      customFields: "not an array", // would crash on .map()
+      hp: "80", // wrong type
+      level: null,
+    });
+    expect(norm).not.toBeNull();
+    // Bad portrait paths become null (the modal guards on falsy), never a number.
+    expect(norm?.portraitPath).toBeNull();
+    expect(norm?.portraitFullPath).toBeNull();
+    // A non-array customFields is dropped, not passed through.
+    expect(norm?.customFields).toBeUndefined();
+    // Wrong-typed scalars fall back to their defaults.
+    expect(norm?.hp).toBe(0);
+    expect(norm?.level).toBe(1);
+  });
+
+  it("keeps valid fields, including a good portrait path and custom fields", () => {
+    const norm = normalizeMember({
+      id: "1",
+      name: "Aria",
+      portraitPath: "portraits/1.jpg",
+      customFields: [{ label: "Bond", value: "The party" }, "garbage"],
+      hp: 30,
+    });
+    expect(norm?.portraitPath).toBe("portraits/1.jpg");
+    expect(norm?.customFields).toEqual([{ label: "Bond", value: "The party" }]);
+    expect(norm?.hp).toBe(30);
+  });
+});
+
 describe("validatePartyBundle", () => {
   it("returns the members from a valid bundle", () => {
     const parsed = { type: "ttcanvas-party", version: 1, members: [member({ id: "1", name: "Aria" })] };
@@ -42,7 +85,14 @@ describe("validatePartyBundle", () => {
     expect(validatePartyBundle(null)).toBeNull();
   });
 
-  it("drops members without a string id or a non-empty name", () => {
+  it("drops invalid members, returning an empty array when all are invalid", () => {
+    // A present members array with no valid entries yields [] - the caller turns
+    // that into an import error rather than a silent no-op.
+    const parsed = { members: [{ name: "no id" }, { id: "2", name: "   " }] };
+    expect(validatePartyBundle(parsed)).toEqual([]);
+  });
+
+  it("keeps the valid members and drops the rest", () => {
     const parsed = {
       members: [member({ id: "1", name: "Ok" }), { name: "no id" }, { id: "2", name: "   " }],
     };

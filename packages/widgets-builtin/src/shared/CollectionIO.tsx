@@ -14,8 +14,18 @@ interface Props {
   onExportAll: () => void | Promise<void>;
   /** Disable the export button (e.g. an empty collection). */
   exportDisabled?: boolean;
+  /**
+   * Reports a failed import/export. The callbacks may reject (a cancelled save
+   * dialog is not an error, but a failed vault write is), and without this the
+   * rejection would be swallowed with no feedback to the user.
+   */
+  onError?: (message: string) => void;
   /** Extra class on the button group, to slot into a widget's own footer flex. */
   className?: string;
+}
+
+function failureMessage(action: string, err: unknown): string {
+  return `${action} failed - ${err instanceof Error ? err.message : String(err)}`;
 }
 
 /**
@@ -25,14 +35,27 @@ interface Props {
  * error banner stays with each widget, since its placement differs; pair this
  * with `buildBundle`/`readBundle` in `importExport.ts` and `ImportConflictDialog`.
  */
-export function CollectionIO({ onImportFile, onExportAll, exportDisabled, className }: Props) {
+export function CollectionIO({ onImportFile, onExportAll, exportDisabled, onError, className }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function handleChange(e: ChangeEvent<HTMLInputElement>) {
+  async function handleChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     // Reset so re-importing the same file fires change again.
     e.target.value = "";
-    if (file) void onImportFile(file);
+    if (!file) return;
+    try {
+      await onImportFile(file);
+    } catch (err) {
+      onError?.(failureMessage("Import", err));
+    }
+  }
+
+  async function handleExport() {
+    try {
+      await onExportAll();
+    } catch (err) {
+      onError?.(failureMessage("Export", err));
+    }
   }
 
   return (
@@ -40,12 +63,7 @@ export function CollectionIO({ onImportFile, onExportAll, exportDisabled, classN
       <button type="button" className={styles.btn} onClick={() => inputRef.current?.click()}>
         Import
       </button>
-      <button
-        type="button"
-        className={styles.btn}
-        onClick={() => void onExportAll()}
-        disabled={exportDisabled}
-      >
+      <button type="button" className={styles.btn} onClick={handleExport} disabled={exportDisabled}>
         Export all
       </button>
       <input
