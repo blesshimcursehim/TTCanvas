@@ -4,12 +4,13 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useVault } from "@ttcanvas/core";
 import type { RuleCard, RuleCardsState } from "./types";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
-import { dedupe, hashContent, parseImportFile, exportCollection, type DedupeResult } from "../shared/importExport";
+import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { CollectionIO } from "../shared/CollectionIO";
 import styles from "./RuleCards.module.css";
 
 interface Props {
@@ -68,7 +69,6 @@ export function RuleCards({ state, onChange }: Props) {
   const [draft, setDraft] = useState<RuleCard | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [pendingImport, setPendingImport] = useState<DedupeResult<RuleCard> | null>(null);
-  const importFileRef = useRef<HTMLInputElement>(null);
 
   const selectedCard = cards.find((c) => c.id === selectedId) ?? null;
   const displayCard = editing && draft ? draft : selectedCard;
@@ -123,24 +123,17 @@ export function RuleCards({ state, onChange }: Props) {
   }
 
   async function handleExportOne(card: RuleCard) {
-    const bundle = { type: "ttcanvas-rule-cards", version: 1, cards: [card] };
+    const bundle = buildBundle("ttcanvas-rule-cards", { cards: [card] });
     await exportCollection(vault.saveTextFile, bundle, `${card.title.replace(/[^a-z0-9]/gi, "_")}.rule-cards.json`);
   }
 
   async function handleExportAll() {
-    const bundle = { type: "ttcanvas-rule-cards", version: 1, cards };
+    const bundle = buildBundle("ttcanvas-rule-cards", { cards });
     await exportCollection(vault.saveTextFile, bundle, "rule-cards.rule-cards.json");
   }
 
-  function handleImportClick() {
+  async function handleImportFile(file: File) {
     setImportError(null);
-    importFileRef.current?.click();
-  }
-
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
     let text: string;
     try {
       text = await file.text();
@@ -148,7 +141,7 @@ export function RuleCards({ state, onChange }: Props) {
       setImportError("Failed to read import file.");
       return;
     }
-    const incoming = parseImportFile(text, validateRuleCardsBundle);
+    const incoming = readBundle(text, "ttcanvas-rule-cards", validateRuleCardsBundle);
     if (!incoming) {
       setImportError("Not a valid Rule Cards file.");
       return;
@@ -219,10 +212,7 @@ export function RuleCards({ state, onChange }: Props) {
         )}
         <div className={styles.listFooter}>
           <span>{cards.length} card{cards.length !== 1 ? "s" : ""}</span>
-          <div className={styles.footerBtns}>
-            <button className={styles.footerBtn} onClick={handleImportClick}>Import</button>
-            <button className={styles.footerBtn} onClick={handleExportAll} disabled={cards.length === 0}>Export all</button>
-          </div>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={cards.length === 0} />
         </div>
       </div>
 
@@ -289,9 +279,6 @@ export function RuleCards({ state, onChange }: Props) {
           <div className={styles.emptyDetail}>Select a card or hit + to add.</div>
         )}
       </div>
-
-      {/* Hidden file input for import */}
-      <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
 
       {/* Import conflict dialog */}
       {pendingImport && (

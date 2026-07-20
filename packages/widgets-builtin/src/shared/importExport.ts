@@ -92,3 +92,41 @@ export async function exportCollection(
 ): Promise<boolean> {
   return saveTextFile(JSON.stringify(payload, null, 2), filename);
 }
+
+/** Current export envelope version. Bumped only if the on-disk shape changes. */
+export const BUNDLE_VERSION = 1;
+
+/**
+ * Builds the standard export envelope shared by every collection widget:
+ * `{ type, version, ...collection }`. Each widget keeps its own collection key
+ * (`{ tables }`, `{ npcs }`, `{ entries, folders }`, ...) - renaming those would
+ * break already-exported files - so this only standardises the `type`/`version`
+ * fields around whatever collection the caller passes.
+ */
+export function buildBundle(
+  type: string,
+  collection: Record<string, unknown>,
+): Record<string, unknown> {
+  return { type, version: BUNDLE_VERSION, ...collection };
+}
+
+/**
+ * Parses an export file and gates it by `type` before validation. A present but
+ * mismatched `type` is rejected (so an NPC pack can't be imported as a deck),
+ * while a *missing* `type` is accepted for back-compat with files exported before
+ * the envelope was standardised (e.g. old Bestiary bundles). The widget-specific
+ * `validate` still owns the collection shape.
+ */
+export function readBundle<T>(
+  text: string,
+  expectedType: string,
+  validate: (parsed: unknown) => T | null,
+): T | null {
+  return parseImportFile(text, (parsed) => {
+    if (parsed !== null && typeof parsed === "object") {
+      const type = (parsed as { type?: unknown }).type;
+      if (typeof type === "string" && type !== expectedType) return null;
+    }
+    return validate(parsed);
+  });
+}

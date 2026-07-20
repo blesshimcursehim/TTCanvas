@@ -5,12 +5,12 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
 import { useVault, useNpcs, pushLocationScene, type NpcRef } from "@ttcanvas/core";
 import { autoAccentColor, npcInitials } from "../npc-library/npcFormat";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { mimeForImageExt } from "../shared/mime";
-import { dedupe, exportCollection, parseImportFile, hashContent, type DedupeResult } from "../shared/importExport";
+import { dedupe, exportCollection, readBundle, buildBundle, hashContent, type DedupeResult } from "../shared/importExport";
+import { CollectionIO } from "../shared/CollectionIO";
 import { ConfirmDeleteButton as SharedConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import type { GazetteerState, GazetteerLocation, LinkedEntity, LocationKind } from "./types";
@@ -54,7 +54,6 @@ export function Gazetteer({ state, onChange }: Props) {
   const [images, setImages] = useState<Record<string, string>>({});
   const [pendingImport, setPendingImport] = useState<DedupeResult<GazetteerLocation> | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const importFileRef = useRef<HTMLInputElement>(null);
 
   // ── Load places (NPC names for link labels and the picker come from useNpcs) ──
   const loadAll = useCallback(async () => {
@@ -200,17 +199,14 @@ export function Gazetteer({ state, onChange }: Props) {
 
   // ── Import / export ──
   async function handleExportAll() {
-    await exportCollection(vault.saveTextFile, { type: "ttcanvas-gazetteer", version: 1, items: locations }, "gazetteer.json");
+    await exportCollection(vault.saveTextFile, buildBundle("ttcanvas-gazetteer", { items: locations }), "gazetteer.json");
   }
 
-  async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
+  async function handleImportFile(file: File) {
     setImportError(null);
     let text: string;
     try { text = await file.text(); } catch { setImportError("Could not read that file."); return; }
-    const incoming = parseImportFile(text, validateGazetteerBundle);
+    const incoming = readBundle(text, "ttcanvas-gazetteer", validateGazetteerBundle);
     if (!incoming) { setImportError("That is not a Gazetteer export."); return; }
     const result = dedupe(incoming, locations, { idOf: (l) => l.id, contentKeyOf: locationContentKey });
     if (result.idConflicts.length || result.contentDuplicates.length) setPendingImport(result);
@@ -294,13 +290,9 @@ export function Gazetteer({ state, onChange }: Props) {
 
         <div className={styles.footer}>
           <span>{locations.length} place{locations.length === 1 ? "" : "s"}</span>
-          <span className={styles.footerBtns}>
-            <button className={styles.fbtn} onClick={() => { setImportError(null); importFileRef.current?.click(); }}>Import</button>
-            <button className={styles.fbtn} onClick={handleExportAll} disabled={locations.length === 0}>Export</button>
-          </span>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={locations.length === 0} />
         </div>
         {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
-        <input ref={importFileRef} type="file" accept="application/json,.json" hidden onChange={handleImportFile} />
       </div>
 
       {/* ── Right: detail / add ── */}

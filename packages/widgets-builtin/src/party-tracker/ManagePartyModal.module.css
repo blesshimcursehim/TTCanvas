@@ -286,17 +286,15 @@
   border-color: var(--accent);
 }
 
-.importBtn {
-  padding: 8px 12px;
-  border: 1px dashed var(--line-soft);
+.importError {
+  margin: 0 16px 10px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--ink-4);
-  font-size: 12px;
-  font-family: inherit;
-  cursor: not-allowed;
-  opacity: 0.5;
-  white-space: nowrap;
+  background: oklch(0.38 0.14 22 / 0.18);
+  border: 1px solid oklch(0.38 0.14 22 / 0.35);
+  color: oklch(0.80 0.12 22);
+  font-size: 11px;
+  cursor: pointer;
 }
 
 .footer {
