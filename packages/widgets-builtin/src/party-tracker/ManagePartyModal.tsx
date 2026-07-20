@@ -11,6 +11,10 @@ import { useVault } from "@ttcanvas/core";
 import { portraitColor } from "./CharacterCard";
 import { CropModal } from "./CropModal";
 import { mimeForImageExt } from "../shared/mime";
+import { CollectionIO } from "../shared/CollectionIO";
+import { ImportConflictDialog } from "../shared/ImportConflictDialog";
+import { dedupe, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { validatePartyBundle, partyMemberContentKey } from "./partyImport";
 import styles from "./ManagePartyModal.module.css";
 
 function useModalPortraitDataUrl(portraitPath: string | null | undefined): string | null {
@@ -98,7 +102,46 @@ function newMember(): PartyMember {
 export function ManagePartyModal({ members, onChange, onClose }: Props) {
   const [draft, setDraft] = useState<PartyMember[]>(members);
   const [cropState, setCropState] = useState<{ dataUrl: string; memberId: string } | null>(null);
+  const [pendingImport, setPendingImport] = useState<DedupeResult<PartyMember> | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const vault = useVault();
+
+  async function handleExportAll() {
+    // Export the working draft, so what you see in the manager is what you get.
+    await exportCollection(vault.saveTextFile, buildBundle("ttcanvas-party", { members: draft }), "party.json");
+  }
+
+  async function handleImportFile(file: File) {
+    setImportError(null);
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      setImportError("Failed to read import file.");
+      return;
+    }
+    const incoming = readBundle(text, "ttcanvas-party", validatePartyBundle);
+    if (!incoming) {
+      setImportError("Not a valid party file.");
+      return;
+    }
+    const result = dedupe(incoming, draft, { idOf: (m) => m.id, contentKeyOf: partyMemberContentKey });
+    if (result.idConflicts.length > 0 || result.contentDuplicates.length > 0) setPendingImport(result);
+    else applyImport(result, "skip");
+  }
+
+  function applyImport(result: DedupeResult<PartyMember>, mode: "skip" | "replace") {
+    setPendingImport(null);
+    // Portraits are vault files, not part of the JSON export: an imported
+    // member's portraitPath resolves only if that file already exists in this
+    // vault, otherwise the card falls back to its colour avatar.
+    let next = draft;
+    if (mode === "replace") {
+      const byId = new Map(result.idConflicts.map((m) => [m.id, m]));
+      next = next.map((m) => byId.get(m.id) ?? m);
+    }
+    setDraft([...next, ...result.clean]);
+  }
 
   const update = (id: string, patch: Partial<PartyMember>) =>
     setDraft((d) => d.map((m) => (m.id === id ? { ...m, ...patch } : m)));
@@ -296,19 +339,29 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
 
         <div className={styles.addRow}>
           <button className={styles.addBtn} onClick={add}>+ Add member</button>
-          <button
-            className={styles.importBtn}
-            disabled
-            title="Import from companion app - coming in a future update"
-          >
-            ↓ Import character
-          </button>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={draft.length === 0} />
         </div>
+        {importError && (
+          <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
+        )}
 
         <div className={styles.footer}>
           <button className={styles.cancelBtn} onClick={onClose}>Cancel</button>
           <button className={styles.saveBtn} onClick={save}>Save</button>
         </div>
+
+        {pendingImport && (
+          <ImportConflictDialog
+            title="Import party"
+            noun="member"
+            totalCount={pendingImport.idConflicts.length + pendingImport.contentDuplicates.length + pendingImport.clean.length}
+            idConflicts={pendingImport.idConflicts.map((m) => ({ id: m.id, label: m.name }))}
+            contentDuplicates={pendingImport.contentDuplicates.map((m) => ({ id: m.id, label: m.name }))}
+            onCancel={() => setPendingImport(null)}
+            onSkip={() => applyImport(pendingImport, "skip")}
+            onReplace={() => applyImport(pendingImport, "replace")}
+          />
+        )}
       </div>
     </div>,
     document.body,

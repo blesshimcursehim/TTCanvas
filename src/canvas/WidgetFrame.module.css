@@ -117,7 +117,14 @@
   transition: background 0.15s, color 0.15s;
 }
 
+/* Neutral hover for non-destructive header buttons (help, settings cog). */
 .headBtn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* Only the close button keeps the red (destructive) hover. */
+.headBtnDanger:hover {
   background: oklch(0.70 0.13 22 / 0.2);
   color: oklch(0.70 0.13 22);
 }
@@ -125,6 +132,14 @@
 .headBtn:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Portal target: widgets place a settings cog here via WidgetChromeContext.
+ * Lays its portaled child out inline with the other header buttons; collapses
+ * to nothing when a widget has no cog. */
+.headSlot {
+  display: flex;
+  align-items: center;
 }
 
 /* The browser's Popover API places this above the transformed, clipped canvas. */

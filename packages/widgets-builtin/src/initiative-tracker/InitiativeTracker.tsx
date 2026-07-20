@@ -11,6 +11,7 @@ import type { Combatant, CombatantKind, InitiativeGroup, InitiativeTrackerState 
 import { CombatantRow } from "./CombatantRow";
 import { GroupRow } from "./GroupRow";
 import { EndCombatModal } from "./EndCombatModal";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import { wrapForward, wrapBack } from "./roundClock";
 import { buildTurnOrder, syncGroupInitiative, createGroup, dissolveGroup, pruneEmptyGroups } from "./groups";
 import styles from "./InitiativeTracker.module.css";
@@ -486,6 +487,8 @@ export function InitiativeTracker({ state, onChange }: Props) {
         </div>
       )}
 
+      {/* Round-timing options - set-once config, tucked into the settings cog. */}
+      <WidgetSettingsCog>
       {/* Auto-advance in-game time */}
       <div className={styles.timeRow}>
         <button
@@ -535,6 +538,7 @@ export function InitiativeTracker({ state, onChange }: Props) {
           Lair action reminder
         </button>
       </div>
+      </WidgetSettingsCog>
 
       {/* Bottom bar */}
       <div className={styles.bottom}>

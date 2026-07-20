@@ -20,7 +20,9 @@ import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { ModeToggle } from "../shared/ModeToggle";
 import { RouteResultButton } from "../shared/RouteResultButton";
-import { dedupe, hashContent, parseImportFile, exportCollection, type DedupeResult } from "../shared/importExport";
+import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { CollectionIO } from "../shared/CollectionIO";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import { mimeForImageExt } from "../shared/mime";
 import styles from "./CardDecks.module.css";
 
@@ -84,7 +86,6 @@ export function CardDecks({ state, onChange }: Props) {
   const [query, setQuery] = useState("");
   // Resolved card art, keyed by vault-relative imagePath -> data URL (like Party/NPC portraits).
   const [art, setArt] = useState<Record<string, string>>({});
-  const importFileRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef(new Map<string, HTMLInputElement>());
 
   const selected = decks.find((d) => d.id === selectedId) ?? null;
@@ -228,21 +229,15 @@ export function CardDecks({ state, onChange }: Props) {
 
   // ── Import / export ───────────────────────────────────────
   async function handleExportOne(d: Deck) {
-    const bundle = { type: "ttcanvas-card-decks", version: 1, decks: [d] };
+    const bundle = buildBundle("ttcanvas-card-decks", { decks: [d] });
     await exportCollection(vault.saveTextFile, bundle, `${d.name.replace(/[^a-z0-9]/gi, "_")}.card-decks.json`);
   }
   async function handleExportAll() {
-    const bundle = { type: "ttcanvas-card-decks", version: 1, decks };
+    const bundle = buildBundle("ttcanvas-card-decks", { decks });
     await exportCollection(vault.saveTextFile, bundle, "card-decks.card-decks.json");
   }
-  function handleImportClick() {
+  async function handleImportFile(file: File) {
     setImportError(null);
-    importFileRef.current?.click();
-  }
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
     let text: string;
     try {
       text = await file.text();
@@ -250,7 +245,7 @@ export function CardDecks({ state, onChange }: Props) {
       setImportError("Failed to read import file.");
       return;
     }
-    const incoming = parseImportFile(text, validateCardDecksBundle);
+    const incoming = readBundle(text, "ttcanvas-card-decks", validateCardDecksBundle);
     if (!incoming) {
       setImportError("Not a valid Card Decks file.");
       return;
@@ -316,14 +311,13 @@ export function CardDecks({ state, onChange }: Props) {
           ))}
         </div>
 
-        {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
         <div className={styles.listFooter}>
           <span>{decks.length} deck{decks.length !== 1 ? "s" : ""}</span>
-          <div className={styles.footerBtns}>
-            <button className={styles.footerBtn} onClick={handleImportClick}>Import</button>
-            <button className={styles.footerBtn} onClick={handleExportAll} disabled={decks.length === 0}>Export all</button>
-          </div>
         </div>
+        <WidgetSettingsCog>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={decks.length === 0} />
+          {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
+        </WidgetSettingsCog>
       </div>
 
       {/* ── Right: detail / add pane ─────────────── */}
@@ -522,8 +516,6 @@ export function CardDecks({ state, onChange }: Props) {
           <div className={styles.emptyDetail}>Select a deck, or hit + to create one.</div>
         )}
       </div>
-
-      <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
 
       {pendingImport && (
         <ImportConflictDialog

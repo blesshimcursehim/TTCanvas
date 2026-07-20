@@ -12,7 +12,9 @@ import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { ModeToggle } from "../shared/ModeToggle";
 import { RouteResultButton } from "../shared/RouteResultButton";
-import { dedupe, hashContent, parseImportFile, exportCollection, type DedupeResult } from "../shared/importExport";
+import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { CollectionIO } from "../shared/CollectionIO";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./RollTables.module.css";
 
 interface Props {
@@ -82,7 +84,6 @@ export function RollTables({ state, onChange }: Props) {
   const [confirmDeleteTable, setConfirmDeleteTable] = useState(false);
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState("");
-  const importFileRef = useRef<HTMLInputElement>(null);
   // Focus targets for the row-by-row entry editor: text inputs keyed by entry id.
   const rowRefs = useRef(new Map<string, HTMLInputElement>());
 
@@ -217,24 +218,17 @@ export function RollTables({ state, onChange }: Props) {
 
   // ── Import / export ───────────────────────────────────────
   async function handleExportOne(t: RollTable) {
-    const bundle = { type: "ttcanvas-roll-tables", version: 1, tables: [t] };
+    const bundle = buildBundle("ttcanvas-roll-tables", { tables: [t] });
     await exportCollection(vault.saveTextFile, bundle, `${t.name.replace(/[^a-z0-9]/gi, "_")}.roll-tables.json`);
   }
 
   async function handleExportAll() {
-    const bundle = { type: "ttcanvas-roll-tables", version: 1, tables };
+    const bundle = buildBundle("ttcanvas-roll-tables", { tables });
     await exportCollection(vault.saveTextFile, bundle, "roll-tables.roll-tables.json");
   }
 
-  function handleImportClick() {
+  async function handleImportFile(file: File) {
     setImportError(null);
-    importFileRef.current?.click();
-  }
-
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
     let text: string;
     try {
       text = await file.text();
@@ -242,7 +236,7 @@ export function RollTables({ state, onChange }: Props) {
       setImportError("Failed to read import file.");
       return;
     }
-    const incoming = parseImportFile(text, validateRollTablesBundle);
+    const incoming = readBundle(text, "ttcanvas-roll-tables", validateRollTablesBundle);
     if (!incoming) {
       setImportError("Not a valid Roll Tables file.");
       return;
@@ -318,16 +312,15 @@ export function RollTables({ state, onChange }: Props) {
           ))}
         </div>
 
-        {importError && (
-          <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
-        )}
         <div className={styles.listFooter}>
           <span>{tables.length} table{tables.length !== 1 ? "s" : ""}</span>
-          <div className={styles.footerBtns}>
-            <button className={styles.footerBtn} onClick={handleImportClick}>Import</button>
-            <button className={styles.footerBtn} onClick={handleExportAll} disabled={tables.length === 0}>Export all</button>
-          </div>
         </div>
+        <WidgetSettingsCog>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={tables.length === 0} />
+          {importError && (
+            <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
+          )}
+        </WidgetSettingsCog>
       </div>
 
       {/* ── Right: detail / add pane ─────────────── */}
@@ -604,7 +597,6 @@ export function RollTables({ state, onChange }: Props) {
       </div>
 
       {/* Hidden file input for import */}
-      <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
 
       {/* Import conflict dialog */}
       {pendingImport && (

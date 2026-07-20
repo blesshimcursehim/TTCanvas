@@ -4,7 +4,7 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useVault, useGazetteerLocations, pushCharacterScene, type GazetteerLocationRef } from "@ttcanvas/core";
 import { CropModal } from "../party-tracker/CropModal";
 import type { NpcLibraryState, ParsedNpc, NpcRelationship } from "./types";
@@ -19,7 +19,9 @@ import { mimeForImageExt } from "../shared/mime";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { NPCSheetModal } from "../shared/NPCSheetModal";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
-import { dedupe, hashContent, parseImportFile, exportCollection, type DedupeResult } from "../shared/importExport";
+import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { CollectionIO } from "../shared/CollectionIO";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./NpcLibrary.module.css";
 
 function npcContentKey(npc: ParsedNpc): string {
@@ -143,7 +145,6 @@ export function NpcLibrary({ state, onChange }: Props) {
   const [cropDataUrl, setCropDataUrl] = useState<string | null>(null);
   const [pendingImport, setPendingImport] = useState<DedupeResult<ParsedNpc> | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const importFileRef = useRef<HTMLInputElement>(null);
 
   const loadAll = useCallback(async () => {
     if (!vault.vaultPath) return;
@@ -378,24 +379,17 @@ export function NpcLibrary({ state, onChange }: Props) {
   }
 
   async function handleExportOne(npc: ParsedNpc) {
-    const bundle = { type: "ttcanvas-npc-library", version: 1, npcs: [npc] };
+    const bundle = buildBundle("ttcanvas-npc-library", { npcs: [npc] });
     await exportCollection(vault.saveTextFile, bundle, `${npc.name.replace(/[^a-z0-9]/gi, "_")}.npc-library.json`);
   }
 
   async function handleExportAll() {
-    const bundle = { type: "ttcanvas-npc-library", version: 1, npcs };
+    const bundle = buildBundle("ttcanvas-npc-library", { npcs });
     await exportCollection(vault.saveTextFile, bundle, "npcs.npc-library.json");
   }
 
-  function handleImportClick() {
+  async function handleImportFile(file: File) {
     setImportError(null);
-    importFileRef.current?.click();
-  }
-
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
     let text: string;
     try {
       text = await file.text();
@@ -403,7 +397,7 @@ export function NpcLibrary({ state, onChange }: Props) {
       setImportError("Failed to read import file.");
       return;
     }
-    const incoming = parseImportFile(text, validateNpcBundle);
+    const incoming = readBundle(text, "ttcanvas-npc-library", validateNpcBundle);
     if (!incoming) {
       setImportError("Not a valid NPC library file.");
       return;
@@ -510,16 +504,15 @@ export function NpcLibrary({ state, onChange }: Props) {
           ))}
         </div>
 
-        {importError && (
-          <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
-        )}
         <div className={styles.listFooter}>
           <span>{npcs.length} NPC{npcs.length !== 1 ? "s" : ""} · {encounterCount} encountered</span>
-          <div className={styles.footerBtns}>
-            <button className={styles.footerBtn} onClick={handleImportClick}>Import</button>
-            <button className={styles.footerBtn} onClick={handleExportAll} disabled={npcs.length === 0}>Export all</button>
-          </div>
         </div>
+        <WidgetSettingsCog>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={npcs.length === 0} />
+          {importError && (
+            <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
+          )}
+        </WidgetSettingsCog>
       </div>
 
       {/* ── Right: detail / add pane ────────────── */}
@@ -757,9 +750,6 @@ export function NpcLibrary({ state, onChange }: Props) {
           onCancel={() => setCropDataUrl(null)}
         />
       )}
-
-      {/* Hidden file input for import */}
-      <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
 
       {/* Import conflict dialog */}
       {pendingImport && (
