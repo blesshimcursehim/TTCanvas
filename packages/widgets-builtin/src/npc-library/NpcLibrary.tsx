@@ -368,8 +368,8 @@ export function NpcLibrary({ state, onChange }: Props) {
     if (!selectedNpc || !vault.vaultPath) return;
     const fileName = `npc-${selectedNpc.id}.jpg`;
     const fullFileName = `npc-${selectedNpc.id}-full.jpg`;
-    await vault.writeFileBase64(`${vault.vaultPath}/portraits`, fileName, croppedDataUrl.split(",")[1]);
-    await vault.writeFileBase64(`${vault.vaultPath}/portraits`, fullFileName, fullDataUrl.split(",")[1]);
+    await vault.writeFileBase64(`portraits/${fileName}`, croppedDataUrl.split(",")[1]);
+    await vault.writeFileBase64(`portraits/${fullFileName}`, fullDataUrl.split(",")[1]);
     const portrait = `portraits/${fileName}`;
     const portraitFull = `portraits/${fullFileName}`;
     const updated = { ...selectedNpc, portrait, portraitFull };

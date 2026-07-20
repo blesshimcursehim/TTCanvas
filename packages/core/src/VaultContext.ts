@@ -33,8 +33,8 @@ export interface VaultContextValue {
   pickAudioFile: () => Promise<string | null>;
   /** Read any file by absolute path and return base64-encoded content. */
   readBinaryFile: (absolutePath: string) => Promise<string>;
-  /** Write raw bytes (supplied as base64) to any folder + filename. */
-  writeFileBase64: (folderPath: string, fileName: string, base64Content: string) => Promise<void>;
+  /** Write raw bytes (supplied as base64) to a vault-relative path, e.g. "portraits/foo.jpg". */
+  writeFileBase64: (relativePath: string, base64Content: string) => Promise<void>;
   /**
    * Show a native OS save dialog and write text content to the chosen path.
    * Returns true if saved, false if the user cancelled.

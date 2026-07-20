@@ -223,6 +223,11 @@ function App() {
   const lastBuiltRef = useRef<{ vaultPath: string; state: WorkspaceState } | null>(null);
   const playerWindowOpenRef = useRef(false);
   const zOrderOnlyRef = useRef(false);
+  // Suppress autosave when a load fell back in a way that could clobber un-preserved
+  // data (CR-014): a config reset whose original couldn't be backed up, or a workspace
+  // written by a newer build that we open read-only rather than overwrite.
+  const configPersistableRef = useRef(true);
+  const workspacePersistableRef = useRef(true);
   const workspaceQueueRef = useRef(
     createSerialQueue<{ vaultPath: string; state: WorkspaceState }>(
       ({ vaultPath: p, state }) => saveWorkspace(p, state),
@@ -243,13 +248,17 @@ function App() {
   useEffect(() => {
     loadAppConfig()
       .then(({ config, recovered, backedUp }) => {
+        // A reset whose original couldn't be preserved (backup failed, or the
+        // file was unreadable) must not be autosaved over - keep the defaults on
+        // screen but leave the original file untouched this session (CR-014).
+        if (recovered && !backedUp) configPersistableRef.current = false;
         setAppConfig(config);
         setLoaded(true);
         if (recovered) {
           showToast(
             backedUp
               ? "Your saved preferences were unreadable and have been reset to defaults. The old file was backed up."
-              : "Your saved preferences were unreadable and have been reset to defaults. The old file could not be backed up and may be lost.",
+              : "Your saved preferences couldn't be read and have been reset to defaults. The original file was left untouched, so preference changes won't be saved until it's fixed or removed.",
             "error",
           );
         }
@@ -257,14 +266,16 @@ function App() {
       .catch((err) => {
         // Whatever went wrong, the app must still render - fall back to the
         // defaults already in state rather than leaving the UI blank forever.
+        // Don't autosave over a config we failed to load (CR-014).
+        configPersistableRef.current = false;
         logError("Failed to load app config, starting with defaults", err);
         setLoaded(true);
-        showToast("Couldn't load your saved preferences - starting with defaults.", "error");
+        showToast("Couldn't load your saved preferences - starting with defaults. Changes won't be saved this session.", "error");
       });
   }, [showToast]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || !configPersistableRef.current) return;
     configQueueRef.current.enqueue(appConfig);
   }, [appConfig, loaded]);
 
@@ -317,7 +328,11 @@ function App() {
         : null;
 
       await Promise.all([
-        finalSave ? workspaceQueueRef.current.enqueue(finalSave) : workspaceQueueRef.current.flush(),
+        // Don't write a workspace we opened read-only (newer-build file) - just
+        // drain anything already queued (there won't be any) (CR-014).
+        workspacePersistableRef.current && finalSave
+          ? workspaceQueueRef.current.enqueue(finalSave)
+          : workspaceQueueRef.current.flush(),
         configQueueRef.current.flush(),
       ]);
       invoke("confirm_close");
@@ -350,7 +365,7 @@ function App() {
   }
 
   useEffect(() => {
-    if (!loaded || !vaultPath) return;
+    if (!loaded || !vaultPath || !workspacePersistableRef.current) return;
     if (zOrderOnlyRef.current) {
       zOrderOnlyRef.current = false;
       // The effect cleanup already cancelled the previous timer; re-schedule with the
@@ -391,24 +406,28 @@ function App() {
     if (vaultPath) {
       if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
       pendingSaveRef.current = null;
-      // Errors are caught and toasted inside the queue, so this always
-      // resolves - a save failure surfaces to the user but doesn't strand
-      // them unable to switch vaults.
-      await workspaceQueueRef.current.enqueue({
-        vaultPath,
-        state: {
-          version: 2,
-          activeLayout,
-          layouts: { ...layouts, [activeLayout]: { widgets, backgroundImage: layouts[activeLayout]?.backgroundImage } },
-          showGrid,
-          showVignette,
-          singletonStates,
-          disabledWidgetTypes,
-          // Banked for the same reason as the close path: this vault's timer is about to stop
-          // running, and an unbanked startedAt would read as zero when the vault is reopened.
-          sessionTimer: bankSessionTimer(sessionTimer, Date.now()),
-        },
-      });
+      // Don't write the outgoing vault if it was opened read-only (newer-build
+      // file); its ref value still reflects that vault here, before the load
+      // below updates it (CR-014). Errors are caught and toasted inside the
+      // queue, so this always resolves - a save failure surfaces to the user but
+      // doesn't strand them unable to switch vaults.
+      if (workspacePersistableRef.current) {
+        await workspaceQueueRef.current.enqueue({
+          vaultPath,
+          state: {
+            version: 2,
+            activeLayout,
+            layouts: { ...layouts, [activeLayout]: { widgets, backgroundImage: layouts[activeLayout]?.backgroundImage } },
+            showGrid,
+            showVignette,
+            singletonStates,
+            disabledWidgetTypes,
+            // Banked for the same reason as the close path: this vault's timer is about to stop
+            // running, and an unbanked startedAt would read as zero when the vault is reopened.
+            sessionTimer: bankSessionTimer(sessionTimer, Date.now()),
+          },
+        });
+      }
     }
     let ws;
     let untrustedMods: ScannedMod[];
@@ -421,15 +440,20 @@ function App() {
       showToast(`Failed to load workspace - ${err instanceof Error ? err.message : String(err)}`, "error");
       return;
     }
-    setLayouts(ws.layouts);
-    setActiveLayout(ws.activeLayout);
-    setWidgets(ws.layouts[ws.activeLayout]?.widgets ?? []);
-    setShowGrid(ws.showGrid ?? true);
-    setShowVignette(ws.showVignette ?? false);
-    setSingletonStates(ws.singletonStates ?? {});
-    setDisabledWidgetTypes(ws.disabledWidgetTypes ?? []);
-    setSessionTimer(ws.sessionTimer ?? DEFAULT_SESSION_TIMER);
+    const { state: wsState, persistable, notice } = ws;
+    // Record before setState so the autosave and switch/close save paths see the
+    // right value for this vault immediately (CR-014).
+    workspacePersistableRef.current = persistable;
+    setLayouts(wsState.layouts);
+    setActiveLayout(wsState.activeLayout);
+    setWidgets(wsState.layouts[wsState.activeLayout]?.widgets ?? []);
+    setShowGrid(wsState.showGrid ?? true);
+    setShowVignette(wsState.showVignette ?? false);
+    setSingletonStates(wsState.singletonStates ?? {});
+    setDisabledWidgetTypes(wsState.disabledWidgetTypes ?? []);
+    setSessionTimer(wsState.sessionTimer ?? DEFAULT_SESSION_TIMER);
     setVaultPath(newPath);
+    if (notice) showToast(notice, "info");
     setPendingModTrust(untrustedMods.length > 0 ? { vaultPath: newPath, mods: untrustedMods } : null);
     const updated = pushRecentVault(appConfig, newPath);
     const withBrowse = { ...updated, lastBrowsePath: parentDir(newPath) };

@@ -4,6 +4,7 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
+use crate::commands::backup_file;
 use crate::error::CommandError;
 use crate::ipc_guard::require_main_window;
 use serde_json::{Value, json};
@@ -31,28 +32,21 @@ fn default_config() -> Value {
     json!({ "recentVaults": [], "lastBrowsePath": null })
 }
 
-/// Attempts to preserve a copy of a malformed config file before it's
-/// overwritten with defaults. Tries a rename first (fast, and typically the
-/// only thing needed within the same directory); if that fails - e.g. a
-/// cross-device rename, or the destination being briefly locked - falls back
-/// to a plain copy, which only needs read+write access rather than
-/// filesystem-level move support. Returns whether a backup copy now exists
-/// on disk; the caller must not claim a backup succeeded unless this does.
-fn backup_malformed_config(path: &std::path::Path) -> bool {
-    let bak = path.with_extension("json.bak");
-    fs::rename(path, &bak).is_ok() || fs::copy(path, &bak).is_ok()
-}
-
 /// Loads and parses the config file at `path`, never failing: a missing
 /// file, an unreadable one, or malformed JSON (partial write, a manual edit
 /// gone wrong) all fall back to safe defaults instead of leaving the whole
 /// app unable to render. Malformed JSON is backed up first so the user keeps
 /// a copy - the result carries `"recovered": true` whenever a reset
 /// happened, and `"backedUp"` reflects whether that backup actually
-/// succeeded, so the frontend never claims a copy was saved when it wasn't.
-/// Mirrors `load_workspace`'s handling of corrupted `workspace.json`, but
-/// stricter: workspace loads happen mid-session and can surface a toast,
-/// while a config load failure happens before the UI has rendered at all.
+/// succeeded, so the frontend never claims a copy was saved when it wasn't
+/// (and can suppress autosave when the original wasn't preserved, so a reset
+/// never overwrites data the user might still recover). A *read* error signals
+/// the same `recovered: true, backedUp: false` shape: the file is intact but
+/// couldn't be read this time (e.g. a transient lock), so it must not be
+/// clobbered by a default write. Mirrors `load_workspace`'s handling of
+/// corrupted `workspace.json`, but stricter: workspace loads happen mid-session
+/// and can surface a toast, while a config load failure happens before the UI
+/// has rendered at all.
 fn load_config_file(path: &std::path::Path) -> Value {
     if !path.exists() {
         return default_config();
@@ -60,17 +54,25 @@ fn load_config_file(path: &std::path::Path) -> Value {
     let content = match fs::read_to_string(path) {
         Ok(c) => c,
         Err(err) => {
-            log::warn!(
-                "app_config: could not read {}, starting with defaults: {err}",
+            // The file exists but couldn't be read. Don't back it up (we can't
+            // read it) and don't discard it - signal recovered-without-backup
+            // so the frontend renders defaults but suppresses autosave, leaving
+            // the original intact for a later successful read (CR-014).
+            log::error!(
+                "app_config: could not read existing {}, using defaults this session \
+                 without overwriting it: {err}",
                 path.display()
             );
-            return default_config();
+            let mut result = default_config();
+            result["recovered"] = json!(true);
+            result["backedUp"] = json!(false);
+            return result;
         }
     };
     match serde_json::from_str::<Value>(&content) {
         Ok(raw) => migrate_config(raw),
         Err(err) => {
-            let backed_up = backup_malformed_config(path);
+            let backed_up = backup_file(path, &path.with_extension("json.bak"));
             if backed_up {
                 log::warn!(
                     "app_config: malformed JSON at {}, backed up and resetting to defaults: {err}",
@@ -190,6 +192,24 @@ mod tests {
         assert_eq!(result["backedUp"], json!(false));
         // Nothing could move or copy the source, so it's still there - not
         // silently discarded just because the backup failed.
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn load_config_file_signals_recovery_without_backup_on_read_error() {
+        // A directory at the config path exists() but can't be read as a string,
+        // standing in for any read failure (a transient lock, bad permissions).
+        // The original must be left intact and the result must flag
+        // recovered-without-backup so the frontend suppresses autosave (CR-014).
+        let path = temp_config_path("read_error");
+        fs::create_dir_all(&path).unwrap();
+
+        let result = load_config_file(&path);
+
+        assert_eq!(result["recentVaults"], json!([]));
+        assert_eq!(result["recovered"], json!(true));
+        assert_eq!(result["backedUp"], json!(false));
+        // The unreadable original is still there, not discarded.
         assert!(path.exists());
     }
 

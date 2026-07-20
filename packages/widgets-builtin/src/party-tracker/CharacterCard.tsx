@@ -177,8 +177,8 @@ export function CharacterCard({ member, onChange, onOpenSheet }: Props) {
   async function handleCropConfirm(croppedDataUrl: string, fullDataUrl: string) {
     setCropDataUrl(null);
     if (!vault.vaultPath) return;
-    await vault.writeFileBase64(`${vault.vaultPath}/portraits`, `${member.id}.jpg`, croppedDataUrl.split(",")[1]);
-    await vault.writeFileBase64(`${vault.vaultPath}/portraits`, `${member.id}-full.jpg`, fullDataUrl.split(",")[1]);
+    await vault.writeFileBase64(`portraits/${member.id}.jpg`, croppedDataUrl.split(",")[1]);
+    await vault.writeFileBase64(`portraits/${member.id}-full.jpg`, fullDataUrl.split(",")[1]);
     patch({ portraitPath: `portraits/${member.id}.jpg`, portraitFullPath: `portraits/${member.id}-full.jpg` });
   }
 
