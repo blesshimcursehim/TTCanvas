@@ -14,6 +14,7 @@ import { ModeToggle } from "../shared/ModeToggle";
 import { RouteResultButton } from "../shared/RouteResultButton";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
 import { CollectionIO } from "../shared/CollectionIO";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./RollTables.module.css";
 
 interface Props {
@@ -311,14 +312,15 @@ export function RollTables({ state, onChange }: Props) {
           ))}
         </div>
 
-        {importError && (
-          <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
-        )}
         <div className={styles.listFooter}>
           <span>{tables.length} table{tables.length !== 1 ? "s" : ""}</span>
-          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={tables.length === 0} />
-
         </div>
+        <WidgetSettingsCog>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={tables.length === 0} />
+          {importError && (
+            <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
+          )}
+        </WidgetSettingsCog>
       </div>
 
       {/* ── Right: detail / add pane ─────────────── */}

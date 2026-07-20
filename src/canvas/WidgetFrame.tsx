@@ -4,7 +4,8 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useCallback, useId, type ReactNode, Component } from "react";
+import { useCallback, useId, useState, type ReactNode, Component } from "react";
+import { WidgetChromeContext } from "@ttcanvas/core";
 import { useCanvasTransform } from "./CanvasContext";
 import { Icon } from "../icons/Icon";
 import { logError } from "../diagnostics/log";
@@ -91,6 +92,9 @@ export function WidgetFrame({
 }: Props) {
   const transformRef = useCanvasTransform();
   const helpId = useId();
+  // State-backed so a widget consuming WidgetChromeContext re-renders once the
+  // header slot node exists and can portal its settings cog into it.
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
 
   const onHeaderMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -214,13 +218,15 @@ export function WidgetFrame({
               i
             </button>
           )}
+          {/* Widgets portal a settings cog into this slot via WidgetChromeContext. */}
+          <span className={styles.headSlot} ref={setHeaderSlot} />
           <span className={styles.grip} aria-hidden="true">
             {Array.from({ length: 6 }).map((_, i) => (
               <span key={i} className={styles.gripDot} />
             ))}
           </span>
           <button
-            className={styles.headBtn}
+            className={`${styles.headBtn} ${styles.headBtnDanger}`}
             onClick={onClose}
             title="Close"
             onMouseDown={(e) => e.stopPropagation()}
@@ -238,7 +244,9 @@ export function WidgetFrame({
         </div>
       )}
       <div className={styles.content}>
-        <WidgetErrorBoundary title={title}>{children}</WidgetErrorBoundary>
+        <WidgetChromeContext.Provider value={{ headerSlot }}>
+          <WidgetErrorBoundary title={title}>{children}</WidgetErrorBoundary>
+        </WidgetChromeContext.Provider>
       </div>
       <div className={styles.resizeHandle} onMouseDown={onResizeMouseDown} />
     </div>

@@ -12,6 +12,7 @@ import { setActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
 import { CollectionIO } from "../shared/CollectionIO";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./Bestiary.module.css";
 
 const FOE_COLOR = "oklch(0.55 0.20 25)";
@@ -332,13 +333,15 @@ export function Bestiary({ state, onChange }: Props) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <CollectionIO onImportFile={handleImport} onExportAll={exportAll} exportDisabled={entries.length === 0} />
         <button className={styles.addBtn} onClick={handleAddNew}>+ Add</button>
       </div>
 
-      {importError && (
-        <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
-      )}
+      <WidgetSettingsCog>
+        <CollectionIO onImportFile={handleImport} onExportAll={exportAll} exportDisabled={entries.length === 0} />
+        {importError && (
+          <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
+        )}
+      </WidgetSettingsCog>
 
       {/* Type filter chips */}
       <div className={styles.typeChips}>

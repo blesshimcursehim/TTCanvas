@@ -11,6 +11,7 @@ import { renderMarkdown } from "../shared/markdownRenderer";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
 import { CollectionIO } from "../shared/CollectionIO";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./RuleCards.module.css";
 
 interface Props {
@@ -207,13 +208,15 @@ export function RuleCards({ state, onChange }: Props) {
           ))}
         </div>
 
-        {importError && (
-          <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
-        )}
         <div className={styles.listFooter}>
           <span>{cards.length} card{cards.length !== 1 ? "s" : ""}</span>
-          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={cards.length === 0} />
         </div>
+        <WidgetSettingsCog>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={cards.length === 0} />
+          {importError && (
+            <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
+          )}
+        </WidgetSettingsCog>
       </div>
 
       {/* ── Right: detail / add pane ────────────── */}

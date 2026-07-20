@@ -46,3 +46,5 @@ export { fogModeOf, lastBrushPoint, renderFogReveals, drawFogCanvas } from "./fo
 export type { BrushPoint } from "./fogRender";
 export { ToastContext, useToast } from "./ToastContext";
 export type { ToastContextValue, ToastType } from "./ToastContext";
+export { WidgetChromeContext, useWidgetChrome } from "./WidgetChromeContext";
+export type { WidgetChromeContextValue } from "./WidgetChromeContext";

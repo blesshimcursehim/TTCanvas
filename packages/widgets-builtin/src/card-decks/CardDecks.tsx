@@ -22,6 +22,7 @@ import { ModeToggle } from "../shared/ModeToggle";
 import { RouteResultButton } from "../shared/RouteResultButton";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
 import { CollectionIO } from "../shared/CollectionIO";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import { mimeForImageExt } from "../shared/mime";
 import styles from "./CardDecks.module.css";
 
@@ -310,11 +311,13 @@ export function CardDecks({ state, onChange }: Props) {
           ))}
         </div>
 
-        {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
         <div className={styles.listFooter}>
           <span>{decks.length} deck{decks.length !== 1 ? "s" : ""}</span>
-          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={decks.length === 0} />
         </div>
+        <WidgetSettingsCog>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={decks.length === 0} />
+          {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
+        </WidgetSettingsCog>
       </div>
 
       {/* ── Right: detail / add pane ─────────────── */}

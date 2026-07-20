@@ -107,6 +107,12 @@ All notable changes are documented here.
   place, "Export all" in another). They now share one control, so the buttons, labels and file handling
   match across the Bestiary, NPC Library, Gazetteer, Card Decks, Roll Tables, Rule Cards and Party
   Tracker. Files exported by older versions still import.
+- **Per-widget setup controls moved into a settings cog.** A gear now sits in the widget's title bar,
+  next to the help (i). The collection widgets' Import and Export buttons live behind it, as do the
+  Initiative Tracker's round-timing options (advance the clock when a round completes, seconds per
+  round, and the lair-action reminder). These are things you set once and forget, so moving them out of
+  the widget body keeps it focused on what you actually touch during play. Nothing changed about what
+  they do.
 
 ### Fixes
 

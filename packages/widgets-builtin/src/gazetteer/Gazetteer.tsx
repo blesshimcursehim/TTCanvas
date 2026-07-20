@@ -11,6 +11,7 @@ import { renderMarkdown } from "../shared/markdownRenderer";
 import { mimeForImageExt } from "../shared/mime";
 import { dedupe, exportCollection, readBundle, buildBundle, hashContent, type DedupeResult } from "../shared/importExport";
 import { CollectionIO } from "../shared/CollectionIO";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import { ConfirmDeleteButton as SharedConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import type { GazetteerState, GazetteerLocation, LinkedEntity, LocationKind } from "./types";
@@ -290,9 +291,11 @@ export function Gazetteer({ state, onChange }: Props) {
 
         <div className={styles.footer}>
           <span>{locations.length} place{locations.length === 1 ? "" : "s"}</span>
-          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={locations.length === 0} />
         </div>
-        {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
+        <WidgetSettingsCog>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={locations.length === 0} />
+          {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
+        </WidgetSettingsCog>
       </div>
 
       {/* ── Right: detail / add ── */}
