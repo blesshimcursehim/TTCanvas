@@ -784,11 +784,15 @@ function App() {
   // bestiaryCreatures (singleton first, widget instance as the un-migrated fallback).
   const pinnedLocationRefs = useMemo<ReadonlySet<string>>(() => {
     const s = (singletonStates["map-display"] ?? widgets.find((w) => w.type === "map-display")?.state) as
-      { scenes?: { tokens?: { locationRef?: string }[] }[] } | undefined;
+      { scenes?: { tokens?: { locationRef?: string }[] }[]; tokens?: { locationRef?: string }[] } | undefined;
     const refs = new Set<string>();
-    for (const scene of s?.scenes ?? []) {
-      for (const token of scene.tokens ?? []) if (token.locationRef) refs.add(token.locationRef);
-    }
+    const add = (tokens: { locationRef?: string }[] | undefined) => {
+      for (const token of tokens ?? []) if (token.locationRef) refs.add(token.locationRef);
+    };
+    for (const scene of s?.scenes ?? []) add(scene.tokens);
+    // Pre-scenes workspaces keep tokens at the top level until Map Display is opened and migrates them
+    // (MapDisplay's migrateState). Read those too, or a place stays "unpinned" until the widget is opened.
+    add(s?.tokens);
     return refs;
   }, [widgets, singletonStates]);
   const mapPinsContextValue = useMemo(() => ({ pinnedLocationRefs }), [pinnedLocationRefs]);
@@ -867,21 +871,28 @@ function App() {
   );
   // Append one event to the calendar singleton, reading the freshest state through the functional
   // updater so it never clobbers a concurrent calendar edit (same care as advanceGameTime's write).
+  // Falls back to the widget instance before the empty default: on an older, instance-backed workspace
+  // a bare default would write a singleton holding only the new event, and since the render path
+  // prefers `singletonStates[type] ?? w.state`, that would hide every existing event.
   const addCalendarEvent = useCallback(
     (ev: CalEvent) => setSingletonStates((ss) => {
-      const cur = (ss["custom-calendar"] ?? DEFAULT_CAL_STATE) as CalendarState;
-      return { ...ss, "custom-calendar": { ...cur, events: [...cur.events, ev] } };
+      const cur = (ss["custom-calendar"]
+        ?? widgetsRef.current.find((w) => w.type === "custom-calendar")?.state
+        ?? DEFAULT_CAL_STATE) as CalendarState;
+      return { ...ss, "custom-calendar": { ...cur, events: [...(cur.events ?? []), ev] } };
     }),
     [setSingletonStates],
   );
   // Append one Chronicle entry to the Campaign Timeline singleton (e.g. a Session Logger summary sent
-  // to it), minting the id here. Same functional-updater care as addCalendarEvent, and it works whether
-  // or not a Campaign Timeline widget is currently on the canvas.
+  // to it), minting the id here. Same functional-updater care and the same instance-state fallback as
+  // addCalendarEvent, and it works whether or not a Campaign Timeline widget is on the canvas.
   const addChronicleEntry = useCallback(
     (draft: ChronicleDraft) => setSingletonStates((ss) => {
-      const cur = (ss["campaign-timeline"] ?? DEFAULT_TIMELINE_STATE) as CampaignTimelineState;
+      const cur = (ss["campaign-timeline"]
+        ?? widgetsRef.current.find((w) => w.type === "campaign-timeline")?.state
+        ?? DEFAULT_TIMELINE_STATE) as CampaignTimelineState;
       const entry: TimelineEntry = { id: crypto.randomUUID(), ...draft };
-      return { ...ss, "campaign-timeline": { ...cur, entries: [...cur.entries, entry] } };
+      return { ...ss, "campaign-timeline": { ...cur, entries: [...(cur.entries ?? []), entry] } };
     }),
     [setSingletonStates],
   );

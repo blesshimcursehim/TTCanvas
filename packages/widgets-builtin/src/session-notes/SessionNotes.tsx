@@ -21,6 +21,9 @@ import styles from "./SessionNotes.module.css";
 const KIND_TAG: Record<SourceKind, string> = {
   note: "Note", npc: "NPC", place: "Place", creature: "Creature", card: "Card", rule: "Rule",
 };
+// Legend entries, in a stable reading order. Filtered to the kinds actually in the graph, so it stays
+// honest as sources come and go rather than listing colours for things that aren't on screen.
+const LEGEND_ORDER = ["note", "npc", "place", "creature", "card", "rule"] as const;
 const KIND_COLOR: Record<SourceKind, string> = {
   note: "oklch(0.80 0.115 78)",
   npc: "oklch(0.70 0.15 25)",
@@ -30,7 +33,9 @@ const KIND_COLOR: Record<SourceKind, string> = {
   rule: "oklch(0.72 0.10 250)",
 };
 
-type GraphState = { nodes: RelNode[]; edges: RelEdge[]; kinds: Map<string, SourceKind> };
+// `kinds`/`refs` are keyed by graph node id, which is namespaced by kind - the id alone is not the
+// ref, so opening a node has to look its ref up rather than reuse the id.
+type GraphState = { nodes: RelNode[]; edges: RelEdge[]; kinds: Map<string, SourceKind>; refs: Map<string, string> };
 
 // Lay out the vault link graph for WebCanvas: sources/notes become nodes (id = ref), resolved
 // `[[links]]` become edges, seeded on a spiral then relaxed. `kinds` colours nodes and routes clicks;
@@ -46,6 +51,7 @@ function buildNoteGraph(docs: SourceDoc[]): GraphState {
     }),
     edges: edges.map((e, i) => ({ id: `e${i}`, from: e.from, to: e.to, type: "custom" })),
     kinds: new Map(nodes.map((n) => [n.id, n.kind])),
+    refs: new Map(nodes.map((n) => [n.id, n.ref])),
   };
 }
 
@@ -70,7 +76,7 @@ export function SessionNotes({ state, onChange }: Props) {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [vaultSources, setVaultSources] = useState<SourceDoc[]>([]);
   const [graphOpen, setGraphOpen] = useState(false);
-  const [graph, setGraph] = useState<GraphState>({ nodes: [], edges: [], kinds: new Map() });
+  const [graph, setGraph] = useState<GraphState>({ nodes: [], edges: [], kinds: new Map(), refs: new Map() });
   const tree = useMemo(() => buildFileTree(files), [files]);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aiStreamRef = useRef("");
@@ -149,6 +155,7 @@ export function SessionNotes({ state, onChange }: Props) {
     [vaultSources, entities],
   );
 
+  const presentKinds = useMemo(() => new Set<SourceKind>(graph.kinds.values()), [graph.kinds]);
   const backlinkIndex = useMemo(() => buildBacklinkIndex(sources), [sources]);
   const backlinks = useMemo(
     () => (state.selectedFile ? backlinkIndex.get(linkKey(state.selectedFile)) ?? [] : []),
@@ -479,7 +486,7 @@ export function SessionNotes({ state, onChange }: Props) {
               <span className={styles.graphTitle}>Vault links</span>
               <span className={styles.graphMeta}>{graph.nodes.length} nodes · {graph.edges.length} links</span>
               <span className={styles.graphLegend}>
-                {(["note", "npc", "place"] as const).map((k) => (
+                {LEGEND_ORDER.filter((k) => presentKinds.has(k)).map((k) => (
                   <span key={k} className={styles.legendItem}><span className={styles.legendDot} style={{ background: KIND_COLOR[k] }} />{KIND_TAG[k]}</span>
                 ))}
               </span>
@@ -502,7 +509,7 @@ export function SessionNotes({ state, onChange }: Props) {
                   nodePortrait={() => null}
                   onSelect={() => {}}
                   onMoveNode={(id, x, y) => setGraph((g) => ({ ...g, nodes: g.nodes.map((n) => (n.id === id ? { ...n, x, y } : n)) }))}
-                  onNodeActivate={(id) => openSource(graph.kinds.get(id) ?? "note", id)}
+                  onNodeActivate={(id) => openSource(graph.kinds.get(id) ?? "note", graph.refs.get(id) ?? id)}
                 />
               )}
             </div>
