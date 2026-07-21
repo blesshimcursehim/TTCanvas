@@ -315,7 +315,7 @@ export function CardDecks({ state, onChange }: Props) {
           <span>{decks.length} deck{decks.length !== 1 ? "s" : ""}</span>
         </div>
         <WidgetSettingsCog>
-          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={decks.length === 0} />
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={decks.length === 0} onError={setImportError} />
           {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
         </WidgetSettingsCog>
       </div>

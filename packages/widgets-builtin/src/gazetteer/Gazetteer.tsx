@@ -293,7 +293,7 @@ export function Gazetteer({ state, onChange }: Props) {
           <span>{locations.length} place{locations.length === 1 ? "" : "s"}</span>
         </div>
         <WidgetSettingsCog>
-          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={locations.length === 0} />
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={locations.length === 0} onError={setImportError} />
           {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
         </WidgetSettingsCog>
       </div>

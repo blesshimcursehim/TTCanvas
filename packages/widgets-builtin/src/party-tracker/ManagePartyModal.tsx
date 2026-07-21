@@ -125,6 +125,10 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
       setImportError("Not a valid party file.");
       return;
     }
+    if (incoming.length === 0) {
+      setImportError("That file has no valid party members to import.");
+      return;
+    }
     const result = dedupe(incoming, draft, { idOf: (m) => m.id, contentKeyOf: partyMemberContentKey });
     if (result.idConflicts.length > 0 || result.contentDuplicates.length > 0) setPendingImport(result);
     else applyImport(result, "skip");
@@ -339,7 +343,7 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
 
         <div className={styles.addRow}>
           <button className={styles.addBtn} onClick={add}>+ Add member</button>
-          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={draft.length === 0} />
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={draft.length === 0} onError={setImportError} />
         </div>
         {importError && (
           <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>

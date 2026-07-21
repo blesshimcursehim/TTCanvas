@@ -316,7 +316,7 @@ export function RollTables({ state, onChange }: Props) {
           <span>{tables.length} table{tables.length !== 1 ? "s" : ""}</span>
         </div>
         <WidgetSettingsCog>
-          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={tables.length === 0} />
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={tables.length === 0} onError={setImportError} />
           {importError && (
             <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
           )}

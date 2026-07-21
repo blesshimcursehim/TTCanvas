@@ -125,7 +125,11 @@ export function readBundle<T>(
   return parseImportFile(text, (parsed) => {
     if (parsed !== null && typeof parsed === "object") {
       const type = (parsed as { type?: unknown }).type;
-      if (typeof type === "string" && type !== expectedType) return null;
+      // Only an *absent* type gets legacy compatibility. Any present value that
+      // isn't exactly expectedType - a wrong string, but also a number, null or
+      // object - is rejected, so a malformed discriminator can't slip past a
+      // validator that doesn't check the type itself (Bestiary, Party).
+      if (type !== undefined && type !== expectedType) return null;
     }
     return validate(parsed);
   });

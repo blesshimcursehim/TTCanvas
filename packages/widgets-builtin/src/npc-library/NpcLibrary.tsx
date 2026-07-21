@@ -508,7 +508,7 @@ export function NpcLibrary({ state, onChange }: Props) {
           <span>{npcs.length} NPC{npcs.length !== 1 ? "s" : ""} · {encounterCount} encountered</span>
         </div>
         <WidgetSettingsCog>
-          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={npcs.length === 0} />
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={npcs.length === 0} onError={setImportError} />
           {importError && (
             <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
           )}

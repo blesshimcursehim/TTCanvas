@@ -337,7 +337,7 @@ export function Bestiary({ state, onChange }: Props) {
       </div>
 
       <WidgetSettingsCog>
-        <CollectionIO onImportFile={handleImport} onExportAll={exportAll} exportDisabled={entries.length === 0} />
+        <CollectionIO onImportFile={handleImport} onExportAll={exportAll} exportDisabled={entries.length === 0} onError={setImportError} />
         {importError && (
           <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
         )}
