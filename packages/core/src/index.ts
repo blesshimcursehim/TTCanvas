@@ -21,6 +21,8 @@ export { DiceContext, useDice } from "./DiceContext";
 export type { DiceContextValue } from "./DiceContext";
 export { CalendarContext, useCalendar } from "./CalendarContext";
 export type { CalendarContextValue } from "./CalendarContext";
+export { ChronicleContext, useChronicle } from "./ChronicleContext";
+export type { ChronicleContextValue, ChronicleDraft } from "./ChronicleContext";
 export type {
   CalendarDef, MonthDef, IntercalaryPeriod, CalDate, CalEvent, CalendarState,
   TimeAdvance, TimeTrackerState, NamedJump, JumpUnit,

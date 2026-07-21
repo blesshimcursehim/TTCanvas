@@ -36,8 +36,8 @@ import { NpcProvider } from "./NpcProvider";
 import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
-import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState } from "@ttcanvas/widgets-builtin";
+import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState, type CampaignTimelineState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
 
@@ -50,6 +50,7 @@ const CANVAS_AREA: React.CSSProperties = {
 };
 
 const DEFAULT_CAL_STATE: CalendarState = { def: null, events: [] };
+const DEFAULT_TIMELINE_STATE: CampaignTimelineState = { entries: [] };
 const DEFAULT_TIME_STATE: TimeTrackerState = {
   currentDate: null, currentHour: 8, currentMinute: 0, currentSecond: 0, history: [], showOnPlayer: false,
   jumps: [...DEFAULT_JUMPS],
@@ -839,6 +840,17 @@ function App() {
     }),
     [setSingletonStates],
   );
+  // Append one Chronicle entry to the Campaign Timeline singleton (e.g. a Session Logger summary sent
+  // to it), minting the id here. Same functional-updater care as addCalendarEvent, and it works whether
+  // or not a Campaign Timeline widget is currently on the canvas.
+  const addChronicleEntry = useCallback(
+    (draft: ChronicleDraft) => setSingletonStates((ss) => {
+      const cur = (ss["campaign-timeline"] ?? DEFAULT_TIMELINE_STATE) as CampaignTimelineState;
+      const entry: TimelineEntry = { id: crypto.randomUUID(), ...draft };
+      return { ...ss, "campaign-timeline": { ...cur, entries: [...cur.entries, entry] } };
+    }),
+    [setSingletonStates],
+  );
   const setTimeState = useCallback(
     (s: TimeTrackerState) => setSingletonStates((ss) => ({ ...ss, "time-tracker": s })),
     [setSingletonStates],
@@ -1043,6 +1055,8 @@ function App() {
     setTimeState,
   }), [calState, timeState, setCalendarState, addCalendarEvent, setTimeState]);
 
+  const chronicleContextValue = useMemo(() => ({ addChronicleEntry }), [addChronicleEntry]);
+
   const conditionsContextValue = useMemo(() => ({
     customConditions: appConfig.customConditions,
   }), [appConfig.customConditions]);
@@ -1228,6 +1242,7 @@ function App() {
       <GazetteerProvider>
       <AIContext.Provider value={aiContextValue}>
       <CalendarContext.Provider value={calendarContextValue}>
+      <ChronicleContext.Provider value={chronicleContextValue}>
       <GameTimeContext.Provider value={gameTimeContextValue}>
       <ConditionsContext.Provider value={conditionsContextValue}>
       <ITContext.Provider value={itContextValue}>
@@ -1403,6 +1418,7 @@ function App() {
       </ITContext.Provider>
       </ConditionsContext.Provider>
       </GameTimeContext.Provider>
+      </ChronicleContext.Provider>
       </CalendarContext.Provider>
       </AIContext.Provider>
       </GazetteerProvider>

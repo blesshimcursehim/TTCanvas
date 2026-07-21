@@ -6,6 +6,10 @@ All notable changes are documented here.
 
 ### Features
 
+- **Send an AI session summary straight to the Chronicle.** The Session Logger's AI Summary now has an
+  "Add to Chronicle" button that drops the summary into the Campaign Timeline as a dated entry, using
+  the current in-game date, so a session's record lands on the timeline without retyping it. It needs
+  an in-game date to pin to, and the entry is yours to rename or edit in the Timeline afterwards.
 - **Multi-day events read as multi-day on the Campaign Timeline.** A festival or siege that runs
   several days on the Calendar used to appear on the Timeline as if it lasted a single day. Its card
   now carries a small "4d" badge, and hovering it spells out the last day, so a span reads at a glance
