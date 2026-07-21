@@ -23,6 +23,8 @@ export { CalendarContext, useCalendar } from "./CalendarContext";
 export type { CalendarContextValue } from "./CalendarContext";
 export { ChronicleContext, useChronicle } from "./ChronicleContext";
 export type { ChronicleContextValue, ChronicleDraft } from "./ChronicleContext";
+export { MapPinsContext, useMapPins } from "./MapPinsContext";
+export type { MapPinsContextValue } from "./MapPinsContext";
 export type {
   CalendarDef, MonthDef, IntercalaryPeriod, CalDate, CalEvent, CalendarState,
   TimeAdvance, TimeTrackerState, NamedJump, JumpUnit,

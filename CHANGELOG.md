@@ -6,6 +6,13 @@ All notable changes are documented here.
 
 ### Features
 
+- **Gazetteer tells you when a place is already pinned.** The "Pin this place on a map" button now
+  reads "Pinned on a map - show me" when the place already has a pin on any scene, so you can tell at a
+  glance instead of clicking to find out. Pressing it still jumps to the existing pin as before.
+- **Unlink a map pin from the map side.** A pin linked to a Gazetteer place used to be unlinkable only
+  from Gazetteer. Its row in the Visibility panel now has a chain button that names the linked place on
+  hover and unlinks it on click, leaving the pin itself where it is. The name is looked up live, so a
+  place you renamed in Gazetteer shows its current name.
 - **Roll Tables count expressions understand the full dice notation.** A table's "how many results per
   roll" box used to run on its own small parser that only handled forms like `3`, `2d6` and `1d6+2`. It
   now uses the same engine as the Dice Roller, so keep-highest, exploding dice and multi-term

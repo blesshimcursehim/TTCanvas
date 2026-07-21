@@ -36,7 +36,7 @@ import { NpcProvider } from "./NpcProvider";
 import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
 import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState, type CampaignTimelineState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
@@ -779,6 +779,20 @@ function App() {
     return (s?.entries ?? []).map((e) => ({ id: e.id, name: e.name, cr: e.cr, hp: e.hp, ac: e.ac, portrait: e.portrait, hitDice: e.hitDice, abilityScores: e.abilityScores }));
   }, [widgets, singletonStates]);
 
+  // Which Gazetteer places already have a pin, gathered across every scene, so Gazetteer's "Pin this
+  // place" button can say so without reading Map Display's widget state. Same effective-state read as
+  // bestiaryCreatures (singleton first, widget instance as the un-migrated fallback).
+  const pinnedLocationRefs = useMemo<ReadonlySet<string>>(() => {
+    const s = (singletonStates["map-display"] ?? widgets.find((w) => w.type === "map-display")?.state) as
+      { scenes?: { tokens?: { locationRef?: string }[] }[] } | undefined;
+    const refs = new Set<string>();
+    for (const scene of s?.scenes ?? []) {
+      for (const token of scene.tokens ?? []) if (token.locationRef) refs.add(token.locationRef);
+    }
+    return refs;
+  }, [widgets, singletonStates]);
+  const mapPinsContextValue = useMemo(() => ({ pinnedLocationRefs }), [pinnedLocationRefs]);
+
   // Name lists for the wikilink resolver's state-backed targets. Read straight from singleton state
   // (not gated on the widget being on the canvas) so `[[creature:X]]` / `[[card:X]]` resolve even when
   // the widget is closed - the open handler adds it.
@@ -1240,6 +1254,7 @@ function App() {
     <VaultProvider vaultPath={vaultPath} onVaultPathChange={handleVaultChange}>
       <NpcProvider>
       <GazetteerProvider>
+      <MapPinsContext.Provider value={mapPinsContextValue}>
       <AIContext.Provider value={aiContextValue}>
       <CalendarContext.Provider value={calendarContextValue}>
       <ChronicleContext.Provider value={chronicleContextValue}>
@@ -1421,6 +1436,7 @@ function App() {
       </ChronicleContext.Provider>
       </CalendarContext.Provider>
       </AIContext.Provider>
+      </MapPinsContext.Provider>
       </GazetteerProvider>
       </NpcProvider>
     </VaultProvider>

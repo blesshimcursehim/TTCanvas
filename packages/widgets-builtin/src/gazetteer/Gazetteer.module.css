@@ -225,6 +225,8 @@ button.chipBody:hover { color: var(--accent); }
   width: 100%; text-align: left; cursor: pointer; font-family: inherit;
 }
 .mapHook:hover { border-color: var(--accent-line); color: var(--ink); background: oklch(0.22 0.016 258 / 0.5); }
+/* Already pinned: a solid border reads as "this exists", against the dashed "not placed yet" state. */
+.mapHookPinned { border-style: solid; border-color: var(--accent-line); color: var(--ink-2); }
 
 .detailFooter { padding-top: 6px; border-top: 1px solid var(--line-soft); }
 .deleteBtn { background: transparent; border: none; color: var(--ink-3); font-size: 12px; cursor: pointer; padding: 0; }
