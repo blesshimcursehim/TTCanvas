@@ -6,6 +6,11 @@ All notable changes are documented here.
 
 ### Features
 
+- **Roll Tables count expressions understand the full dice notation.** A table's "how many results per
+  roll" box used to run on its own small parser that only handled forms like `3`, `2d6` and `1d6+2`. It
+  now uses the same engine as the Dice Roller, so keep-highest, exploding dice and multi-term
+  expressions (`4d6kh3`, `d6!`, `2d6-1d4+3`) all work there too, and the app has one dice grammar
+  instead of two.
 - **Send an AI session summary straight to the Chronicle.** The Session Logger's AI Summary now has an
   "Add to Chronicle" button that drops the summary into the Campaign Timeline as a dated entry, using
   the current in-game date, so a session's record lands on the timeline without retyping it. It needs

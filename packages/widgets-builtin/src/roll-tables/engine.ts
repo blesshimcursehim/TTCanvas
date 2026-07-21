@@ -9,6 +9,7 @@
 // it covers, so a roll is 1..sum(weights) mapped onto cumulative ranges. M2 adds
 // nested-table resolution (`resolveRoll`) and count expressions (`parseCount`).
 
+import { parseExpression, rollExpression } from "../dice-roller/dice";
 import type { RollTable, RollTableEntry } from "./types";
 
 /** Clamps a weight to a positive integer; a missing/garbage weight counts as 1. */
@@ -147,25 +148,22 @@ export function resolveRoll(
 const MAX_ROLL_COUNT = 20;
 
 /**
- * Parses and rolls a count expression: a plain integer (`"3"`) or dice notation
- * (`"2d6"`, `"d4"`, `"1d6+2"`). Returns the rolled count (>=1), or null if `expr` doesn't match
- * either form. `rng` is injectable for tests, matching the rest of the engine.
+ * Parses and rolls a count expression: a plain integer (`"3"`) or any notation the Dice Roller
+ * understands (`"2d6"`, `"d4"`, `"1d6+2"`, and now also `"4d6kh3"`, `"d6!"`, `"2d6-1d4+3"`).
+ * Returns the rolled count (>=1), or null if `expr` isn't valid notation. `rng` is injectable for
+ * tests, matching the rest of the engine.
+ *
+ * Delegates to the Dice Roller's parser/evaluator so the app has one dice grammar rather than two.
  */
 export function parseCount(expr: string, rng: () => number = Math.random): number | null {
-  const trimmed = expr.trim();
-  if (/^\d+$/.test(trimmed)) {
-    const n = parseInt(trimmed, 10);
-    return n >= 1 ? n : null;
-  }
-  const m = /^(\d*)d(\d+)([+-]\d+)?$/i.exec(trimmed);
-  if (!m) return null;
-  const numDice = m[1] ? parseInt(m[1], 10) : 1;
-  const sides = parseInt(m[2], 10);
-  const mod = m[3] ? parseInt(m[3], 10) : 0;
-  if (numDice < 1 || sides < 1) return null;
-  let total = mod;
-  for (let i = 0; i < numDice; i++) total += Math.floor(rng() * sides) + 1;
-  return Math.max(1, total);
+  const parsed = parseExpression(expr);
+  if (!parsed) return null;
+  const { total } = rollExpression(parsed, rng);
+  // A constant count is authored, so a non-positive one is a typo worth flagging (the widget greys out
+  // Roll on null). A dice count that merely rolls low is a legitimate low roll, so it clamps instead.
+  const hasDice = parsed.terms.some((t) => t.kind === "dice");
+  if (hasDice) return Math.max(1, total);
+  return total >= 1 ? total : null;
 }
 
 /**
