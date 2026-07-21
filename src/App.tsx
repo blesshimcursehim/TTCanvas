@@ -25,10 +25,9 @@ import { Titlebar } from "./chrome/Titlebar";
 import { Sidebar, type RailWidget } from "./chrome/Sidebar";
 import { getWidget, resolveDefaultState, getModWidgetTypes, clearModWidgets, getModFilename } from "./registry";
 import { loadMods, importMod, type ScannedMod } from "./mods/loadMods";
-import { logError } from "./diagnostics/log";
 import { ModTrustPrompt } from "./canvas/ModTrustPrompt";
 import { deleteVaultFile } from "./vault";
-import { loadWorkspace, saveWorkspace } from "./workspace";
+import { loadWorkspace, saveWorkspace, WORKSPACE_VERSION } from "./workspace";
 import type { WidgetInstance, Layout, WorkspaceState } from "./workspace";
 import { DEFAULT_SESSION_TIMER, bankSessionTimer } from "./sessionTimer";
 import { VaultProvider } from "./VaultProvider";
@@ -36,7 +35,7 @@ import { NpcProvider } from "./NpcProvider";
 import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, logError, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
 import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState, type CampaignTimelineState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
@@ -381,7 +380,7 @@ function App() {
       return;
     }
     const state: WorkspaceState = {
-      version: 2,
+      version: WORKSPACE_VERSION,
       activeLayout,
       layouts: { ...layouts, [activeLayout]: { widgets, backgroundImage: layouts[activeLayout]?.backgroundImage } },
       showGrid,
@@ -416,7 +415,7 @@ function App() {
         await workspaceQueueRef.current.enqueue({
           vaultPath,
           state: {
-            version: 2,
+            version: WORKSPACE_VERSION,
             activeLayout,
             layouts: { ...layouts, [activeLayout]: { widgets, backgroundImage: layouts[activeLayout]?.backgroundImage } },
             showGrid,
@@ -1459,6 +1458,10 @@ function App() {
             <PreferencesModal
               config={appConfig}
               version={appVersion}
+              workspaceVersion={WORKSPACE_VERSION}
+              // A ref, not state: it is assigned during the vault load, well before the modal can
+              // be opened, so reading it here is always current.
+              workspaceReadOnly={!workspacePersistableRef.current}
               disabledWidgetTypes={disabledWidgetTypes}
               modWidgetTypes={getModWidgetTypes()}
               onClose={() => setPrefsOpen(false)}

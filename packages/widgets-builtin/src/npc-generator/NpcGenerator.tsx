@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useContext, useEffect, useRef, useState } from "react";
-import { VaultContext, useAI, ollamaCheck, ollamaGenerate, openaiGenerate } from "@ttcanvas/core";
+import { VaultContext, useAI, ollamaCheck, ollamaGenerate, openaiGenerate, logWarn, logError } from "@ttcanvas/core";
 import type { NpcGeneratorState, GenderType } from "./types";
 import {
   generateName, generateOccupation, generateTrait, generateHook, generateVoice, generateAge,
@@ -128,6 +128,8 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   }, []);
 
   useEffect(() => {
+    // Deliberately unlogged: this probe is expected to reject whenever Ollama isn't running,
+    // so logging it would write a line every session for a non-problem.
     ollamaCheck().then(setOllamaAvailable).catch(() => {});
   }, []);
 
@@ -201,7 +203,12 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   }
 
   function tryParseAllFields(raw: string) {
-    try { return JSON.parse(stripJsonFences(raw)); } catch { return null; }
+    try { return JSON.parse(stripJsonFences(raw)); } catch (err) {
+      // Worth a line: this is the model returning something that isn't JSON, which looks to the
+      // user like "Re-roll all did nothing" and is otherwise indistinguishable from a no-op.
+      logWarn("NPC Generator: AI reply was not valid JSON", err);
+      return null;
+    }
   }
 
   async function runAI(mode: "all" | "trait" | "hook" | "voice") {
@@ -248,7 +255,8 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
         : openaiGenerate(aiConfig.baseUrl, aiConfig.apiKey, aiConfig.model!, prompt, handleChunk);
       cancelGenRef.current = gen.cancel;
       await gen.promise;
-    } catch {
+    } catch (err) {
+      logError("NPC Generator: AI generation failed", err);
       setGenerating(false);
     } finally {
       cancelGenRef.current = null;
@@ -300,7 +308,8 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
       setSavedFilename(filename);
       if (saveResetRef.current) clearTimeout(saveResetRef.current);
       saveResetRef.current = setTimeout(() => setSaved(false), 2000);
-    } catch {
+    } catch (err) {
+      logError("NPC Generator: could not save the NPC to the vault", err);
       setSaveError(true);
       setTimeout(() => setSaveError(false), 3000);
     }

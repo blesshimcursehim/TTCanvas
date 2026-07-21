@@ -6,9 +6,8 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { VaultContext, type VaultContextValue } from "@ttcanvas/core";
+import { VaultContext, logWarn, type VaultContextValue } from "@ttcanvas/core";
 import * as vault from "./vault";
-import { logWarn } from "./diagnostics/log";
 
 interface Props {
   vaultPath: string | null;

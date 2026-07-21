@@ -6,9 +6,8 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
-import { GazetteerContext, useVault, type GazetteerLocationRef, type GazetteerContextValue } from "@ttcanvas/core";
+import { GazetteerContext, useVault, logWarn, logError, type GazetteerLocationRef, type GazetteerContextValue } from "@ttcanvas/core";
 import { parseLocationJson, type GazetteerLocation } from "@ttcanvas/widgets-builtin";
-import { logWarn, logError } from "./diagnostics/log";
 
 /**
  * Scans `locations/*.json` once and shares the result, so widgets that only need to *reference*

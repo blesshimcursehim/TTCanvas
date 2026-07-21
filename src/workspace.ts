@@ -6,9 +6,8 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
-import type { WorkspaceState, WidgetInstance } from "@ttcanvas/core";
+import { logWarn, type WorkspaceState, type WidgetInstance } from "@ttcanvas/core";
 import { DEFAULT_SESSION_TIMER, reconcileSessionTimer } from "./sessionTimer";
-import { logWarn } from "./diagnostics/log";
 
 export type { WorkspaceState, WidgetInstance, Layout } from "@ttcanvas/core";
 
@@ -53,8 +52,12 @@ const SessionTimerSchema = z
   })
   .catch({ ...DEFAULT_SESSION_TIMER });
 
+/** The workspace schema version this build reads and writes. A file numbered higher than this
+ *  opens read-only rather than being overwritten (see `isFutureWorkspaceVersion`). */
+export const WORKSPACE_VERSION = 2;
+
 const WorkspaceV2Schema = z.object({
-  version: z.literal(2),
+  version: z.literal(WORKSPACE_VERSION),
   activeLayout: z.string().catch("Default"),
   layouts: z
     .record(z.string(), LayoutSchema.catch({ widgets: [] }))
@@ -69,7 +72,7 @@ const WorkspaceV2Schema = z.object({
 // ---------------------------------------------------------------------------
 
 const DEFAULT_WS: WorkspaceState = {
-  version: 2,
+  version: WORKSPACE_VERSION,
   activeLayout: "Default",
   layouts: { Default: { widgets: [] } },
   showGrid: true,

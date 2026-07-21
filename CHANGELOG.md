@@ -116,6 +116,16 @@ All notable changes are documented here.
 
 ### Changes
 
+- **Widget failures now leave a trace in the log.** Until now every log entry came from the app shell,
+  and the widgets themselves wrote nothing at all, so a map that wouldn't load, a sound pad that
+  wouldn't play, an AI summary that failed or a whole NPC library that came back empty all just looked
+  like nothing had happened. Those failures are now recorded in the local log with the widget and the
+  file that caused them, so Preferences > Diagnostics can actually tell you why. Nothing changes on
+  screen, nothing new is collected, and it all stays on your machine as before. Things that fail
+  routinely, like checking for Ollama when it isn't running, stay quiet on purpose. The diagnostics
+  report also now names the workspace schema version and says when a workspace opened read-only,
+  which is the state behind "my changes aren't saving".
+
 - **Encounters you saved before this release start with no party.** The old "Also add party" tickbox
   was never saved, it just defaulted to on every time, so there's nothing to carry over into the new
   party rows. Your existing encounters keep their creatures and counts, but the party has to be added

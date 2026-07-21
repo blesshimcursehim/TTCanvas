@@ -5,6 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useRef, type ChangeEvent } from "react";
+import { logError } from "@ttcanvas/core";
 import styles from "./CollectionIO.module.css";
 
 interface Props {
@@ -46,6 +47,9 @@ export function CollectionIO({ onImportFile, onExportAll, exportDisabled, onErro
     try {
       await onImportFile(file);
     } catch (err) {
+      // Logged here rather than in each widget: every JSON-backed collection widget routes its
+      // import through these controls, so this is the one place that sees them all.
+      logError(`Import failed for "${file.name}"`, err);
       onError?.(failureMessage("Import", err));
     }
   }
@@ -54,6 +58,7 @@ export function CollectionIO({ onImportFile, onExportAll, exportDisabled, onErro
     try {
       await onExportAll();
     } catch (err) {
+      logError("Export all failed", err);
       onError?.(failureMessage("Export", err));
     }
   }

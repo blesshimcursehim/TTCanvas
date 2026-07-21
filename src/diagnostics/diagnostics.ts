@@ -6,7 +6,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { redact } from "./redact";
+import { redact } from "@ttcanvas/core";
 
 /** Open the OS file manager focused on the rotating log file. */
 export async function revealLogFile(): Promise<void> {
@@ -26,6 +26,13 @@ export function clearLog(): Promise<void> {
 
 export interface DiagnosticsMeta {
   version: string;
+  /** Schema version of the workspace file currently open. */
+  workspaceVersion: number;
+  /**
+   * True when the open workspace was written by a newer build, so this one renders it but refuses
+   * to save over it. Worth reporting: it is exactly the state behind "my changes don't persist".
+   */
+  workspaceReadOnly: boolean;
   aiProvider: string;
   enabledWidgets: string[];
   disabledWidgets: string[];
@@ -43,6 +50,7 @@ export async function exportDiagnostics(meta: DiagnosticsMeta, secrets: string[]
     "TTCanvas diagnostics report",
     `Generated: ${new Date().toISOString()}`,
     `App version: ${meta.version}`,
+    `Workspace schema: v${meta.workspaceVersion}${meta.workspaceReadOnly ? " (open READ-ONLY - written by a newer build)" : ""}`,
     `Platform: ${navigator.userAgent}`,
     `AI provider: ${meta.aiProvider}`,
     `Enabled widgets: ${meta.enabledWidgets.join(", ") || "(none)"}`,

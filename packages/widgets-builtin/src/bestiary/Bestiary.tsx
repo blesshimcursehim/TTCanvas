@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useIT, useVault, pushCharacterScene } from "@ttcanvas/core";
+import { useIT, useVault, pushCharacterScene, logError } from "@ttcanvas/core";
 import type { BestiaryState, BestiaryEntry, BestiaryFolder } from "./types";
 import { CreatureSheetModal } from "./CreatureSheetModal";
 import { setActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
@@ -141,7 +141,8 @@ export function Bestiary({ state, onChange }: Props) {
     let text: string;
     try {
       text = await file.text();
-    } catch {
+    } catch (err) {
+      logError("Bestiary: could not read the import file", err);
       setImportError("Failed to read import file.");
       return;
     }

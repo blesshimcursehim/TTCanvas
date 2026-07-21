@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useVault, useIT, useGazetteerLocations, pushPlayerScene, pushMapPing, PING_LIFETIME_MS, drawFogCanvas, renderFogReveals, lastBrushPoint, fogModeOf } from "@ttcanvas/core";
+import { useVault, useIT, useGazetteerLocations, logWarn, pushPlayerScene, pushMapPing, PING_LIFETIME_MS, drawFogCanvas, renderFogReveals, lastBrushPoint, fogModeOf } from "@ttcanvas/core";
 import type { FogReveal, MapToken, MapTokenKind, FogMode, BrushPoint, MapAnnotation, AnnotationColor } from "@ttcanvas/core";
 import type { MapDisplayState, MapScene, MarkupPreset } from "./types";
 import { getActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
@@ -172,7 +172,10 @@ function TokenPin({ token, imgW, imgH, ghost, spotlight, onDragStart, onRemove, 
     let cancelled = false;
     vault.readFileBase64(`${vault.vaultPath}/portraits`, fileName)
       .then((b64) => { if (!cancelled) setPortraitSrc(`data:${mime};base64,${b64}`); })
-      .catch(() => { if (!cancelled) setPortraitSrc(null); });
+      .catch((err: unknown) => {
+        logWarn(`Map Display: could not load token portrait "${fileName}"`, err);
+        if (!cancelled) setPortraitSrc(null);
+      });
     return () => { cancelled = true; };
     // vault's context value is a fresh object every render (tracked in
     // tracking/phase6-fixes.md) - depending on the whole object instead of
@@ -493,7 +496,13 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
           setImgSize({ w: imgRef.current.naturalWidth, h: imgRef.current.naturalHeight });
         }
       })
-      .catch(() => { setImgSrc(null); setLoadedMap(loadingForMapRef.current); });
+      .catch((err: unknown) => {
+        // This catch is why the subfolder-path bug stayed invisible for months (bugs.md,
+        // 2026-07-11): a failed map read looks exactly like an empty map on screen.
+        logWarn(`Map Display: could not load map image "${activeScene.selectedMap}"`, err);
+        setImgSrc(null);
+        setLoadedMap(loadingForMapRef.current);
+      });
     // vault's context value is a fresh object every render (tracked in
     // tracking/phase6-fixes.md) - depending on the whole object instead of
     // its stable fields would re-run this on every render.
@@ -544,7 +553,10 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
 
   useEffect(() => {
     if (!state.mapsFolder) { setFiles([]); return; }
-    vault.listFolderImages(state.mapsFolder).then(setFiles).catch(() => setFiles([]));
+    vault.listFolderImages(state.mapsFolder).then(setFiles).catch((err: unknown) => {
+      logWarn(`Map Display: could not list maps folder "${state.mapsFolder}"`, err);
+      setFiles([]);
+    });
     // vault's context value is a fresh object every render (tracked in
     // tracking/phase6-fixes.md) - depending on the whole object instead of
     // its stable fields would re-run this on every render.

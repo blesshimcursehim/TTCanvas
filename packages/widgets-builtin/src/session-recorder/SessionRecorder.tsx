@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useRef, useEffect } from "react";
-import { useCalendar, useChronicle, useVault, useAI, ollamaGenerate, openaiGenerate } from "@ttcanvas/core";
+import { useCalendar, useChronicle, useVault, useAI, ollamaGenerate, openaiGenerate, logError } from "@ttcanvas/core";
 import type { SessionRecorderState, SessionEntry } from "./types";
 import { formatCalDate, formatTime } from "../calendar/utils";
 import { RouteResultButton } from "../shared/RouteResultButton";
@@ -154,7 +154,8 @@ export function SessionRecorder({ state, onChange }: Props) {
         : openaiGenerate(aiConfig.baseUrl, aiConfig.apiKey, aiConfig.model, prompt, handleChunk);
       cancelGenRef.current = gen.cancel;
       await gen.promise;
-    } catch {
+    } catch (err) {
+      logError("Session Logger: AI summary failed", err);
       setSummaryError("AI request failed. Check your AI settings in Preferences.");
       setSummarising(false);
     } finally {
@@ -220,7 +221,8 @@ export function SessionRecorder({ state, onChange }: Props) {
         : openaiGenerate(aiConfig.baseUrl, aiConfig.apiKey, aiConfig.model, prompt, handleChunk);
       cancelRecapGenRef.current = gen.cancel;
       await gen.promise;
-    } catch {
+    } catch (err) {
+      logError("Session Logger: AI recap failed", err);
       setRecapError("AI request failed. Check your AI settings in Preferences.");
       setRecapping(false);
     } finally {

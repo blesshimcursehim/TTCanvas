@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useEffect, useCallback } from "react";
-import { useVault, useGazetteerLocations, pushCharacterScene, type GazetteerLocationRef } from "@ttcanvas/core";
+import { useVault, useGazetteerLocations, pushCharacterScene, logWarn, logError, type GazetteerLocationRef } from "@ttcanvas/core";
 import { CropModal } from "../party-tracker/CropModal";
 import type { NpcLibraryState, ParsedNpc, NpcRelationship } from "./types";
 import {
@@ -81,7 +81,10 @@ function AvatarCircle({ npc, size = 36, onClick, onDragStart, onDragEnd }: {
     const mime = mimeForImageExt(fileName);
     vault.readFileBase64(`${vault.vaultPath}/portraits`, fileName)
       .then((b64) => setPortraitUrl(`data:${mime};base64,${b64}`))
-      .catch(() => setPortraitUrl(null));
+      .catch((err: unknown) => {
+        logWarn(`NPC Library: could not load portrait "${fileName}"`, err);
+        setPortraitUrl(null);
+      });
     // vault's context value is a fresh object every render (tracked in
     // tracking/phase6-fixes.md) - depending on the whole object instead of
     // its stable fields would re-run this on every render.
@@ -162,8 +165,10 @@ export function NpcLibrary({ state, onChange }: Props) {
             const npc = parseLegacyMd(mdFile, content);
             await vault.writeFile(jsonFile, serializeNpcJson({ ...npc, filename: jsonFile }));
             jsonFiles.add(jsonFile);
-          } catch {
-            // skip failed migrations silently
+          } catch (err) {
+            // The .md file is left alone and retried next load, so this is recoverable - but it
+            // used to be skipped with no trace at all, which made a stuck migration invisible.
+            logWarn(`NPC Library: could not migrate legacy note "${mdFile}"`, err);
           }
         }
       }
@@ -174,13 +179,15 @@ export function NpcLibrary({ state, onChange }: Props) {
         try {
           const content = await vault.readFile(f);
           loaded.push(parseNpcJson(f, content));
-        } catch {
+        } catch (err) {
+          logWarn(`NPC Library: could not read NPC "${f}", showing a blank entry`, err);
           loaded.push(makeBlankNpc(f));
         }
       }
       loaded.sort((a, b) => a.name.localeCompare(b.name));
       setNpcs(loaded);
-    } catch {
+    } catch (err) {
+      logError("NPC Library: could not scan the NPC folder", err);
       setNpcs([]);
     }
   }, [vault]);
@@ -393,7 +400,8 @@ export function NpcLibrary({ state, onChange }: Props) {
     let text: string;
     try {
       text = await file.text();
-    } catch {
+    } catch (err) {
+      logError("NPC Library: could not read the import file", err);
       setImportError("Failed to read import file.");
       return;
     }

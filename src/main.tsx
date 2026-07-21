@@ -12,7 +12,7 @@ import App from "./App";
 import { PlayerWindow } from "./player/PlayerWindow";
 import { ToastProvider } from "./canvas/Toast";
 import { ErrorBoundary } from "./ErrorBoundary";
-import { logError } from "./diagnostics/log";
+import { logError } from "@ttcanvas/core";
 
 const label = getCurrentWebviewWindow().label;
 

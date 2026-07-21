@@ -5,10 +5,9 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useCallback, useId, useState, type ReactNode, Component } from "react";
-import { WidgetChromeContext } from "@ttcanvas/core";
+import { WidgetChromeContext, logError } from "@ttcanvas/core";
 import { useCanvasTransform } from "./CanvasContext";
 import { Icon } from "../icons/Icon";
-import { logError } from "../diagnostics/log";
 import { renderMarkdown } from "@ttcanvas/widgets-builtin";
 import styles from "./WidgetFrame.module.css";
 

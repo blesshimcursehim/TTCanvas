@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useVault } from "@ttcanvas/core";
+import { useVault, logWarn, logError } from "@ttcanvas/core";
 import type { RulesReferenceState } from "./types";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { FileTree, buildFileTree } from "../session-notes/FileTree";
@@ -28,7 +28,8 @@ export function RulesReference({ state, onChange }: Props) {
     try {
       const md = await vault.listFolderFiles(state.rulesFolder, "md");
       setFiles(md.sort());
-    } catch {
+    } catch (err) {
+      logError(`Rules Reference: could not list rules folder "${state.rulesFolder}"`, err);
       setFiles([]);
     }
   }, [state.rulesFolder, vault]);
@@ -47,7 +48,8 @@ export function RulesReference({ state, onChange }: Props) {
       try {
         const text = await vault.readFolderFile(folder, f);
         setContentCache((prev) => ({ ...prev, [f]: text }));
-      } catch {
+      } catch (err) {
+        logWarn(`Rules Reference: could not read "${f}"`, err);
         setContentCache((prev) => ({ ...prev, [f]: null }));
       }
     });
