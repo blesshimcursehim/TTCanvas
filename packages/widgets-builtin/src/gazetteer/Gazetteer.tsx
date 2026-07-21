@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useVault, useNpcs, pushLocationScene, type NpcRef } from "@ttcanvas/core";
+import { useVault, useNpcs, useMapPins, pushLocationScene, type NpcRef } from "@ttcanvas/core";
 import { autoAccentColor, npcInitials } from "../npc-library/npcFormat";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { mimeForImageExt } from "../shared/mime";
@@ -42,6 +42,7 @@ function validateGazetteerBundle(parsed: unknown): GazetteerLocation[] | null {
 export function Gazetteer({ state, onChange }: Props) {
   const vault = useVault();
   const { npcs } = useNpcs();
+  const { pinnedLocationRefs } = useMapPins();
   const [locations, setLocations] = useState<GazetteerLocation[]>([]);
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -444,9 +445,17 @@ export function Gazetteer({ state, onChange }: Props) {
             </div>
 
             {/* Jumps to Map Display: an existing pin for this place is located and panned to, or
-                (if none exists yet) the tool arms so the next map click drops one. */}
-            <button type="button" className={styles.mapHook} onClick={() => pinLocation(displayLoc.filename, displayLoc.name)}>
-              Pin this place on a map
+                (if none exists yet) the tool arms so the next map click drops one. The label reflects
+                whether a pin already exists anywhere, read live from MapPinsContext. */}
+            <button
+              type="button"
+              className={`${styles.mapHook} ${pinnedLocationRefs.has(displayLoc.filename) ? styles.mapHookPinned : ""}`}
+              onClick={() => pinLocation(displayLoc.filename, displayLoc.name)}
+              title={pinnedLocationRefs.has(displayLoc.filename)
+                ? "This place already has a pin - jumps to it on the map"
+                : "Arms Map Display so your next click drops a pin for this place"}
+            >
+              {pinnedLocationRefs.has(displayLoc.filename) ? "Pinned on a map - show me" : "Pin this place on a map"}
             </button>
 
             <div className={styles.detailFooter}>

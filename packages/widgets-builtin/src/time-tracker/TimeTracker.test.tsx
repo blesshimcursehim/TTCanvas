@@ -38,7 +38,7 @@ function renderTracker(
     jumps,
   };
   const cal: CalendarContextValue = {
-    def: DEF, events, setCalendarState: () => {},
+    def: DEF, events, setCalendarState: () => {}, addCalendarEvent: () => {},
     currentDate, currentHour: 8, currentMinute: 0, currentSecond: 0,
     history: [], showOnPlayer: false, jumps, setTimeState: () => {},
   };

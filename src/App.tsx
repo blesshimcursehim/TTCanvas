@@ -36,8 +36,8 @@ import { NpcProvider } from "./NpcProvider";
 import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
-import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState } from "@ttcanvas/widgets-builtin";
+import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState, type CampaignTimelineState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
 
@@ -50,6 +50,7 @@ const CANVAS_AREA: React.CSSProperties = {
 };
 
 const DEFAULT_CAL_STATE: CalendarState = { def: null, events: [] };
+const DEFAULT_TIMELINE_STATE: CampaignTimelineState = { entries: [] };
 const DEFAULT_TIME_STATE: TimeTrackerState = {
   currentDate: null, currentHour: 8, currentMinute: 0, currentSecond: 0, history: [], showOnPlayer: false,
   jumps: [...DEFAULT_JUMPS],
@@ -778,6 +779,24 @@ function App() {
     return (s?.entries ?? []).map((e) => ({ id: e.id, name: e.name, cr: e.cr, hp: e.hp, ac: e.ac, portrait: e.portrait, hitDice: e.hitDice, abilityScores: e.abilityScores }));
   }, [widgets, singletonStates]);
 
+  // Which Gazetteer places already have a pin, gathered across every scene, so Gazetteer's "Pin this
+  // place" button can say so without reading Map Display's widget state. Same effective-state read as
+  // bestiaryCreatures (singleton first, widget instance as the un-migrated fallback).
+  const pinnedLocationRefs = useMemo<ReadonlySet<string>>(() => {
+    const s = (singletonStates["map-display"] ?? widgets.find((w) => w.type === "map-display")?.state) as
+      { scenes?: { tokens?: { locationRef?: string }[] }[]; tokens?: { locationRef?: string }[] } | undefined;
+    const refs = new Set<string>();
+    const add = (tokens: { locationRef?: string }[] | undefined) => {
+      for (const token of tokens ?? []) if (token.locationRef) refs.add(token.locationRef);
+    };
+    for (const scene of s?.scenes ?? []) add(scene.tokens);
+    // Pre-scenes workspaces keep tokens at the top level until Map Display is opened and migrates them
+    // (MapDisplay's migrateState). Read those too, or a place stays "unpinned" until the widget is opened.
+    add(s?.tokens);
+    return refs;
+  }, [widgets, singletonStates]);
+  const mapPinsContextValue = useMemo(() => ({ pinnedLocationRefs }), [pinnedLocationRefs]);
+
   // Name lists for the wikilink resolver's state-backed targets. Read straight from singleton state
   // (not gated on the widget being on the canvas) so `[[creature:X]]` / `[[card:X]]` resolve even when
   // the widget is closed - the open handler adds it.
@@ -797,6 +816,26 @@ function App() {
   // Folder-backed link targets, with the same instance-state fallback so links resolve on older workspaces.
   const notesFolder = ((singletonStates["session-notes"] ?? widgets.find((w) => w.type === "session-notes")?.state) as { notesFolder?: string } | undefined)?.notesFolder ?? null;
   const rulesFolder = ((singletonStates["rules-reference"] ?? widgets.find((w) => w.type === "rules-reference")?.state) as { rulesFolder?: string } | undefined)?.rulesFolder ?? null;
+
+  // Link-bearing bodies of the two entity types that live in singleton state rather than vault files,
+  // so Session Notes' backlinks/graph can see them. Only the free-text field goes in - a creature's
+  // stat block would otherwise spray meaningless backlinks. Entries with an empty body are skipped
+  // since they can carry no links. Rules Reference isn't here: those are real files, and Session Notes
+  // scans `rulesFolder` itself.
+  const entityLinkSources = useMemo<EntityLinkSource[]>(() => {
+    const b = bestiaryState as { entries?: { id: string; name: string; notes?: string }[] } | undefined;
+    const c = ruleCardsState as { cards?: { id: string; title: string; body?: string }[] } | undefined;
+    return [
+      ...(b?.entries ?? []).flatMap((e) =>
+        e.notes?.trim() ? [{ kind: "creature" as const, ref: e.id, label: e.name, text: e.notes }] : []),
+      ...(c?.cards ?? []).flatMap((k) =>
+        k.body?.trim() ? [{ kind: "card" as const, ref: k.id, label: k.title, text: k.body }] : []),
+    ];
+  }, [bestiaryState, ruleCardsState]);
+  const linkSourcesContextValue = useMemo(
+    () => ({ rulesFolder, entities: entityLinkSources }),
+    [rulesFolder, entityLinkSources],
+  );
 
   // The current turn's linked map token(s), if any - lets Map Display spotlight them on the GM's
   // own map (the player window gets the same value via InitiativeOverlay.activeSourceIds instead,
@@ -828,6 +867,33 @@ function App() {
   const timeState = (singletonStates["time-tracker"] ?? DEFAULT_TIME_STATE) as TimeTrackerState;
   const setCalendarState = useCallback(
     (s: CalendarState) => setSingletonStates((ss) => ({ ...ss, "custom-calendar": s })),
+    [setSingletonStates],
+  );
+  // Append one event to the calendar singleton, reading the freshest state through the functional
+  // updater so it never clobbers a concurrent calendar edit (same care as advanceGameTime's write).
+  // Falls back to the widget instance before the empty default: on an older, instance-backed workspace
+  // a bare default would write a singleton holding only the new event, and since the render path
+  // prefers `singletonStates[type] ?? w.state`, that would hide every existing event.
+  const addCalendarEvent = useCallback(
+    (ev: CalEvent) => setSingletonStates((ss) => {
+      const cur = (ss["custom-calendar"]
+        ?? widgetsRef.current.find((w) => w.type === "custom-calendar")?.state
+        ?? DEFAULT_CAL_STATE) as CalendarState;
+      return { ...ss, "custom-calendar": { ...cur, events: [...(cur.events ?? []), ev] } };
+    }),
+    [setSingletonStates],
+  );
+  // Append one Chronicle entry to the Campaign Timeline singleton (e.g. a Session Logger summary sent
+  // to it), minting the id here. Same functional-updater care and the same instance-state fallback as
+  // addCalendarEvent, and it works whether or not a Campaign Timeline widget is on the canvas.
+  const addChronicleEntry = useCallback(
+    (draft: ChronicleDraft) => setSingletonStates((ss) => {
+      const cur = (ss["campaign-timeline"]
+        ?? widgetsRef.current.find((w) => w.type === "campaign-timeline")?.state
+        ?? DEFAULT_TIMELINE_STATE) as CampaignTimelineState;
+      const entry: TimelineEntry = { id: crypto.randomUUID(), ...draft };
+      return { ...ss, "campaign-timeline": { ...cur, entries: [...(cur.entries ?? []), entry] } };
+    }),
     [setSingletonStates],
   );
   const setTimeState = useCallback(
@@ -1021,6 +1087,7 @@ function App() {
     def: calState.def,
     events: calState.events,
     setCalendarState,
+    addCalendarEvent,
     currentDate: timeState.currentDate,
     currentHour: timeState.currentHour,
     currentMinute: timeState.currentMinute,
@@ -1031,7 +1098,9 @@ function App() {
     // before jumps existed has none - seed the defaults here, the same way currentSecond is defaulted.
     jumps: timeState.jumps ?? [...DEFAULT_JUMPS],
     setTimeState,
-  }), [calState, timeState, setCalendarState, setTimeState]);
+  }), [calState, timeState, setCalendarState, addCalendarEvent, setTimeState]);
+
+  const chronicleContextValue = useMemo(() => ({ addChronicleEntry }), [addChronicleEntry]);
 
   const conditionsContextValue = useMemo(() => ({
     customConditions: appConfig.customConditions,
@@ -1151,15 +1220,26 @@ function App() {
       const { filename, name } = (e as CustomEvent<{ filename: string; name: string }>).detail;
       handlePinLocation(filename, name);
     };
+    // The state-backed kinds carry an entry id (rules carry a filename), so these three use `ref`
+    // rather than `filename` - it is SourceDoc's own term for "how to open this".
+    const rule = (e: Event) => handleOpenRule((e as CustomEvent<{ ref: string }>).detail.ref);
+    const creature = (e: Event) => handleOpenCreature((e as CustomEvent<{ ref: string }>).detail.ref);
+    const card = (e: Event) => handleOpenCard((e as CustomEvent<{ ref: string }>).detail.ref);
     window.addEventListener("ttcanvas:open-npc", npc);
     window.addEventListener("ttcanvas:open-location", loc);
     window.addEventListener("ttcanvas:pin-location", pin);
+    window.addEventListener("ttcanvas:open-rule", rule);
+    window.addEventListener("ttcanvas:open-creature", creature);
+    window.addEventListener("ttcanvas:open-card", card);
     return () => {
       window.removeEventListener("ttcanvas:open-npc", npc);
       window.removeEventListener("ttcanvas:open-location", loc);
       window.removeEventListener("ttcanvas:pin-location", pin);
+      window.removeEventListener("ttcanvas:open-rule", rule);
+      window.removeEventListener("ttcanvas:open-creature", creature);
+      window.removeEventListener("ttcanvas:open-card", card);
     };
-  }, [handleOpenNpc, handleOpenLocation, handlePinLocation]);
+  }, [handleOpenNpc, handleOpenLocation, handlePinLocation, handleOpenRule, handleOpenCreature, handleOpenCard]);
 
   // Apply visual preferences to <body> - must be before any conditional returns
   useEffect(() => {
@@ -1216,8 +1296,11 @@ function App() {
     <VaultProvider vaultPath={vaultPath} onVaultPathChange={handleVaultChange}>
       <NpcProvider>
       <GazetteerProvider>
+      <MapPinsContext.Provider value={mapPinsContextValue}>
+      <LinkSourcesContext.Provider value={linkSourcesContextValue}>
       <AIContext.Provider value={aiContextValue}>
       <CalendarContext.Provider value={calendarContextValue}>
+      <ChronicleContext.Provider value={chronicleContextValue}>
       <GameTimeContext.Provider value={gameTimeContextValue}>
       <ConditionsContext.Provider value={conditionsContextValue}>
       <ITContext.Provider value={itContextValue}>
@@ -1393,8 +1476,11 @@ function App() {
       </ITContext.Provider>
       </ConditionsContext.Provider>
       </GameTimeContext.Provider>
+      </ChronicleContext.Provider>
       </CalendarContext.Provider>
       </AIContext.Provider>
+      </LinkSourcesContext.Provider>
+      </MapPinsContext.Provider>
       </GazetteerProvider>
       </NpcProvider>
     </VaultProvider>

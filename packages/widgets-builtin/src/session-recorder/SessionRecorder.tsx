@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useRef, useEffect } from "react";
-import { useCalendar, useVault, useAI, ollamaGenerate, openaiGenerate } from "@ttcanvas/core";
+import { useCalendar, useChronicle, useVault, useAI, ollamaGenerate, openaiGenerate } from "@ttcanvas/core";
 import type { SessionRecorderState, SessionEntry } from "./types";
 import { formatCalDate, formatTime } from "../calendar/utils";
 import { RouteResultButton } from "../shared/RouteResultButton";
@@ -33,6 +33,7 @@ function todayIso(): string {
 export function SessionRecorder({ state, onChange }: Props) {
   const { entries } = state;
   const calCtx = useCalendar();
+  const { addChronicleEntry } = useChronicle();
   const vault = useVault();
   const { config: aiConfig } = useAI();
 
@@ -43,6 +44,7 @@ export function SessionRecorder({ state, onChange }: Props) {
   const [summaryVisible, setSummaryVisible] = useState(false);
   const [summaryError, setSummaryError] = useState("");
   const [summaryFlash, setSummaryFlash] = useState(false);
+  const [addedToChronicle, setAddedToChronicle] = useState(false);
   const [recapping, setRecapping] = useState(false);
   const [recapText, setRecapText] = useState("");
   const [recapVisible, setRecapVisible] = useState(false);
@@ -121,6 +123,7 @@ export function SessionRecorder({ state, onChange }: Props) {
     setSummaryText("");
     setSummaryError("");
     setSummaryVisible(true);
+    setAddedToChronicle(false); // a fresh summary can be added again
     summaryBuf.current = "";
 
     const logLines = entries
@@ -167,6 +170,15 @@ export function SessionRecorder({ state, onChange }: Props) {
       setSummaryFlash(true);
       setTimeout(() => setSummaryFlash(false), 1800);
     }
+  }
+
+  // Drop the summary into the Campaign Timeline's Chronicle as a dated "recap" entry. Needs an in-game
+  // date to pin to (the entry model requires one), so the button is disabled without one. Editable and
+  // renameable afterwards in the Campaign Timeline itself.
+  function handleAddToChronicle() {
+    if (!summaryText || !calCtx.currentDate) return;
+    addChronicleEntry({ title: "Session recap", body: summaryText, category: "recap", date: calCtx.currentDate });
+    setAddedToChronicle(true);
   }
 
   async function handleRecap() {
@@ -293,17 +305,29 @@ export function SessionRecorder({ state, onChange }: Props) {
             </span>
             <div className={styles.summaryActions}>
               {!summarising && summaryText && (
-                <button
-                  className={`${styles.saveSummaryBtn} ${summaryFlash ? styles.saveSummaryBtnSaved : ""}`}
-                  onClick={handleSaveSummary}
-                  title="Save summary as .md file"
-                >
-                  {summaryFlash ? "Saved ✓" : "Save .md"}
-                </button>
+                <>
+                  <button
+                    className={styles.chronicleBtn}
+                    onClick={handleAddToChronicle}
+                    disabled={!calCtx.currentDate || addedToChronicle}
+                    title={calCtx.currentDate
+                      ? "Add this summary to the Campaign Timeline's Chronicle, dated to the current in-game date"
+                      : "Set an in-game date on the Calendar to add this to the Chronicle"}
+                  >
+                    {addedToChronicle ? "Added ✓" : "Add to Chronicle"}
+                  </button>
+                  <button
+                    className={`${styles.saveSummaryBtn} ${summaryFlash ? styles.saveSummaryBtnSaved : ""}`}
+                    onClick={handleSaveSummary}
+                    title="Save summary as .md file"
+                  >
+                    {summaryFlash ? "Saved ✓" : "Save .md"}
+                  </button>
+                </>
               )}
               <button
                 className={styles.summaryDismiss}
-                onClick={() => { setSummaryVisible(false); setSummaryText(""); setSummaryError(""); }}
+                onClick={() => { setSummaryVisible(false); setSummaryText(""); setSummaryError(""); setAddedToChronicle(false); }}
                 title="Dismiss"
               >
                 ×

@@ -224,6 +224,24 @@
 .saveSummaryBtn:hover { opacity: 0.85; }
 .saveSummaryBtnSaved { background: oklch(0.55 0.16 145); }
 
+/* Secondary (outlined) action next to the accent Save button: push the summary to the Chronicle. */
+.chronicleBtn {
+  height: 20px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink-2);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  cursor: pointer;
+  transition: background 0.1s;
+  white-space: nowrap;
+}
+.chronicleBtn:hover:not(:disabled) { background: var(--surface-2); }
+.chronicleBtn:disabled { opacity: 0.5; cursor: default; }
+
 .summaryDismiss {
   width: 20px;
   height: 20px;

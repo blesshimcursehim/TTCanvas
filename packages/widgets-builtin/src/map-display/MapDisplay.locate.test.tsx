@@ -12,8 +12,8 @@
 import { useState } from "react";
 import { render, screen, fireEvent, act, waitFor, cleanup } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { VaultContext } from "@ttcanvas/core";
-import type { VaultContextValue } from "@ttcanvas/core";
+import { VaultContext, GazetteerContext } from "@ttcanvas/core";
+import type { VaultContextValue, GazetteerLocationRef } from "@ttcanvas/core";
 import { MapDisplay } from "./MapDisplay";
 import type { MapDisplayState, MapScene } from "./types";
 import { panToPoint } from "./utils";
@@ -279,5 +279,56 @@ describe("MapDisplay - click a linked pin to navigate back", () => {
     window.removeEventListener("ttcanvas:open-location", spy);
 
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("MapDisplay - unlinking a pin from its Gazetteer place", () => {
+  const PLACES: GazetteerLocationRef[] = [
+    { filename: "locations/citadel.json", id: "c1", name: "The Citadel", kind: "landmark", links: [] },
+  ];
+
+  function LinkedWrapper({ initialState, vault }: { initialState: MapDisplayState; vault: VaultContextValue }) {
+    const [state, setState] = useState(initialState);
+    return (
+      <VaultContext.Provider value={vault}>
+        <GazetteerContext.Provider value={{ locations: PLACES, loading: false }}>
+          <MapDisplay state={state} onChange={setState} />
+        </GazetteerContext.Provider>
+      </VaultContext.Provider>
+    );
+  }
+
+  async function openVisibilityPanelWithLinkedPin() {
+    // The token's own label is deliberately stale, so the place name in the control proves the link is
+    // resolved live from Gazetteer rather than read off the token.
+    const scene = makeScene("s1", "Scene 1", "map1.jpg", {
+      tokens: [{ id: "t1", label: "Old Keep", color: "red", x: 0.5, y: 0.5, locationRef: "locations/citadel.json", kind: "location" }],
+    });
+    render(<LinkedWrapper initialState={makeState("s1", [scene])} vault={makeMockVault()} />);
+    await waitForAndLoadImg(800, 600);
+    act(() => { fireEvent.click(screen.getByTitle(/^Visibility/)); });
+  }
+
+  it("names the linked place live, and unlinking leaves the pin on the map", async () => {
+    await openVisibilityPanelWithLinkedPin();
+
+    const unlink = await waitFor(() => screen.getByRole("button", { name: "Unlink Old Keep from The Citadel" }));
+    act(() => { fireEvent.click(unlink); });
+
+    // The control goes once the ref is cleared, but the token itself is still listed.
+    await waitFor(() => expect(screen.queryByRole("button", { name: /^Unlink/ })).toBeNull());
+    expect(screen.getByTitle("Old Keep")).toBeTruthy();
+  });
+
+  it("shows no unlink control for a pin that was never linked", async () => {
+    const scene = makeScene("s1", "Scene 1", "map1.jpg", {
+      tokens: [{ id: "t1", label: "Ambush", color: "red", x: 0.5, y: 0.5, kind: "enemy" }],
+    });
+    render(<LinkedWrapper initialState={makeState("s1", [scene])} vault={makeMockVault()} />);
+    await waitForAndLoadImg(800, 600);
+    act(() => { fireEvent.click(screen.getByTitle(/^Visibility/)); });
+
+    await waitFor(() => expect(screen.getByTitle("Ambush")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: /^Unlink/ })).toBeNull();
   });
 });

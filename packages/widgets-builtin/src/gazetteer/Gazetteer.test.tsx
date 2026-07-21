@@ -8,7 +8,7 @@
 import { StrictMode } from "react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, cleanup, waitFor, screen, fireEvent } from "@testing-library/react";
-import { VaultContext, NpcContext } from "@ttcanvas/core";
+import { VaultContext, NpcContext, MapPinsContext } from "@ttcanvas/core";
 import type { VaultContextValue, NpcContextValue } from "@ttcanvas/core";
 import { Gazetteer } from "./Gazetteer";
 import type { GazetteerState } from "./types";
@@ -39,13 +39,15 @@ const npcCtx: NpcContextValue = {
 
 afterEach(cleanup);
 
-function renderWith(selectedFile: string | null) {
+function renderWith(selectedFile: string | null, pinnedLocationRefs: ReadonlySet<string> = new Set()) {
   const seeded: GazetteerState = { selectedFile };
   return render(
     <StrictMode>
       <VaultContext.Provider value={vault}>
         <NpcContext.Provider value={npcCtx}>
-          <Gazetteer state={seeded} onChange={() => {}} />
+          <MapPinsContext.Provider value={{ pinnedLocationRefs }}>
+            <Gazetteer state={seeded} onChange={() => {}} />
+          </MapPinsContext.Provider>
         </NpcContext.Provider>
       </VaultContext.Provider>
     </StrictMode>,
@@ -83,5 +85,16 @@ describe("Gazetteer", () => {
       filename: "locations/citadel.json",
       name: "Citadel of Thorns",
     });
+  });
+
+  it("reads as already pinned when a map pin exists for this place", async () => {
+    renderWith("locations/citadel.json", new Set(["locations/citadel.json"]));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Pinned on a map - show me" })).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Pin this place on a map" })).toBeNull();
+  });
+
+  it("stays unpinned when only some other place has a pin", async () => {
+    renderWith("locations/citadel.json", new Set(["locations/feywild.json"]));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Pin this place on a map" })).toBeTruthy());
   });
 });

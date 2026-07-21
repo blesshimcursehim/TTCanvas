@@ -454,6 +454,24 @@
 
 .visKindBtn:hover { color: var(--ink); background: var(--surface-3); border-color: var(--accent-line); }
 
+/* Shown only on a pin linked to a Gazetteer place: names the place on hover, unlinks on click. */
+.visUnlinkBtn {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  background: transparent;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.visUnlinkBtn:hover { color: var(--hp); border-color: oklch(0.70 0.13 22 / 0.6); background: oklch(0.70 0.13 22 / 0.12); }
+
 .visBtnOn,
 .visBtnOn:hover:not(:disabled) {
   color: var(--accent-ink, oklch(0.2 0.03 260));

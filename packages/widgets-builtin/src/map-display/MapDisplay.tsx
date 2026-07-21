@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useVault, useIT, pushPlayerScene, pushMapPing, PING_LIFETIME_MS, drawFogCanvas, renderFogReveals, lastBrushPoint, fogModeOf } from "@ttcanvas/core";
+import { useVault, useIT, useGazetteerLocations, pushPlayerScene, pushMapPing, PING_LIFETIME_MS, drawFogCanvas, renderFogReveals, lastBrushPoint, fogModeOf } from "@ttcanvas/core";
 import type { FogReveal, MapToken, MapTokenKind, FogMode, BrushPoint, MapAnnotation, AnnotationColor } from "@ttcanvas/core";
 import type { MapDisplayState, MapScene, MarkupPreset } from "./types";
 import { getActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
@@ -257,6 +257,9 @@ function VisToggle({ on, disabled, kind, onClick }: { on: boolean; disabled?: bo
 export function MapDisplay({ state: rawState, onChange }: Props) {
   const vault = useVault();
   const { activeSourceIds } = useIT();
+  // Only to name a linked pin's place in the Visibility panel - resolved live, so a place renamed in
+  // Gazetteer reads correctly here even though the token keeps its original label.
+  const { locations: gazetteerLocations } = useGazetteerLocations();
 
   // Migrate old flat state on first render
   const state = migrateState(rawState);
@@ -429,6 +432,12 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
   // hand-placed token be reclassified into a different group.
   const setTokenKind = useCallback((id: string, kind: MapTokenKind) => {
     setTokens((ts) => ts.map((t) => (t.id === id ? { ...t, kind } : t)));
+  }, [setTokens]);
+  // Drop a pin's link to its Gazetteer place, leaving the pin itself on the map. The map side had no
+  // way to do this before - you had to go through Gazetteer. Matches NPC Library's unlink, which also
+  // clears the ref without a confirm step (re-linking is one click from Gazetteer).
+  const unlinkToken = useCallback((id: string) => {
+    setTokens((ts) => ts.map((t) => (t.id === id ? { ...t, locationRef: undefined } : t)));
   }, [setTokens]);
   const setAnnVis = useCallback((ids: Set<string>, field: "onBoard" | "showPlayers", value: boolean) => {
     setAnnotations((anns) => anns.map((a) => (ids.has(a.id) ? ({ ...a, [field]: value } as MapAnnotation) : a)));
@@ -1979,6 +1988,20 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
                                   {k.charAt(0).toUpperCase()}
                                 </button>
                                 <span className={styles.visRowName} title={t.label}>{t.label}</span>
+                                {t.locationRef && (() => {
+                                  const place = gazetteerLocations.find((l) => l.filename === t.locationRef);
+                                  const placeName = place?.name ?? t.locationRef;
+                                  return (
+                                    <button
+                                      className={styles.visUnlinkBtn}
+                                      onClick={(e) => { e.stopPropagation(); unlinkToken(t.id); }}
+                                      title={`Linked to ${placeName} - click to unlink (the pin stays)`}
+                                      aria-label={`Unlink ${t.label} from ${placeName}`}
+                                    >
+                                      ⛓
+                                    </button>
+                                  );
+                                })()}
                                 <VisToggle on={on} kind="board" onClick={() => setTokenVis(one, "onBoard", !on)} />
                                 <VisToggle on={players} disabled={!on} kind="players" onClick={() => setTokenVis(one, "showPlayers", !players)} />
                               </div>

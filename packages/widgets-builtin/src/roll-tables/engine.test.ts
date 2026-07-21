@@ -207,6 +207,24 @@ describe("parseCount", () => {
     expect(parseCount("1d6+2", rngConst(0))).toBe(3); // 1 + 2
     expect(parseCount("1d6-10", rngConst(0))).toBe(1); // 1 - 10 = -9, clamped to 1
   });
+
+  // Now delegated to the Dice Roller's parser, so the richer notation works here too.
+  it("accepts keep-highest notation from the shared dice grammar", () => {
+    // 4d6kh3 with a constant rng: every die is 4, keeping the highest 3 gives 12.
+    expect(parseCount("4d6kh3", rngConst(0.5))).toBe(12);
+  });
+  it("accepts a multi-term expression", () => {
+    // 1d6 + 1d4 + 2 with a zero rng: 1 + 1 + 2.
+    expect(parseCount("1d6+1d4+2", rngConst(0))).toBe(4);
+  });
+  it("rejects notation the shared parser refuses", () => {
+    expect(parseCount("4d6kh9")).toBeNull(); // keep more dice than rolled
+    expect(parseCount("2d")).toBeNull();
+  });
+  it("clamps a dice roll to at least 1 but still rejects a non-positive constant", () => {
+    expect(parseCount("2d6-100", rngConst(0))).toBe(1); // a low roll clamps
+    expect(parseCount("0")).toBeNull();                 // an authored 0 is a typo
+  });
 });
 
 describe("rollTableMultiple", () => {

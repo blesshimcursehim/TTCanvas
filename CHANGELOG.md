@@ -6,6 +6,41 @@ All notable changes are documented here.
 
 ### Features
 
+- **Creatures, rule cards and rules files now show up in backlinks and the link graph.** Session Notes
+  could already see `[[links]]` written in notes, NPC notes and Gazetteer places, but anything you
+  wrote in a Bestiary creature's notes, a Rule Card or a Rules Reference file was invisible to it. All
+  three now count as sources, so a note's Linked mentions shows everything that actually points at it,
+  and clicking one opens the creature, card or rules file it came from. A creature contributes only its
+  notes field, not its stat block, so you don't get backlinks from ability scores and skill names.
+- **Gazetteer tells you when a place is already pinned.** The "Pin this place on a map" button now
+  reads "Pinned on a map - show me" when the place already has a pin on any scene, so you can tell at a
+  glance instead of clicking to find out. Pressing it still jumps to the existing pin as before.
+- **Unlink a map pin from the map side.** A pin linked to a Gazetteer place used to be unlinkable only
+  from Gazetteer. Its row in the Visibility panel now has a chain button that names the linked place on
+  hover and unlinks it on click, leaving the pin itself where it is. The name is looked up live, so a
+  place you renamed in Gazetteer shows its current name.
+- **Roll Tables count expressions understand the full dice notation.** A table's "how many results per
+  roll" box used to run on its own small parser that only handled forms like `3`, `2d6` and `1d6+2`. It
+  now uses the same engine as the Dice Roller, so keep-highest, exploding dice and multi-term
+  expressions (`4d6kh3`, `d6!`, `2d6-1d4+3`) all work there too, and the app has one dice grammar
+  instead of two.
+- **Send an AI session summary straight to the Chronicle.** The Session Logger's AI Summary now has an
+  "Add to Chronicle" button that drops the summary into the Campaign Timeline as a dated entry, using
+  the current in-game date, so a session's record lands on the timeline without retyping it. It needs
+  an in-game date to pin to, and the entry is yours to rename or edit in the Timeline afterwards.
+- **Multi-day events read as multi-day on the Campaign Timeline.** A festival or siege that runs
+  several days on the Calendar used to appear on the Timeline as if it lasted a single day. Its card
+  now carries a small "4d" badge, and hovering it spells out the last day, so a span reads at a glance
+  without cluttering the stream with a copy for every day it covers.
+- **Pin a Chronicle entry to a festival or intercalary day.** The entry editor's date picker only
+  offered the ordinary months, so a plot beat could never land on one of your calendar's intercalary
+  days. Those days now show up in the picker alongside the months, including leap-style ones that only
+  occur in some years, and the day count follows whichever you pick.
+- **Send a Chronicle entry to the Calendar.** An entry you have written can now push a one-way copy of
+  itself into the Calendar widget as a dated event, so a plot beat you noted in the Chronicle can also
+  sit on the calendar. The copy is independent once made, so editing or deleting one leaves the other
+  alone.
+
 - **Party members and NPCs can be added to an encounter properly.** Encounter Builder used to be a
   Bestiary-only tool, with the whole party riding along on a single "Also add party" checkbox and NPC
   Library entries not available at all. Now all three go in as rows with live name, HP and AC that
