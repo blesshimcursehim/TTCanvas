@@ -34,7 +34,7 @@ const vault = { vaultPath: "/v", vaultVersion: 1 } as unknown as VaultContextVal
 function renderAlmanac(state: CalendarState, onChange: (s: CalendarState) => void = () => {}) {
   const def = state.def;
   const cal: CalendarContextValue = {
-    def, events: [], setCalendarState: () => {},
+    def, events: [], setCalendarState: () => {}, addCalendarEvent: () => {},
     currentDate: def ? START : null, currentHour: 8, currentMinute: 0, currentSecond: 0,
     history: [], showOnPlayer: false, jumps: [...DEFAULT_JUMPS], setTimeState: () => {},
   };

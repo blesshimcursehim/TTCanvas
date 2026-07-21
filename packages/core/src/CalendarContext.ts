@@ -12,6 +12,8 @@ export interface CalendarContextValue {
   def: CalendarDef | null;
   events: CalEvent[];
   setCalendarState: (s: CalendarState) => void;
+  /** Append a one-way event to the calendar (e.g. a Campaign Timeline entry sent to the Calendar). */
+  addCalendarEvent: (ev: CalEvent) => void;
   currentDate: CalDate | null;
   currentHour: number;
   currentMinute: number;
@@ -26,6 +28,7 @@ const DEFAULT: CalendarContextValue = {
   def: null,
   events: [],
   setCalendarState: () => {},
+  addCalendarEvent: () => {},
   currentDate: null,
   currentHour: 8,
   currentMinute: 0,

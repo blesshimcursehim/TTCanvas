@@ -25,6 +25,8 @@ export interface StreamItem {
   category?: string;
   date: CalDate;
   absDay: number;
+  /** Days a multi-day calendar event spans (>= 2); undefined for single-day events and entries. */
+  durationDays?: number;
   timePos: TimePos;
 }
 
@@ -55,7 +57,8 @@ export function mergeTimeline(
 
   const fromEvents: StreamItem[] = events.map((ev) => {
     const absDay = calDateToAbsDay(ev.start, def);
-    return { kind: "event", id: ev.id, title: ev.title, body: ev.note, date: ev.start, absDay, timePos: timePosFor(absDay, currentAbs) };
+    const durationDays = ev.duration && ev.duration > 1 ? ev.duration : undefined;
+    return { kind: "event", id: ev.id, title: ev.title, body: ev.note, date: ev.start, absDay, durationDays, timePos: timePosFor(absDay, currentAbs) };
   });
 
   return [...fromEvents, ...fromEntries].sort(

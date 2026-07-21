@@ -36,7 +36,7 @@ import { NpcProvider } from "./NpcProvider";
 import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { PartyContext, BestiaryContext, CalendarContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
 import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
@@ -830,6 +830,15 @@ function App() {
     (s: CalendarState) => setSingletonStates((ss) => ({ ...ss, "custom-calendar": s })),
     [setSingletonStates],
   );
+  // Append one event to the calendar singleton, reading the freshest state through the functional
+  // updater so it never clobbers a concurrent calendar edit (same care as advanceGameTime's write).
+  const addCalendarEvent = useCallback(
+    (ev: CalEvent) => setSingletonStates((ss) => {
+      const cur = (ss["custom-calendar"] ?? DEFAULT_CAL_STATE) as CalendarState;
+      return { ...ss, "custom-calendar": { ...cur, events: [...cur.events, ev] } };
+    }),
+    [setSingletonStates],
+  );
   const setTimeState = useCallback(
     (s: TimeTrackerState) => setSingletonStates((ss) => ({ ...ss, "time-tracker": s })),
     [setSingletonStates],
@@ -1021,6 +1030,7 @@ function App() {
     def: calState.def,
     events: calState.events,
     setCalendarState,
+    addCalendarEvent,
     currentDate: timeState.currentDate,
     currentHour: timeState.currentHour,
     currentMinute: timeState.currentMinute,
@@ -1031,7 +1041,7 @@ function App() {
     // before jumps existed has none - seed the defaults here, the same way currentSecond is defaulted.
     jumps: timeState.jumps ?? [...DEFAULT_JUMPS],
     setTimeState,
-  }), [calState, timeState, setCalendarState, setTimeState]);
+  }), [calState, timeState, setCalendarState, addCalendarEvent, setTimeState]);
 
   const conditionsContextValue = useMemo(() => ({
     customConditions: appConfig.customConditions,

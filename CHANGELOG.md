@@ -6,6 +6,19 @@ All notable changes are documented here.
 
 ### Features
 
+- **Multi-day events read as multi-day on the Campaign Timeline.** A festival or siege that runs
+  several days on the Calendar used to appear on the Timeline as if it lasted a single day. Its card
+  now carries a small "4d" badge, and hovering it spells out the last day, so a span reads at a glance
+  without cluttering the stream with a copy for every day it covers.
+- **Pin a Chronicle entry to a festival or intercalary day.** The entry editor's date picker only
+  offered the ordinary months, so a plot beat could never land on one of your calendar's intercalary
+  days. Those days now show up in the picker alongside the months, including leap-style ones that only
+  occur in some years, and the day count follows whichever you pick.
+- **Send a Chronicle entry to the Calendar.** An entry you have written can now push a one-way copy of
+  itself into the Calendar widget as a dated event, so a plot beat you noted in the Chronicle can also
+  sit on the calendar. The copy is independent once made, so editing or deleting one leaves the other
+  alone.
+
 - **Party members and NPCs can be added to an encounter properly.** Encounter Builder used to be a
   Bestiary-only tool, with the whole party riding along on a single "Also add party" checkbox and NPC
   Library entries not available at all. Now all three go in as rows with live name, HP and AC that
