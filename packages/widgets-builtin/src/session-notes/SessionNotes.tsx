@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useVault, useAI, useLinkSources, ollamaCheck, ollamaListModels, ollamaGenerate, openaiGenerate } from "@ttcanvas/core";
+import { useVault, useAI, useLinkSources, logWarn, logError, ollamaCheck, ollamaListModels, ollamaGenerate, openaiGenerate } from "@ttcanvas/core";
 import type { SessionNotesState } from "./types";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { buildBacklinkIndex, linkGraph, linkKey, basenameLabel, readEntitySource, type SourceDoc, type SourceKind } from "../shared/wikilinks";
@@ -85,6 +85,8 @@ export function SessionNotes({ state, onChange }: Props) {
 
   useEffect(() => {
     if (aiConfig.provider === "ollama") {
+      // Deliberately unlogged: this probe is expected to reject whenever Ollama isn't
+      // running, so logging it would write a line every session for a non-problem.
       ollamaCheck().then(setOllamaAvailable).catch(() => {});
     }
   }, [aiConfig.provider]);
@@ -97,7 +99,8 @@ export function SessionNotes({ state, onChange }: Props) {
         vault.listFolderFiles(state.notesFolder, "txt"),
       ]);
       setFiles([...md, ...txt].sort());
-    } catch {
+    } catch (err) {
+      logError(`Session Notes: could not list notes folder "${state.notesFolder}"`, err);
       setFiles([]);
     }
     // Depend on the stable method + vaultVersion, not the whole vault object (recreated every
@@ -124,9 +127,15 @@ export function SessionNotes({ state, onChange }: Props) {
             return kind === "note"
               ? { kind, ref: path, label: basenameLabel(path), text, targetKey: linkKey(path) }
               : { kind, ref: path, label: basenameLabel(path), text };
-          } catch { return null; }
+          } catch (err) {
+            logWarn(`Session Notes: could not read "${path}" for the link index`, err);
+            return null;
+          }
         }));
-      } catch { return []; }
+      } catch (err) {
+        logWarn(`Session Notes: could not list "${folder}" for the link index`, err);
+        return [];
+      }
     };
     (async () => {
       const notes = await folderDocs(state.notesFolder, "note", files);
@@ -138,7 +147,9 @@ export function SessionNotes({ state, onChange }: Props) {
           ...json.filter((f) => f.startsWith("npcs/")).map((ref) => readEntitySource(vault, ref, "npc", "notes")),
           ...json.filter((f) => f.startsWith("locations/")).map((ref) => readEntitySource(vault, ref, "place", "body")),
         ]);
-      } catch { /* no vault entities */ }
+      } catch (err) {
+        logWarn("Session Notes: could not scan vault entities for the link index", err);
+      }
       if (!cancelled) setVaultSources([...notes, ...rules, ...entities].filter((d): d is SourceDoc => d !== null));
     })();
     return () => { cancelled = true; };
@@ -211,7 +222,11 @@ export function SessionNotes({ state, onChange }: Props) {
     vault
       .readFolderFile(state.notesFolder, state.selectedFile)
       .then((text) => { setContent(text); setDraft(text); })
-      .catch(() => { setContent(null); setDraft(""); })
+      .catch((err: unknown) => {
+        logWarn(`Session Notes: could not read note "${state.selectedFile}"`, err);
+        setContent(null);
+        setDraft("");
+      })
       .finally(() => setLoading(false));
     // Depend on the stable method + vaultVersion, not the whole vault object (recreated every
     // render, see tracking/phase6-fixes.md) - avoids re-reading the open note on every render.
@@ -303,7 +318,8 @@ export function SessionNotes({ state, onChange }: Props) {
       }
       cancelGenRef.current = gen.cancel;
       await gen.promise;
-    } catch {
+    } catch (err) {
+      logError("Session Notes: AI generation failed", err);
       setAiGenerating(false);
     } finally {
       cancelGenRef.current = null;

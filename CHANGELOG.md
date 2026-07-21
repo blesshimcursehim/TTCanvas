@@ -6,6 +6,15 @@ All notable changes are documented here.
 
 ### Features
 
+- **Mods can write to the diagnostics log.** A mod widget now gets `window.ttcanvas.log`, with
+  `info`, `warn` and `error`, going to the same local redacted log as everything else, so a mod's
+  failures show up in Preferences → Diagnostics instead of vanishing. Crashes and uncaught errors
+  from mods were already logged; this covers the common case of a mod catching its own error and
+  quietly degrading. Lines from mods are tagged so a bug report shows what came from third-party
+  code. TypeScript authors can copy `src/mods/ttcanvas-mod-api.d.ts` for the types, and the README's
+  mod-authoring section documents the conventions. This grants a mod nothing it didn't already have:
+  mods run unsandboxed with full access, as the trust prompt says.
+
 - **Creatures, rule cards and rules files now show up in backlinks and the link graph.** Session Notes
   could already see `[[links]]` written in notes, NPC notes and Gazetteer places, but anything you
   wrote in a Bestiary creature's notes, a Rule Card or a Rules Reference file was invisible to it. All
@@ -115,6 +124,16 @@ All notable changes are documented here.
   per-creature and per-folder exports.
 
 ### Changes
+
+- **Widget failures now leave a trace in the log.** Until now every log entry came from the app shell,
+  and the widgets themselves wrote nothing at all, so a map that wouldn't load, a sound pad that
+  wouldn't play, an AI summary that failed or a whole NPC library that came back empty all just looked
+  like nothing had happened. Those failures are now recorded in the local log with the widget and the
+  file that caused them, so Preferences > Diagnostics can actually tell you why. Nothing changes on
+  screen, nothing new is collected, and it all stays on your machine as before. Things that fail
+  routinely, like checking for Ollama when it isn't running, stay quiet on purpose. The diagnostics
+  report also now names the workspace schema version and says when a workspace opened read-only,
+  which is the state behind "my changes aren't saving".
 
 - **Encounters you saved before this release start with no party.** The old "Also add party" tickbox
   was never saved, it just defaulted to on every time, so there's nothing to carry over into the new

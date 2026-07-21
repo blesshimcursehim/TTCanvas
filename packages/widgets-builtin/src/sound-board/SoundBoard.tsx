@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useRef, useEffect } from "react";
-import { useVault } from "@ttcanvas/core";
+import { useVault, logWarn } from "@ttcanvas/core";
 import type { SoundBoardState, SoundPad as SoundPadType, SoundScene, SoundTrack } from "./types";
 import { advancePlaylist, type PlaylistCursor } from "./playlist";
 import { SoundPad } from "./SoundPad";
@@ -290,8 +290,9 @@ export function SoundBoard({ state: rawState, onChange }: Props) {
     let url: string;
     try {
       url = await loadTrackUrl(track);
-    } catch {
-      return; // Couldn't read the file from the vault - nothing to play.
+    } catch (err) {
+      logWarn(`Sound Board: could not read track "${track.audioPath}" for pad "${pad.label}"`, err);
+      return; // Nothing to play.
     }
     if (currentEpoch(padId) !== epoch) return; // superseded while loading
 
@@ -301,7 +302,8 @@ export function SoundBoard({ state: rawState, onChange }: Props) {
     attachHandlers(padId, el);
     try {
       await el.play();
-    } catch {
+    } catch (err) {
+      logWarn(`Sound Board: could not play track "${track.audioPath}" for pad "${pad.label}"`, err);
       return; // Playback failed (e.g. blocked) - leave the pad stopped.
     }
     if (currentEpoch(padId) !== epoch) {
@@ -330,8 +332,9 @@ export function SoundBoard({ state: rawState, onChange }: Props) {
     let url: string;
     try {
       url = await loadTrackUrl(track);
-    } catch {
-      return; // Couldn't read the next track - let the current one ring out instead.
+    } catch (err) {
+      logWarn(`Sound Board: could not read next track "${track.audioPath}" for pad "${pad.label}"`, err);
+      return; // Let the current one ring out instead.
     }
     if (currentEpoch(padId) !== epoch) return;
 
@@ -340,8 +343,9 @@ export function SoundBoard({ state: rawState, onChange }: Props) {
     attachHandlers(padId, newEl);
     try {
       await newEl.play();
-    } catch {
-      return; // Couldn't start the next track - let the current one ring out instead.
+    } catch (err) {
+      logWarn(`Sound Board: could not play next track "${track.audioPath}" for pad "${pad.label}"`, err);
+      return; // Let the current one ring out instead.
     }
     if (currentEpoch(padId) !== epoch) {
       newEl.pause();

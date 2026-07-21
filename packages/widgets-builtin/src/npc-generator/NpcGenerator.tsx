@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useContext, useEffect, useRef, useState } from "react";
-import { VaultContext, useAI, ollamaCheck, ollamaGenerate, openaiGenerate } from "@ttcanvas/core";
+import { VaultContext, useAI, ollamaCheck, ollamaGenerate, openaiGenerate, logWarn, logError } from "@ttcanvas/core";
 import type { NpcGeneratorState, GenderType } from "./types";
 import {
   generateName, generateOccupation, generateTrait, generateHook, generateVoice, generateAge,
@@ -128,6 +128,8 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   }, []);
 
   useEffect(() => {
+    // Deliberately unlogged: this probe is expected to reject whenever Ollama isn't running,
+    // so logging it would write a line every session for a non-problem.
     ollamaCheck().then(setOllamaAvailable).catch(() => {});
   }, []);
 
@@ -201,6 +203,10 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   }
 
   function tryParseAllFields(raw: string) {
+    // Deliberately silent: this runs against the partial buffer after every streamed token, so
+    // incomplete JSON is the normal case for all but the last one. Logging here would bury the
+    // rest of the log under one warning per token. The caller logs once, if the *final* parse
+    // fails, which is the only point at which a bad reply is actually a bad reply.
     try { return JSON.parse(stripJsonFences(raw)); } catch { return null; }
   }
 
@@ -231,6 +237,13 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
       } else {
         if (mode === "all") {
           const parsed = tryParseAllFields(streamBuf.current);
+          // The stream is finished, so this parse is the verdict on the whole reply. A failure
+          // here silently falls back to the local generators below, which to the user looks like
+          // the AI was never asked - worth one line. An empty buffer means nothing arrived at all,
+          // which the request-level catch already covers.
+          if (!parsed && streamBuf.current.trim()) {
+            logWarn("NPC Generator: the AI reply was not valid JSON, using local generators instead");
+          }
           patchRef.current({
             trait: parsed?.trait || generateTrait(),
             hook: parsed?.hook || generateHook(),
@@ -248,7 +261,8 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
         : openaiGenerate(aiConfig.baseUrl, aiConfig.apiKey, aiConfig.model!, prompt, handleChunk);
       cancelGenRef.current = gen.cancel;
       await gen.promise;
-    } catch {
+    } catch (err) {
+      logError("NPC Generator: AI generation failed", err);
       setGenerating(false);
     } finally {
       cancelGenRef.current = null;
@@ -300,7 +314,8 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
       setSavedFilename(filename);
       if (saveResetRef.current) clearTimeout(saveResetRef.current);
       saveResetRef.current = setTimeout(() => setSaved(false), 2000);
-    } catch {
+    } catch (err) {
+      logError("NPC Generator: could not save the NPC to the vault", err);
       setSaveError(true);
       setTimeout(() => setSaveError(false), 3000);
     }

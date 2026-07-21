@@ -6,9 +6,8 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
-import { NpcContext, useVault, type NpcRef, type NpcContextValue } from "@ttcanvas/core";
+import { NpcContext, useVault, logWarn, logError, type NpcRef, type NpcContextValue } from "@ttcanvas/core";
 import { parseNpcJson, npcMetaValue, type ParsedNpc } from "@ttcanvas/widgets-builtin";
-import { logWarn, logError } from "./diagnostics/log";
 
 /**
  * Scans `npcs/*.json` once and shares the result, so widgets that only need to *reference* NPCs

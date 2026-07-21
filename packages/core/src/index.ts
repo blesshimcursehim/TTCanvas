@@ -54,3 +54,7 @@ export { ToastContext, useToast } from "./ToastContext";
 export type { ToastContextValue, ToastType } from "./ToastContext";
 export { WidgetChromeContext, useWidgetChrome } from "./WidgetChromeContext";
 export type { WidgetChromeContextValue } from "./WidgetChromeContext";
+// Diagnostics live in core rather than `src/` so the widget packages can reach them too -
+// `widgets-builtin` depends on core and can't import from the app.
+export { logInfo, logWarn, logError } from "./log";
+export { redact } from "./redact";

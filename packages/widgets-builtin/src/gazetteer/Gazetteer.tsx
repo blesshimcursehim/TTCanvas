@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useVault, useNpcs, useMapPins, pushLocationScene, type NpcRef } from "@ttcanvas/core";
+import { useVault, useNpcs, useMapPins, pushLocationScene, logWarn, logError, type NpcRef } from "@ttcanvas/core";
 import { autoAccentColor, npcInitials } from "../npc-library/npcFormat";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { mimeForImageExt } from "../shared/mime";
@@ -64,11 +64,17 @@ export function Gazetteer({ state, onChange }: Props) {
       const files = (await vault.listFiles("json")).filter((f) => f.startsWith("locations/"));
       const loaded = await Promise.all(files.map(async (f) => {
         try { return parseLocationJson(f, await vault.readFile(f)); }
-        catch { return parseLocationJson(f, "{}"); }
+        catch (err) {
+          logWarn(`Gazetteer: could not read place "${f}", showing a blank entry`, err);
+          return parseLocationJson(f, "{}");
+        }
       }));
       loaded.sort((a, b) => a.name.localeCompare(b.name));
       setLocations(loaded);
-    } catch { setLocations([]); }
+    } catch (err) {
+      logError("Gazetteer: could not scan the locations folder", err);
+      setLocations([]);
+    }
   }, [vault]);
 
   useEffect(() => { void loadAll(); }, [loadAll, vault.vaultVersion]);
@@ -93,7 +99,10 @@ export function Gazetteer({ state, onChange }: Props) {
       const fileName = path.split("/").pop()!;
       const b64 = await vault.readFileBase64(`${vault.vaultPath}/portraits`, fileName);
       return `data:${mimeForImageExt(fileName)};base64,${b64}`;
-    } catch { return null; }
+    } catch (err) {
+      logWarn(`Gazetteer: could not load image "${path}"`, err);
+      return null;
+    }
   }, [vault]);
 
   useEffect(() => {
@@ -207,7 +216,11 @@ export function Gazetteer({ state, onChange }: Props) {
   async function handleImportFile(file: File) {
     setImportError(null);
     let text: string;
-    try { text = await file.text(); } catch { setImportError("Could not read that file."); return; }
+    try { text = await file.text(); } catch (err) {
+      logError("Gazetteer: could not read the import file", err);
+      setImportError("Could not read that file.");
+      return;
+    }
     const incoming = readBundle(text, "ttcanvas-gazetteer", validateGazetteerBundle);
     if (!incoming) { setImportError("That is not a Gazetteer export."); return; }
     const result = dedupe(incoming, locations, { idOf: (l) => l.id, contentKeyOf: locationContentKey });

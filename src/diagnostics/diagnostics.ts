@@ -6,7 +6,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { redact } from "./redact";
+import { redact } from "@ttcanvas/core";
 
 /** Open the OS file manager focused on the rotating log file. */
 export async function revealLogFile(): Promise<void> {
@@ -26,6 +26,19 @@ export function clearLog(): Promise<void> {
 
 export interface DiagnosticsMeta {
   version: string;
+  /**
+   * The schema version the open workspace file itself claims, or null when the field was absent
+   * or non-numeric. Deliberately the on-disk value, not the supported one: a read-only workspace
+   * is read-only *because* those two differ, so reporting only the supported one says nothing.
+   */
+  workspaceVersion: number | null;
+  /** The schema version this build supports. */
+  supportedWorkspaceVersion: number;
+  /**
+   * True when the open workspace was written by a newer build, so this one renders it but refuses
+   * to save over it. Worth reporting: it is exactly the state behind "my changes don't persist".
+   */
+  workspaceReadOnly: boolean;
   aiProvider: string;
   enabledWidgets: string[];
   disabledWidgets: string[];
@@ -43,6 +56,9 @@ export async function exportDiagnostics(meta: DiagnosticsMeta, secrets: string[]
     "TTCanvas diagnostics report",
     `Generated: ${new Date().toISOString()}`,
     `App version: ${meta.version}`,
+    `Workspace schema: file ${meta.workspaceVersion === null ? "unversioned" : `v${meta.workspaceVersion}`}`
+      + `, supported v${meta.supportedWorkspaceVersion}`
+      + (meta.workspaceReadOnly ? " (open READ-ONLY - written by a newer build)" : ""),
     `Platform: ${navigator.userAgent}`,
     `AI provider: ${meta.aiProvider}`,
     `Enabled widgets: ${meta.enabledWidgets.join(", ") || "(none)"}`,

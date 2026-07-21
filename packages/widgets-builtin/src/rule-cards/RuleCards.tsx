@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState } from "react";
-import { useVault } from "@ttcanvas/core";
+import { useVault, logError } from "@ttcanvas/core";
 import type { RuleCard, RuleCardsState } from "./types";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
@@ -138,7 +138,8 @@ export function RuleCards({ state, onChange }: Props) {
     let text: string;
     try {
       text = await file.text();
-    } catch {
+    } catch (err) {
+      logError("Rule Cards: could not read the import file", err);
       setImportError("Failed to read import file.");
       return;
     }

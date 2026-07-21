@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useRef, useState } from "react";
-import { useVault } from "@ttcanvas/core";
+import { useVault, logError } from "@ttcanvas/core";
 import type { RollTable, RollTableEntry, RollHistoryItem, RollTablesState } from "./types";
 import { entryRanges, totalWeight, padValue, formatRange, parseCount, rollTableMultiple } from "./engine";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
@@ -232,7 +232,8 @@ export function RollTables({ state, onChange }: Props) {
     let text: string;
     try {
       text = await file.text();
-    } catch {
+    } catch (err) {
+      logError("Roll Tables: could not read the import file", err);
       setImportError("Failed to read import file.");
       return;
     }

@@ -8,13 +8,11 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { getAddableWidgets } from "../registry";
 import type { AppTheme, AppAccent, AppDensity, AppClockFormat, AppConfig } from "../appConfig";
-import { useToast, type AIProvider } from "@ttcanvas/core";
+import { useToast, redact, logError, type AIProvider } from "@ttcanvas/core";
 import {
   revealLogFile, readLogTail, clearLog, exportDiagnostics,
   type DiagnosticsMeta,
 } from "../diagnostics/diagnostics";
-import { redact } from "../diagnostics/redact";
-import { logError } from "../diagnostics/log";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import styles from "./PreferencesModal.module.css";
 
@@ -74,6 +72,12 @@ interface AIConfigPatch {
 interface Props {
   config: AppConfig;
   version: string;
+  /** The `version` the open workspace file claims, or null if absent or non-numeric. */
+  workspaceVersion: number | null;
+  /** The workspace schema version this build supports. */
+  supportedWorkspaceVersion: number;
+  /** True when the open workspace was written by a newer build and so opened read-only. */
+  workspaceReadOnly: boolean;
   disabledWidgetTypes: string[];
   modWidgetTypes: string[];
   onClose: () => void;
@@ -181,7 +185,7 @@ function DiagnosticsPane({ meta, apiKey }: { meta: DiagnosticsMeta; apiKey: stri
 }
 
 export function PreferencesModal({
-  config, version,
+  config, version, workspaceVersion, supportedWorkspaceVersion, workspaceReadOnly,
   disabledWidgetTypes, modWidgetTypes,
   onClose, onChange, onAIChange,
   onWidgetToggle, onModUninstall,
@@ -407,6 +411,9 @@ export function PreferencesModal({
               apiKey={config.aiApiKey}
               meta={{
                 version,
+                workspaceVersion,
+                supportedWorkspaceVersion,
+                workspaceReadOnly,
                 aiProvider: config.aiProvider,
                 enabledWidgets: addableWidgets.filter((w) => !disabledWidgetTypes.includes(w.type)).map((w) => w.type),
                 disabledWidgets: disabledWidgetTypes,

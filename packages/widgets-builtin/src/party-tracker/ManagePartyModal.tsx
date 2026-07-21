@@ -174,6 +174,7 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
 
   async function handleRemovePortrait(member: PartyMember) {
     if (!member.portraitPath) return;
+    // Deliberately unlogged: an already-missing portrait is the expected case here, not a fault.
     try { await vault.deleteFile(member.portraitPath); } catch { /* ignore missing file */ }
     update(member.id, { portraitPath: null });
   }

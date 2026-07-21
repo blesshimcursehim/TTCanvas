@@ -20,6 +20,7 @@ export const ollamaListModels = (): Promise<string[]> =>
 // Fire-and-forget - cancellation is best-effort, so a rejection here (e.g. the
 // request already completed) shouldn't surface as an unhandled promise error.
 const cancelGenerateRequest = (requestId: string): void => {
+  // Deliberately unlogged: cancelling a request that already finished is the normal race here.
   invoke("ai_cancel_generate", { requestId }).catch(() => {});
 };
 

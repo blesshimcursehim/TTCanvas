@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useEffect, useRef, useState } from "react";
-import { useVault } from "@ttcanvas/core";
+import { useVault, logError } from "@ttcanvas/core";
 import type { CardDecksState, Deck, DeckCard, DeckDrawState } from "./types";
 import {
   cardByKey,
@@ -107,6 +107,7 @@ export function CardDecks({ state, onChange }: Props) {
           loaded[p] = `data:${mimeForImageExt(fileName)};base64,${b64}`;
         } catch {
           // File missing (e.g. imported pack without art) - skip; the card just shows text.
+          // Deliberately unlogged: an art-less imported pack is normal, not a fault.
         }
       }
       if (!cancelled && Object.keys(loaded).length > 0) setArt((prev) => ({ ...prev, ...loaded }));
@@ -241,7 +242,8 @@ export function CardDecks({ state, onChange }: Props) {
     let text: string;
     try {
       text = await file.text();
-    } catch {
+    } catch (err) {
+      logError("Card Decks: could not read the import file", err);
       setImportError("Failed to read import file.");
       return;
     }
