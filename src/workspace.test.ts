@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { describe, it, expect } from "vitest";
-import { migrateWorkspace, isFutureWorkspaceVersion } from "./workspace";
+import { migrateWorkspace, isFutureWorkspaceVersion, workspaceDiskVersion, WORKSPACE_VERSION } from "./workspace";
 
 describe("migrateWorkspace", () => {
   it("returns safe default for null", () => {
@@ -166,6 +166,30 @@ describe("isFutureWorkspaceVersion", () => {
 
   it("does not flag a non-numeric version", () => {
     expect(isFutureWorkspaceVersion({ version: "3" })).toBe(false);
+  });
+});
+
+// The on-disk version has to survive loading separately from the migrated state, whose `version`
+// is always WORKSPACE_VERSION - otherwise a read-only v3 workspace reports itself as v2 in a
+// diagnostics report, which is precisely the case the report exists to explain.
+describe("workspaceDiskVersion", () => {
+  it("returns the version the file actually claims, including a future one", () => {
+    expect(workspaceDiskVersion({ version: 3 })).toBe(3);
+    expect(workspaceDiskVersion({ version: 2 })).toBe(2);
+    expect(workspaceDiskVersion({ version: 1 })).toBe(1);
+  });
+
+  it("returns null when there is no usable version to report", () => {
+    expect(workspaceDiskVersion({})).toBeNull();
+    expect(workspaceDiskVersion({ version: "3" })).toBeNull();
+    expect(workspaceDiskVersion(null)).toBeNull();
+    expect(workspaceDiskVersion(undefined)).toBeNull();
+  });
+
+  it("survives migration, which always normalises state.version to the supported one", () => {
+    const raw = { version: 3, activeLayout: "Default", layouts: {} };
+    expect(migrateWorkspace(raw).version).toBe(WORKSPACE_VERSION);
+    expect(workspaceDiskVersion(raw)).toBe(3);
   });
 });
 

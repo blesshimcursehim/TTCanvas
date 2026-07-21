@@ -12,9 +12,14 @@ import App from "./App";
 import { PlayerWindow } from "./player/PlayerWindow";
 import { ToastProvider } from "./canvas/Toast";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { installModApi } from "./mods/modApi";
 import { logError } from "@ttcanvas/core";
 
 const label = getCurrentWebviewWindow().label;
+
+// Publish window.ttcanvas before anything can import a mod (mods load during the vault open, well
+// after this), so a mod widget can always assume the API is there.
+installModApi();
 
 // Catch async failures that React error boundaries cannot see.
 window.addEventListener("error", (e) => {

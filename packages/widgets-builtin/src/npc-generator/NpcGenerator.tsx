@@ -203,12 +203,11 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
   }
 
   function tryParseAllFields(raw: string) {
-    try { return JSON.parse(stripJsonFences(raw)); } catch (err) {
-      // Worth a line: this is the model returning something that isn't JSON, which looks to the
-      // user like "Re-roll all did nothing" and is otherwise indistinguishable from a no-op.
-      logWarn("NPC Generator: AI reply was not valid JSON", err);
-      return null;
-    }
+    // Deliberately silent: this runs against the partial buffer after every streamed token, so
+    // incomplete JSON is the normal case for all but the last one. Logging here would bury the
+    // rest of the log under one warning per token. The caller logs once, if the *final* parse
+    // fails, which is the only point at which a bad reply is actually a bad reply.
+    try { return JSON.parse(stripJsonFences(raw)); } catch { return null; }
   }
 
   async function runAI(mode: "all" | "trait" | "hook" | "voice") {
@@ -238,6 +237,13 @@ export function NpcGenerator({ state: rawState, onChange }: Props) {
       } else {
         if (mode === "all") {
           const parsed = tryParseAllFields(streamBuf.current);
+          // The stream is finished, so this parse is the verdict on the whole reply. A failure
+          // here silently falls back to the local generators below, which to the user looks like
+          // the AI was never asked - worth one line. An empty buffer means nothing arrived at all,
+          // which the request-level catch already covers.
+          if (!parsed && streamBuf.current.trim()) {
+            logWarn("NPC Generator: the AI reply was not valid JSON, using local generators instead");
+          }
           patchRef.current({
             trait: parsed?.trait || generateTrait(),
             hook: parsed?.hook || generateHook(),

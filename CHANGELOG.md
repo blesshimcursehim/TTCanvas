@@ -6,6 +6,15 @@ All notable changes are documented here.
 
 ### Features
 
+- **Mods can write to the diagnostics log.** A mod widget now gets `window.ttcanvas.log`, with
+  `info`, `warn` and `error`, going to the same local redacted log as everything else, so a mod's
+  failures show up in Preferences → Diagnostics instead of vanishing. Crashes and uncaught errors
+  from mods were already logged; this covers the common case of a mod catching its own error and
+  quietly degrading. Lines from mods are tagged so a bug report shows what came from third-party
+  code. TypeScript authors can copy `src/mods/ttcanvas-mod-api.d.ts` for the types, and the README's
+  mod-authoring section documents the conventions. This grants a mod nothing it didn't already have:
+  mods run unsandboxed with full access, as the trust prompt says.
+
 - **Creatures, rule cards and rules files now show up in backlinks and the link graph.** Session Notes
   could already see `[[links]]` written in notes, NPC notes and Gazetteer places, but anything you
   wrote in a Bestiary creature's notes, a Rule Card or a Rules Reference file was invisible to it. All

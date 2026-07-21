@@ -228,6 +228,9 @@ function App() {
   // written by a newer build that we open read-only rather than overwrite.
   const configPersistableRef = useRef(true);
   const workspacePersistableRef = useRef(true);
+  // The version the open workspace file actually claims, for the diagnostics report. Null until a
+  // vault is loaded, and for a file whose `version` was absent or non-numeric.
+  const workspaceDiskVersionRef = useRef<number | null>(null);
   const workspaceQueueRef = useRef(
     createSerialQueue<{ vaultPath: string; state: WorkspaceState }>(
       ({ vaultPath: p, state }) => saveWorkspace(p, state),
@@ -440,10 +443,11 @@ function App() {
       showToast(`Failed to load workspace - ${err instanceof Error ? err.message : String(err)}`, "error");
       return;
     }
-    const { state: wsState, persistable, notice } = ws;
+    const { state: wsState, persistable, notice, diskVersion } = ws;
     // Record before setState so the autosave and switch/close save paths see the
     // right value for this vault immediately (CR-014).
     workspacePersistableRef.current = persistable;
+    workspaceDiskVersionRef.current = diskVersion;
     setLayouts(wsState.layouts);
     setActiveLayout(wsState.activeLayout);
     setWidgets(wsState.layouts[wsState.activeLayout]?.widgets ?? []);
@@ -1458,9 +1462,12 @@ function App() {
             <PreferencesModal
               config={appConfig}
               version={appVersion}
-              workspaceVersion={WORKSPACE_VERSION}
-              // A ref, not state: it is assigned during the vault load, well before the modal can
-              // be opened, so reading it here is always current.
+              // Both are refs, not state: they are assigned during the vault load, well before the
+              // modal can be opened, so reading them here is always current.
+              // The version the *file* claims, not the one this build supports - a read-only v3
+              // workspace has to report v3 or the report says nothing useful about why.
+              workspaceVersion={workspaceDiskVersionRef.current}
+              supportedWorkspaceVersion={WORKSPACE_VERSION}
               workspaceReadOnly={!workspacePersistableRef.current}
               disabledWidgetTypes={disabledWidgetTypes}
               modWidgetTypes={getModWidgetTypes()}

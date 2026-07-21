@@ -178,6 +178,7 @@ content asks again, since the approval is tied to what the file actually contain
 - **Two required exports:**
   - `export const definition`: widget metadata
   - `export default`: React component `({ state, onChange }) => JSX`
+- **Report your failures**: log anything your widget catches and handles, via `window.ttcanvas.log`. See [Diagnostics and logging](#diagnostics-and-logging) below. A mod that fails silently is one nobody can help you debug.
 
 ### Minimal example
 
@@ -204,6 +205,54 @@ export default function Counter({ state, onChange }: { state: any; onChange: (s:
   );
 }
 ```
+
+### Diagnostics and logging
+
+TTCanvas keeps a local log file and shows it in **Preferences → Diagnostics**, where it can be
+exported as a redacted report to attach to a bug report. Nothing is ever sent anywhere
+automatically. Mods write to that same log through `window.ttcanvas`, so a mod's problems land
+next to everything else instead of disappearing.
+
+Two things are already logged for you, without any work:
+
+- **A crash while rendering** your widget, caught by the per-widget error boundary. The widget
+  shows an error frame instead of taking the app down with it.
+- **An uncaught error or rejected promise** from your code, caught by the app's global handlers.
+
+What isn't logged for you is the common case: an error you catch yourself and recover from. Those
+are exactly the failures that turn into "it just shows nothing" bug reports, so log them.
+
+```js
+// window.ttcanvas.log.warn - a recoverable failure; the widget carried on
+// window.ttcanvas.log.error - something the user asked for did not happen
+// window.ttcanvas.log.info  - noteworthy, but not a fault
+
+try {
+  const raw = await fetchSomething();
+  setData(JSON.parse(raw));
+} catch (err) {
+  window.ttcanvas.log.warn("My Widget: could not load its data", err);
+  setData(null);   // degrade, but leave a trace
+}
+```
+
+Conventions worth following, so a report stays readable:
+
+- **Name your widget** at the start of the message, as it appears in the UI. Every line is already
+  tagged `[mod]`, but that only says third-party, not which one.
+- **Say what failed and which item**, e.g. `"My Widget: could not read \"goblins.json\""`.
+- **Pass the error** as the second argument rather than concatenating it. It is formatted, and
+  API keys and home-directory usernames are stripped, before anything is written.
+- **Don't log inside a loop or on every render.** A line per frame buries everything else.
+- **Stay quiet about expected failures.** A probe for an optional service that isn't running is
+  not a fault, and logging it every session makes the log useless.
+
+For TypeScript, copy [`src/mods/ttcanvas-mod-api.d.ts`](src/mods/ttcanvas-mod-api.d.ts) next to
+your source and `window.ttcanvas` will typecheck. Check `window.ttcanvas.apiVersion` if you need
+to support older TTCanvas builds, which may not have this API at all.
+
+Note that this grants a mod nothing it did not already have - mods run unsandboxed with full DOM
+and IPC access, as the trust prompt says. It only gives you somewhere to write.
 
 ### How mods load
 

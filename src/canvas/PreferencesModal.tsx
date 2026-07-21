@@ -72,7 +72,10 @@ interface AIConfigPatch {
 interface Props {
   config: AppConfig;
   version: string;
-  workspaceVersion: number;
+  /** The `version` the open workspace file claims, or null if absent or non-numeric. */
+  workspaceVersion: number | null;
+  /** The workspace schema version this build supports. */
+  supportedWorkspaceVersion: number;
   /** True when the open workspace was written by a newer build and so opened read-only. */
   workspaceReadOnly: boolean;
   disabledWidgetTypes: string[];
@@ -182,7 +185,7 @@ function DiagnosticsPane({ meta, apiKey }: { meta: DiagnosticsMeta; apiKey: stri
 }
 
 export function PreferencesModal({
-  config, version, workspaceVersion, workspaceReadOnly,
+  config, version, workspaceVersion, supportedWorkspaceVersion, workspaceReadOnly,
   disabledWidgetTypes, modWidgetTypes,
   onClose, onChange, onAIChange,
   onWidgetToggle, onModUninstall,
@@ -409,6 +412,7 @@ export function PreferencesModal({
               meta={{
                 version,
                 workspaceVersion,
+                supportedWorkspaceVersion,
                 workspaceReadOnly,
                 aiProvider: config.aiProvider,
                 enabledWidgets: addableWidgets.filter((w) => !disabledWidgetTypes.includes(w.type)).map((w) => w.type),

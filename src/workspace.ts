@@ -141,8 +141,14 @@ export function migrateWorkspace(raw: unknown): WorkspaceState {
 export interface LoadedWorkspace {
   state: WorkspaceState;
   /**
-   * False when the on-disk file was written by a newer build (version > 2) we don't
-   * understand: we render defaults so the app is usable, but must NOT autosave over
+   * The numeric `version` actually found on disk, or null when it was absent or not a number.
+   * `state.version` is always WORKSPACE_VERSION after migration, so this is the only record of
+   * what the file itself claimed - which is exactly what a diagnostics report needs to say.
+   */
+  diskVersion: number | null;
+  /**
+   * False when the on-disk file was written by a newer build (version > WORKSPACE_VERSION) we
+   * don't understand: we render defaults so the app is usable, but must NOT autosave over
    * the real file, or opening a vault in an older build would silently destroy it.
    */
   persistable: boolean;
@@ -150,27 +156,35 @@ export interface LoadedWorkspace {
   notice?: string;
 }
 
+/** The `version` field as it appears on disk, or null if absent or non-numeric. */
+export function workspaceDiskVersion(raw: unknown): number | null {
+  if (!raw || typeof raw !== "object") return null;
+  const version = (raw as { version?: unknown }).version;
+  return typeof version === "number" ? version : null;
+}
+
 // A numeric version above the one we can parse means the file came from a newer
 // build. Everything else (absent/1/2, or a completely malformed file the Rust
 // side already backed up) is safe to overwrite once loaded.
 export function isFutureWorkspaceVersion(raw: unknown): boolean {
-  if (!raw || typeof raw !== "object") return false;
-  const version = (raw as { version?: unknown }).version;
-  return typeof version === "number" && version > 2;
+  const version = workspaceDiskVersion(raw);
+  return version !== null && version > WORKSPACE_VERSION;
 }
 
 export async function loadWorkspace(vaultPath: string): Promise<LoadedWorkspace> {
   const raw = await invoke<unknown>("load_workspace", { vaultPath });
   const state = migrateWorkspace(raw);
+  const diskVersion = workspaceDiskVersion(raw);
   if (isFutureWorkspaceVersion(raw)) {
     return {
       state,
+      diskVersion,
       persistable: false,
       notice:
         "This vault was saved by a newer version of TTCanvas. It's open read-only so your changes here won't overwrite it - update TTCanvas to edit it.",
     };
   }
-  return { state, persistable: true };
+  return { state, diskVersion, persistable: true };
 }
 
 export function saveWorkspace(vaultPath: string, state: WorkspaceState): Promise<void> {
