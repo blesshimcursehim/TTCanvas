@@ -6,6 +6,12 @@ All notable changes are documented here.
 
 ### Features
 
+- **Creatures, rule cards and rules files now show up in backlinks and the link graph.** Session Notes
+  could already see `[[links]]` written in notes, NPC notes and Gazetteer places, but anything you
+  wrote in a Bestiary creature's notes, a Rule Card or a Rules Reference file was invisible to it. All
+  three now count as sources, so a note's Linked mentions shows everything that actually points at it,
+  and clicking one opens the creature, card or rules file it came from. A creature contributes only its
+  notes field, not its stat block, so you don't get backlinks from ability scores and skill names.
 - **Gazetteer tells you when a place is already pinned.** The "Pin this place on a map" button now
   reads "Pinned on a map - show me" when the place already has a pin on any scene, so you can tell at a
   glance instead of clicking to find out. Pressing it still jumps to the existing pin as before.

@@ -36,7 +36,7 @@ import { NpcProvider } from "./NpcProvider";
 import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
 import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState, type CampaignTimelineState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
@@ -813,6 +813,26 @@ function App() {
   const notesFolder = ((singletonStates["session-notes"] ?? widgets.find((w) => w.type === "session-notes")?.state) as { notesFolder?: string } | undefined)?.notesFolder ?? null;
   const rulesFolder = ((singletonStates["rules-reference"] ?? widgets.find((w) => w.type === "rules-reference")?.state) as { rulesFolder?: string } | undefined)?.rulesFolder ?? null;
 
+  // Link-bearing bodies of the two entity types that live in singleton state rather than vault files,
+  // so Session Notes' backlinks/graph can see them. Only the free-text field goes in - a creature's
+  // stat block would otherwise spray meaningless backlinks. Entries with an empty body are skipped
+  // since they can carry no links. Rules Reference isn't here: those are real files, and Session Notes
+  // scans `rulesFolder` itself.
+  const entityLinkSources = useMemo<EntityLinkSource[]>(() => {
+    const b = bestiaryState as { entries?: { id: string; name: string; notes?: string }[] } | undefined;
+    const c = ruleCardsState as { cards?: { id: string; title: string; body?: string }[] } | undefined;
+    return [
+      ...(b?.entries ?? []).flatMap((e) =>
+        e.notes?.trim() ? [{ kind: "creature" as const, ref: e.id, label: e.name, text: e.notes }] : []),
+      ...(c?.cards ?? []).flatMap((k) =>
+        k.body?.trim() ? [{ kind: "card" as const, ref: k.id, label: k.title, text: k.body }] : []),
+    ];
+  }, [bestiaryState, ruleCardsState]);
+  const linkSourcesContextValue = useMemo(
+    () => ({ rulesFolder, entities: entityLinkSources }),
+    [rulesFolder, entityLinkSources],
+  );
+
   // The current turn's linked map token(s), if any - lets Map Display spotlight them on the GM's
   // own map (the player window gets the same value via InitiativeOverlay.activeSourceIds instead,
   // since it has no context, only the pushed overlay). A combined group's turn has no single
@@ -1189,15 +1209,26 @@ function App() {
       const { filename, name } = (e as CustomEvent<{ filename: string; name: string }>).detail;
       handlePinLocation(filename, name);
     };
+    // The state-backed kinds carry an entry id (rules carry a filename), so these three use `ref`
+    // rather than `filename` - it is SourceDoc's own term for "how to open this".
+    const rule = (e: Event) => handleOpenRule((e as CustomEvent<{ ref: string }>).detail.ref);
+    const creature = (e: Event) => handleOpenCreature((e as CustomEvent<{ ref: string }>).detail.ref);
+    const card = (e: Event) => handleOpenCard((e as CustomEvent<{ ref: string }>).detail.ref);
     window.addEventListener("ttcanvas:open-npc", npc);
     window.addEventListener("ttcanvas:open-location", loc);
     window.addEventListener("ttcanvas:pin-location", pin);
+    window.addEventListener("ttcanvas:open-rule", rule);
+    window.addEventListener("ttcanvas:open-creature", creature);
+    window.addEventListener("ttcanvas:open-card", card);
     return () => {
       window.removeEventListener("ttcanvas:open-npc", npc);
       window.removeEventListener("ttcanvas:open-location", loc);
       window.removeEventListener("ttcanvas:pin-location", pin);
+      window.removeEventListener("ttcanvas:open-rule", rule);
+      window.removeEventListener("ttcanvas:open-creature", creature);
+      window.removeEventListener("ttcanvas:open-card", card);
     };
-  }, [handleOpenNpc, handleOpenLocation, handlePinLocation]);
+  }, [handleOpenNpc, handleOpenLocation, handlePinLocation, handleOpenRule, handleOpenCreature, handleOpenCard]);
 
   // Apply visual preferences to <body> - must be before any conditional returns
   useEffect(() => {
@@ -1255,6 +1286,7 @@ function App() {
       <NpcProvider>
       <GazetteerProvider>
       <MapPinsContext.Provider value={mapPinsContextValue}>
+      <LinkSourcesContext.Provider value={linkSourcesContextValue}>
       <AIContext.Provider value={aiContextValue}>
       <CalendarContext.Provider value={calendarContextValue}>
       <ChronicleContext.Provider value={chronicleContextValue}>
@@ -1436,6 +1468,7 @@ function App() {
       </ChronicleContext.Provider>
       </CalendarContext.Provider>
       </AIContext.Provider>
+      </LinkSourcesContext.Provider>
       </MapPinsContext.Provider>
       </GazetteerProvider>
       </NpcProvider>

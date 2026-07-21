@@ -25,6 +25,8 @@ export { ChronicleContext, useChronicle } from "./ChronicleContext";
 export type { ChronicleContextValue, ChronicleDraft } from "./ChronicleContext";
 export { MapPinsContext, useMapPins } from "./MapPinsContext";
 export type { MapPinsContextValue } from "./MapPinsContext";
+export { LinkSourcesContext, useLinkSources } from "./LinkSourcesContext";
+export type { LinkSourcesContextValue, EntityLinkSource } from "./LinkSourcesContext";
 export type {
   CalendarDef, MonthDef, IntercalaryPeriod, CalDate, CalEvent, CalendarState,
   TimeAdvance, TimeTrackerState, NamedJump, JumpUnit,

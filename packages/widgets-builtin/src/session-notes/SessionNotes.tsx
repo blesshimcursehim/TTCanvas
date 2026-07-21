@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useVault, useAI, ollamaCheck, ollamaListModels, ollamaGenerate, openaiGenerate } from "@ttcanvas/core";
+import { useVault, useAI, useLinkSources, ollamaCheck, ollamaListModels, ollamaGenerate, openaiGenerate } from "@ttcanvas/core";
 import type { SessionNotesState } from "./types";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { buildBacklinkIndex, linkGraph, linkKey, basenameLabel, readEntitySource, type SourceDoc, type SourceKind } from "../shared/wikilinks";
@@ -57,6 +57,9 @@ interface Props {
 export function SessionNotes({ state, onChange }: Props) {
   const vault = useVault();
   const { config: aiConfig } = useAI();
+  // Rules Reference's folder and the state-backed entity bodies (Bestiary creatures, Rule Cards),
+  // which this widget can't reach on its own - it only ever gets its own {state, onChange}.
+  const { rulesFolder, entities } = useLinkSources();
   const [files, setFiles] = useState<string[]>([]);
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,7 +68,7 @@ export function SessionNotes({ state, onChange }: Props) {
   const [savedFlash, setSavedFlash] = useState(false);
   const [ollamaAvailable, setOllamaAvailable] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
-  const [sources, setSources] = useState<SourceDoc[]>([]);
+  const [vaultSources, setVaultSources] = useState<SourceDoc[]>([]);
   const [graphOpen, setGraphOpen] = useState(false);
   const [graph, setGraph] = useState<GraphState>({ nodes: [], edges: [], kinds: new Map() });
   const tree = useMemo(() => buildFileTree(files), [files]);
@@ -98,19 +101,30 @@ export function SessionNotes({ state, onChange }: Props) {
 
   useEffect(() => { loadList(); }, [loadList]);
 
-  // Build the link corpus: every .md note (targets, from the notes folder) plus NPC notes and
-  // Gazetteer place bodies as extra sources (vault JSON at the npcs/ and locations/ prefixes, read
-  // directly). Re-runs when the file list or vault changes. Entities with no body carry no links, so
-  // they are skipped.
+  // Build the disk-backed half of the link corpus: every .md note (targets, from the notes folder),
+  // every .md file in the Rules Reference folder, plus NPC notes and Gazetteer place bodies (vault
+  // JSON at the npcs/ and locations/ prefixes, read directly). Re-runs when the file list, either
+  // folder, or the vault changes. Entities with no body carry no links, so they are skipped.
   useEffect(() => {
     let cancelled = false;
+    const folderDocs = async (folder: string | null, kind: "note" | "rule", known?: string[]): Promise<(SourceDoc | null)[]> => {
+      if (!folder) return [];
+      try {
+        const paths = (known ?? await vault.listFolderFiles(folder, "md")).filter((f) => f.endsWith(".md"));
+        return await Promise.all(paths.map(async (path): Promise<SourceDoc | null> => {
+          try {
+            const text = await vault.readFolderFile(folder, path);
+            // Only notes are link *targets*, so only they get a targetKey.
+            return kind === "note"
+              ? { kind, ref: path, label: basenameLabel(path), text, targetKey: linkKey(path) }
+              : { kind, ref: path, label: basenameLabel(path), text };
+          } catch { return null; }
+        }));
+      } catch { return []; }
+    };
     (async () => {
-      const notes: (SourceDoc | null)[] = state.notesFolder
-        ? await Promise.all(files.filter((f) => f.endsWith(".md")).map(async (path): Promise<SourceDoc | null> => {
-            try { return { kind: "note", ref: path, label: basenameLabel(path), text: await vault.readFolderFile(state.notesFolder!, path), targetKey: linkKey(path) }; }
-            catch { return null; }
-          }))
-        : [];
+      const notes = await folderDocs(state.notesFolder, "note", files);
+      const rules = await folderDocs(rulesFolder, "rule");
       let entities: (SourceDoc | null)[] = [];
       try {
         const json = await vault.listFiles("json");
@@ -119,13 +133,21 @@ export function SessionNotes({ state, onChange }: Props) {
           ...json.filter((f) => f.startsWith("locations/")).map((ref) => readEntitySource(vault, ref, "place", "body")),
         ]);
       } catch { /* no vault entities */ }
-      if (!cancelled) setSources([...notes, ...entities].filter((d): d is SourceDoc => d !== null));
+      if (!cancelled) setVaultSources([...notes, ...rules, ...entities].filter((d): d is SourceDoc => d !== null));
     })();
     return () => { cancelled = true; };
     // Depend on the individual (useCallback-stable) vault methods + vaultVersion, not the whole vault
     // object - its context value is recreated every render, which would re-read the corpus needlessly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [files, state.notesFolder, vault.readFile, vault.readFolderFile, vault.listFiles, vault.vaultVersion]);
+  }, [files, state.notesFolder, rulesFolder, vault.readFile, vault.readFolderFile, vault.listFolderFiles, vault.listFiles, vault.vaultVersion]);
+
+  // Fold in the entities that live in singleton widget state (Bestiary creatures, Rule Cards). They're
+  // already in memory, so they merge here rather than in the effect above - editing a creature's notes
+  // then only rebuilds this list instead of re-reading the whole vault. Same split WikilinkResolver uses.
+  const sources = useMemo<SourceDoc[]>(
+    () => [...vaultSources, ...entities.map((e) => ({ kind: e.kind, ref: e.ref, label: e.label, text: e.text }))],
+    [vaultSources, entities],
+  );
 
   const backlinkIndex = useMemo(() => buildBacklinkIndex(sources), [sources]);
   const backlinks = useMemo(
@@ -138,12 +160,19 @@ export function SessionNotes({ state, onChange }: Props) {
     setGraphOpen(true);
   }
 
-  // Open a backlink source or a graph node by its kind: a note selects here, an NPC/place opens its
-  // own widget via the same window-event style the wikilink opener uses.
+  // Open a backlink source or a graph node by its kind: a note selects here, every other kind opens
+  // its own widget via the same window-event style the wikilink opener uses. NPC/place carry a vault
+  // filename, the rest carry a ref (a rules path, or a creature/card entry id).
   function openSource(kind: SourceKind, ref: string) {
     setGraphOpen(false);
-    if (kind === "note") onChange({ ...state, selectedFile: ref });
-    else window.dispatchEvent(new CustomEvent(kind === "npc" ? "ttcanvas:open-npc" : "ttcanvas:open-location", { detail: { filename: ref } }));
+    if (kind === "note") { onChange({ ...state, selectedFile: ref }); return; }
+    if (kind === "npc" || kind === "place") {
+      const event = kind === "npc" ? "ttcanvas:open-npc" : "ttcanvas:open-location";
+      window.dispatchEvent(new CustomEvent(event, { detail: { filename: ref } }));
+      return;
+    }
+    const event = kind === "creature" ? "ttcanvas:open-creature" : kind === "card" ? "ttcanvas:open-card" : "ttcanvas:open-rule";
+    window.dispatchEvent(new CustomEvent(event, { detail: { ref } }));
   }
 
   // Resolve a clicked [[wikilink]] against the loaded notes by basename key (case-insensitive, and
@@ -193,7 +222,7 @@ export function SessionNotes({ state, onChange }: Props) {
     // Keep the link index fresh after an edit (the folder-scan effect only re-runs on a file-list or
     // vault change, so an edited [[link]] would otherwise not show in backlinks until a refresh).
     if (path.endsWith(".md")) {
-      setSources((prev) => {
+      setVaultSources((prev) => {
         const doc: SourceDoc = { kind: "note", ref: path, label: basenameLabel(path), text: draft, targetKey: linkKey(path) };
         const i = prev.findIndex((d) => d.ref === path);
         if (i === -1) return [...prev, doc];
