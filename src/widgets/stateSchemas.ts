@@ -691,8 +691,8 @@ const timelineEntrySchema = z.object({
 });
 
 const campaignTimelineSchema = z
-  .object({ entries: filterArr(timelineEntrySchema) })
-  .catch({ entries: [] });
+  .object({ entries: filterArr(timelineEntrySchema), sortDirection: z.enum(["asc", "desc"]).catch("asc") })
+  .catch({ entries: [], sortDirection: "asc" });
 
 export function parseCampaignTimelineState(raw: unknown): unknown {
   return campaignTimelineSchema.parse(raw);

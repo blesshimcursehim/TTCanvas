@@ -60,6 +60,18 @@ describe("mergeTimeline", () => {
     expect(stream.map((s) => s.kind)).toEqual(["event", "entry"]);
   });
 
+  it("sorts newest-first when direction is desc", () => {
+    const entries = [entry("e2", d(1, 1, 5)), entry("e1", d(1, 0, 10))];
+    const events = [event("v1", d(1, 0, 20))];
+    const stream = mergeTimeline(entries, events, def, null, "desc");
+    expect(stream.map((s) => s.id)).toEqual(["e2", "v1", "e1"]);
+  });
+
+  it("keeps the event-before-entry tie-break even when sorting newest-first", () => {
+    const stream = mergeTimeline([entry("e1", d(1, 0, 7))], [event("v1", d(1, 0, 7))], def, null, "desc");
+    expect(stream.map((s) => s.kind)).toEqual(["event", "entry"]);
+  });
+
   it("sorts a later month after an earlier one regardless of day number", () => {
     const stream = mergeTimeline([entry("m1d28", d(1, 0, 28)), entry("m2d02", d(1, 1, 2))], [], def, null);
     expect(stream.map((s) => s.id)).toEqual(["m1d28", "m2d02"]);

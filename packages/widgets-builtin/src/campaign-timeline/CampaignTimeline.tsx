@@ -15,6 +15,7 @@ import { mergeTimeline } from "./timeline";
 import type { StreamItem } from "./timeline";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ModeToggle } from "../shared/ModeToggle";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./CampaignTimeline.module.css";
 
 interface Props {
@@ -77,11 +78,17 @@ export function CampaignTimeline({ state, onChange }: Props) {
     );
   }
 
-  const stream = mergeTimeline(state.entries, cal.events, cal.def, cal.currentDate);
+  const direction = state.sortDirection ?? "asc";
+  const stream = mergeTimeline(state.entries, cal.events, cal.def, cal.currentDate, direction);
   const currentAbs = cal.currentDate ? calDateToAbsDay(cal.currentDate, cal.def) : null;
-  // The "Now" divider sits before the first item that isn't in the past (or after everything).
-  const dividerBefore = currentAbs === null ? -1 : Math.max(0, stream.findIndex((s) => s.timePos !== "past"));
-  const dividerAtEnd = currentAbs !== null && stream.every((s) => s.timePos === "past");
+  // The "Now" divider sits at the boundary between past and not-past. Ascending (oldest first)
+  // runs past -> now -> future, so the divider goes before the first non-past item, and "all past"
+  // pushes it to the end. Descending mirrors this: future -> now -> past, so the divider goes
+  // before the first past item, and "nothing past yet" pushes it to the end.
+  const dividerBefore = currentAbs === null ? -1 : Math.max(0, stream.findIndex((s) =>
+    direction === "desc" ? s.timePos === "past" : s.timePos !== "past"));
+  const dividerAtEnd = currentAbs !== null && stream.every((s) =>
+    direction === "desc" ? s.timePos !== "past" : s.timePos === "past");
 
   return (
     <div className={styles.root}>
@@ -93,6 +100,16 @@ export function CampaignTimeline({ state, onChange }: Props) {
           onChange={(v) => setGrouped(v === "grouped")}
           options={[{ value: "timeline", label: "Timeline" }, { value: "grouped", label: "Grouped" }]}
         />
+        <WidgetSettingsCog>
+          <div className={styles.settingsRow}>
+            <span className={styles.settingsLabel}>Sort</span>
+            <ModeToggle
+              value={direction}
+              onChange={(v) => onChange({ ...state, sortDirection: v })}
+              options={[{ value: "asc", label: "Oldest first" }, { value: "desc", label: "Newest first" }]}
+            />
+          </div>
+        </WidgetSettingsCog>
       </div>
 
       <div className={styles.stream}>

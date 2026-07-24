@@ -49,6 +49,10 @@ All notable changes are documented here.
   itself into the Calendar widget as a dated event, so a plot beat you noted in the Chronicle can also
   sit on the calendar. The copy is independent once made, so editing or deleting one leaves the other
   alone.
+- **Campaign Timeline can sort newest-first.** The Chronicle only ever read oldest-first, which gets
+  awkward once a campaign's timeline is long and the entries you care about are the recent ones, not
+  January. A direction control in the widget's settings cog flips between oldest-first and
+  newest-first, and your choice is remembered.
 
 - **Party members and NPCs can be added to an encounter properly.** Encounter Builder used to be a
   Bestiary-only tool, with the whole party riding along on a single "Also add party" checkbox and NPC
@@ -184,6 +188,12 @@ All notable changes are documented here.
   be certain.
 - **NPC Generator no longer overwrites an existing NPC with the same name** - saving used to write straight to a name-derived filename, so a second NPC sharing a name silently clobbered the first one's file. Saving now checks the library first and, on a collision, offers "Save as new copy" or "Cancel" instead of overwriting.
 - **NPC Library - deleting an NPC now asks for confirmation** - the Remove button used to delete on a single click. It now behaves like every other delete action in the app, needing a second "Yes, delete" click before anything is removed.
+- **A disabled widget now stays off the canvas everywhere, not just the Add Widget picker.**
+  Unchecking a widget in Preferences → Canvas used to only remove it from that one picker. The
+  Command Palette would still offer it, and things like Bestiary's "Add to Initiative" or Encounter
+  Builder's "Start combat" would silently put it back the moment you used them. Both now respect the
+  setting. An instance already on the canvas keeps working, and anything sent to a disabled widget
+  while it's hidden is still recorded, waiting for you to re-enable it.
 
 ### Security
 
