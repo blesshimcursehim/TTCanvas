@@ -28,6 +28,7 @@ const MAX_PER_GROUP = 5;
 
 interface Props {
   openTypes: Set<string>;
+  disabledWidgetTypes: string[];
   onAdd: (type: string) => void;
   onFocus: (type: string) => void;
   onOpenNpc: (filename: string) => void;
@@ -36,7 +37,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function CommandPalette({ openTypes, onAdd, onFocus, onOpenNpc, onOpenFile, onOpenCalendarEvent, onClose }: Props) {
+export function CommandPalette({ openTypes, disabledWidgetTypes, onAdd, onFocus, onOpenNpc, onOpenFile, onOpenCalendarEvent, onClose }: Props) {
   const [query, setQuery] = useState("");
   const [npcFiles, setNpcFiles] = useState<string[]>([]);
   const [vaultFiles, setVaultFiles] = useState<string[]>([]);
@@ -61,6 +62,7 @@ export function CommandPalette({ openTypes, onAdd, onFocus, onOpenNpc, onOpenFil
   const results: ResultItem[] = [];
 
   getAddableWidgets()
+    .filter((w) => !disabledWidgetTypes.includes(w.type))
     .filter((w) => hit(w.title) || hit(w.category))
     .slice(0, MAX_PER_GROUP)
     .forEach((w) => {
