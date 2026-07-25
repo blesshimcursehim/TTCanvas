@@ -193,7 +193,12 @@ export function NpcLibrary({ state, onChange }: Props) {
       logError("NPC Library: could not scan the NPC folder", err);
       setNpcs([]);
     }
-  }, [vault]);
+    // Stable fields/functions only, not the whole `vault` object - that value is a fresh object
+    // every VaultProvider render (see AvatarCircle's effect above), and now that the embedded NPC
+    // Generator writes this widget's own state on every keystroke, depending on `vault` wholesale
+    // would rescan the entire npcs/ folder on every keystroke while the "+" pane is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vault.vaultPath, vault.listFiles, vault.readFile, vault.writeFile]);
 
   useEffect(() => {
     loadAll();

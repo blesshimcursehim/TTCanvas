@@ -132,10 +132,28 @@ function parseWorkspace(raw: unknown): WorkspaceState {
   return { ...DEFAULT_WS };
 }
 
+// The NPC Generator/Library merge moved the Generator's draft from its own `npc-generator`
+// singleton into NPC Library's own `generatorDraft` field. A workspace saved before that merge
+// has its draft (campaign-context system prompt, locks, in-progress fields) only under the old
+// key, which the merged UI never reads - so without this, that draft would be stranded the
+// moment the old (now-hidden) standalone Generator widget is closed. Runs once, here, because
+// this is the only place both keys are visible together - each widget's own `parseState` only
+// ever sees its own slice. Same "singleton state, falling back to a widget instance" read used
+// throughout src/singletonState.ts, since a pre-singleton workspace may only have the instance.
+function migrateNpcGeneratorDraft(ws: WorkspaceState): WorkspaceState {
+  const ss = ws.singletonStates ?? {};
+  const library = ss["npc-library"] as { generatorDraft?: unknown } | undefined;
+  if (library?.generatorDraft !== undefined) return ws;
+  const oldDraft = ss["npc-generator"]
+    ?? Object.values(ws.layouts).flatMap((l) => l.widgets).find((w) => w.type === "npc-generator")?.state;
+  if (oldDraft === undefined) return ws;
+  return { ...ws, singletonStates: { ...ss, "npc-library": { ...library, generatorDraft: oldDraft } } };
+}
+
 // Both steps run on the *result* of parseWorkspace rather than inside its v2 branch, so they
 // cover the v1 path too - that branch returns early without ever reaching Zod.
 export function migrateWorkspace(raw: unknown): WorkspaceState {
-  return reconcileSessionTimer(stripRetiredWidgets(parseWorkspace(raw)));
+  return migrateNpcGeneratorDraft(reconcileSessionTimer(stripRetiredWidgets(parseWorkspace(raw))));
 }
 
 export interface LoadedWorkspace {

@@ -147,7 +147,10 @@ registerWidget({
   defaultSize: { width: 500, height: 480 },
   defaultState: { selectedFile: null, generatorDraft: createDefaultNpcGeneratorState() } satisfies NpcLibraryState,
   singleton: true,
-  minWidth: 320,
+  // The left (list) pane has a 160px CSS floor (NpcLibrary.module.css .left), and the embedded NPC
+  // Generator needs its own standalone minWidth (260) to lay out - below ~420 the right pane gets
+  // squeezed under the Generator's own minimum.
+  minWidth: 420,
   minHeight: 340,
   parseState: parseNpcLibraryState,
   component: NpcLibrary as WidgetComponent,
