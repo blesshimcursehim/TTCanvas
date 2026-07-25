@@ -20,7 +20,7 @@ import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { ModeToggle } from "../shared/ModeToggle";
 import { RouteResultButton } from "../shared/RouteResultButton";
-import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { dedupe, hashContent, readBundle, buildBundle, exportCollection, importFailure, type DedupeResult } from "../shared/importExport";
 import { copyPulledAssets, type PullAssets } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
 import { VaultPullControl } from "../shared/VaultPullControl";
@@ -289,13 +289,20 @@ export function CardDecks({ state, onChange }: Props) {
   async function applyImport(result: DedupeResult<Deck>, conflictMode: "skip" | "replace", pull?: PullAssets<Deck> | null) {
     setPendingImport(null);
     setPendingPull(null);
-    if (pull) await copyPulledAssets(pull, result, conflictMode, vault.readFileBase64, vault.writeFileBase64);
-    let nextDecks = decks;
-    if (conflictMode === "replace") {
-      const byId = new Map(result.idConflicts.map((d) => [d.id, d]));
-      nextDecks = nextDecks.map((d) => byId.get(d.id) ?? d);
+    try {
+      if (pull) await copyPulledAssets(pull, result, conflictMode, vault.readFileBase64, vault.writeFileBase64);
+      let nextDecks = decks;
+      if (conflictMode === "replace") {
+        const byId = new Map(result.idConflicts.map((d) => [d.id, d]));
+        nextDecks = nextDecks.map((d) => byId.get(d.id) ?? d);
+      }
+      onChange({ ...state, decks: [...nextDecks, ...result.clean] });
+    } catch (err) {
+      // Surface a failed apply - matters most on the conflict path, where Skip/Replace
+      // call this detached from the pull's own error handling (an unhandled rejection).
+      logError("Card Decks: import failed", err);
+      setImportError(importFailure(err));
     }
-    onChange({ ...state, decks: [...nextDecks, ...result.clean] });
   }
 
   // ── Derived (display-only; reconcile is pure, never written from render) ──

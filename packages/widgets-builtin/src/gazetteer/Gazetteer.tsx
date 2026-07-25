@@ -9,7 +9,7 @@ import { useVault, useNpcs, useMapPins, pushLocationScene, logWarn, logError, ty
 import { autoAccentColor, npcInitials } from "../npc-library/npcFormat";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { mimeForImageExt } from "../shared/mime";
-import { dedupe, exportCollection, readBundle, buildBundle, hashContent, type DedupeResult } from "../shared/importExport";
+import { dedupe, exportCollection, readBundle, buildBundle, hashContent, importFailure, type DedupeResult } from "../shared/importExport";
 import { copyPulledAssets, type PullAssets } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
 import { VaultPullControl } from "../shared/VaultPullControl";
@@ -268,23 +268,30 @@ export function Gazetteer({ state, onChange }: Props) {
     setPendingImport(null);
     setPendingPull(null);
     if (!vault.vaultPath) return;
-    if (pull) await copyPulledAssets(pull, result, mode, vault.readFileBase64, vault.writeFileBase64);
-    if (mode === "replace") {
-      for (const loc of result.idConflicts) {
-        const existing = locations.find((l) => l.id === loc.id);
-        if (existing) await vault.writeFile(existing.filename, serializeLocationJson({ ...loc, filename: existing.filename }));
+    try {
+      if (pull) await copyPulledAssets(pull, result, mode, vault.readFileBase64, vault.writeFileBase64);
+      if (mode === "replace") {
+        for (const loc of result.idConflicts) {
+          const existing = locations.find((l) => l.id === loc.id);
+          if (existing) await vault.writeFile(existing.filename, serializeLocationJson({ ...loc, filename: existing.filename }));
+        }
       }
+      const used = new Set(locations.map((l) => l.filename));
+      for (const loc of result.clean) {
+        let filename = nameToFilename(loc.name);
+        let suffix = 1;
+        const slug = slugFromFilename(filename);
+        while (used.has(filename)) filename = `locations/${slug}-${suffix++}.json`;
+        used.add(filename);
+        await vault.writeFile(filename, serializeLocationJson({ ...loc, filename }));
+      }
+      await loadAll();
+    } catch (err) {
+      // Surface a failed apply - matters most on the conflict path, where Skip/Replace
+      // call this detached from the pull's own error handling (an unhandled rejection).
+      logError("Gazetteer: import failed", err);
+      setImportError(importFailure(err));
     }
-    const used = new Set(locations.map((l) => l.filename));
-    for (const loc of result.clean) {
-      let filename = nameToFilename(loc.name);
-      let suffix = 1;
-      const slug = slugFromFilename(filename);
-      while (used.has(filename)) filename = `locations/${slug}-${suffix++}.json`;
-      used.add(filename);
-      await vault.writeFile(filename, serializeLocationJson({ ...loc, filename }));
-    }
-    await loadAll();
   }
 
   // ── Derived view data ──

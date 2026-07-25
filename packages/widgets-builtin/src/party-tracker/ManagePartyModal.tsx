@@ -7,14 +7,14 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { PartyMember, CustomField } from "./types";
-import { useVault } from "@ttcanvas/core";
+import { useVault, logError } from "@ttcanvas/core";
 import { portraitColor } from "./CharacterCard";
 import { CropModal } from "./CropModal";
 import { mimeForImageExt } from "../shared/mime";
 import { CollectionIO } from "../shared/CollectionIO";
 import { VaultPullControl } from "../shared/VaultPullControl";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
-import { dedupe, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { dedupe, readBundle, buildBundle, exportCollection, importFailure, type DedupeResult } from "../shared/importExport";
 import { copyPulledAssets, type PullAssets } from "../shared/crossVaultPull";
 import { validatePartyBundle, partyMemberContentKey } from "./partyImport";
 import styles from "./ManagePartyModal.module.css";
@@ -171,7 +171,15 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
     // copy them here for the accepted members so their portraitPath resolves; on a plain
     // file import the path resolves only if that file already exists in this vault,
     // otherwise the card falls back to its colour avatar.
-    if (pull) await copyPulledAssets(pull, result, mode, vault.readFileBase64, vault.writeFileBase64);
+    try {
+      if (pull) await copyPulledAssets(pull, result, mode, vault.readFileBase64, vault.writeFileBase64);
+    } catch (err) {
+      // Surface a failed asset copy - on the conflict path Skip/Replace call this
+      // detached from the pull's own error handling (an unhandled rejection).
+      logError("Party Tracker: import failed", err);
+      setImportError(importFailure(err));
+      return;
+    }
     let next = draft;
     if (mode === "replace") {
       const byId = new Map(result.idConflicts.map((m) => [m.id, m]));

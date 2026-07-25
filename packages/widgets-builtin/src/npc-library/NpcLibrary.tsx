@@ -19,7 +19,7 @@ import { mimeForImageExt } from "../shared/mime";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { NPCSheetModal } from "../shared/NPCSheetModal";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
-import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { dedupe, hashContent, readBundle, buildBundle, exportCollection, importFailure, type DedupeResult } from "../shared/importExport";
 import { copyPulledAssets, type PullAssets } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
 import { VaultPullControl } from "../shared/VaultPullControl";
@@ -470,10 +470,15 @@ export function NpcLibrary({ state, onChange }: Props) {
         usedFilenames.add(finalFilename);
         await vault.writeFile(finalFilename, serializeNpcJson({ ...npc, filename: finalFilename }));
       }
+      await loadAll();
+    } catch (err) {
+      // Surface a failed apply - matters most on the conflict path, where Skip/Replace
+      // call this detached from the pull's own error handling (an unhandled rejection).
+      logError("NPC Library: import failed", err);
+      setImportError(importFailure(err));
     } finally {
       setSaving(false);
     }
-    await loadAll();
   }
 
   const displayNpc = editing && draft ? draft : selectedNpc;

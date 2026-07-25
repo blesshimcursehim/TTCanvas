@@ -93,6 +93,15 @@ export async function exportCollection(
   return saveTextFile(JSON.stringify(payload, null, 2), filename);
 }
 
+/**
+ * A user-facing "Import failed - <reason>" message for a caught apply/import error.
+ * Kept here so every collection widget's import banner reads the same, whether the
+ * failure came from a file import or a cross-vault pull.
+ */
+export function importFailure(err: unknown): string {
+  return `Import failed - ${err instanceof Error ? err.message : String(err)}`;
+}
+
 /** Current export envelope version. Bumped only if the on-disk shape changes. */
 export const BUNDLE_VERSION = 1;
 
