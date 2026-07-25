@@ -681,6 +681,14 @@ describe("parseCampaignTimelineState", () => {
     expect(result.entries.map((e) => e.id)).toEqual(["e3"]);
   });
   it("returns default for null", () => {
-    expect(parseCampaignTimelineState(null)).toEqual({ entries: [] });
+    expect(parseCampaignTimelineState(null)).toEqual({ entries: [], sortDirection: "asc" });
+  });
+  it("passes through a valid sortDirection", () => {
+    const result = parseCampaignTimelineState({ entries: [], sortDirection: "desc" }) as { sortDirection: string };
+    expect(result.sortDirection).toBe("desc");
+  });
+  it("defaults sortDirection to asc when missing or invalid", () => {
+    expect((parseCampaignTimelineState({ entries: [] }) as { sortDirection: string }).sortDirection).toBe("asc");
+    expect((parseCampaignTimelineState({ entries: [], sortDirection: "sideways" }) as { sortDirection: string }).sortDirection).toBe("asc");
   });
 });

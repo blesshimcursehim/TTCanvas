@@ -198,7 +198,7 @@ registerWidget({
   icon: "timeline",
   category: "World",
   defaultSize: { width: 460, height: 520 },
-  defaultState: { entries: [] } satisfies CampaignTimelineState,
+  defaultState: { entries: [], sortDirection: "asc" } satisfies CampaignTimelineState,
   singleton: true,
   minWidth: 320,
   minHeight: 300,

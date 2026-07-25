@@ -19,6 +19,9 @@ export interface TimelineEntry {
 
 export interface CampaignTimelineState {
   entries: TimelineEntry[];
+  /** Newest-first vs the default oldest-first. Persisted since a GM's preference here rarely
+   * changes campaign to campaign, unlike the ephemeral timeline/grouped view toggle. */
+  sortDirection?: "asc" | "desc";
 }
 
 export type CategoryPreset = "plot" | "foreshadow" | "recap" | "lore" | "other";

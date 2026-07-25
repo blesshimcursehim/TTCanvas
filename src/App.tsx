@@ -480,6 +480,11 @@ function App() {
   const widgetsRef = useRef(widgets);
   useEffect(() => { widgetsRef.current = widgets; });
 
+  // Same stability trick as widgetsRef: revealWidget reads this instead of `disabledWidgetTypes`
+  // so its own deps don't change.
+  const disabledWidgetTypesRef = useRef(disabledWidgetTypes);
+  useEffect(() => { disabledWidgetTypesRef.current = disabledWidgetTypes; });
+
   const removeWidget = useCallback((id: string) => {
     const widget = widgetsRef.current.find((w) => w.id === id);
     const def = widget ? getWidget(widget.type) : undefined;
@@ -949,6 +954,7 @@ function App() {
   // Shared by every "open X" handler and by startCombat so acting on an entity always surfaces its
   // widget. Stable (widgetsRef, not `widgets`) so it can be composed into context values - see addWidget.
   const revealWidget = useCallback((type: string) => {
+    if (disabledWidgetTypesRef.current.includes(type)) return;
     const existing = widgetsRef.current.find((w) => w.type === type);
     if (existing) {
       if (existing.hidden) updateWidget(existing.id, { hidden: false });
@@ -1431,6 +1437,7 @@ function App() {
           {!peek && paletteOpen && (
             <CommandPalette
               openTypes={openTypes}
+              disabledWidgetTypes={disabledWidgetTypes}
               onAdd={addWidget}
               onFocus={focusByType}
               onOpenNpc={handleOpenNpc}
