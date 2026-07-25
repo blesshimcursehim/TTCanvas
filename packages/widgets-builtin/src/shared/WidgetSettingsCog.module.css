@@ -32,11 +32,16 @@
 }
 
 /* Popover panel - promoted to the top layer, so it clears the canvas transform.
- * Mirrors the frame's .helpPopover centering. */
+ * WidgetSettingsCog positions it under the cog button in JS on open; the `inset:auto`
+ * plus the fallback top/left here just keep it sane in the frame before that runs. */
 .panel {
-  width: min(320px, calc(100vw - 32px));
+  position: fixed;
+  inset: auto;
+  top: 12px;
+  left: 12px;
+  width: min(320px, calc(100vw - 16px));
   max-height: min(70vh, calc(100vh - 32px));
-  margin: auto;
+  margin: 0;
   padding: 14px 16px;
   overflow: auto;
   border: 1px solid var(--line);

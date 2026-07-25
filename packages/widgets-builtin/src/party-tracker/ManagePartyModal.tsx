@@ -378,7 +378,7 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
         <div className={styles.addRow}>
           <button className={styles.addBtn} onClick={add}>+ Add member</button>
           <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={draft.length === 0} onError={setImportError} />
-          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
+          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} flush />
         </div>
         {importError && (
           <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>

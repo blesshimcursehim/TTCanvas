@@ -181,6 +181,11 @@ All notable changes are documented here.
   round, and the lair-action reminder). These are things you set once and forget, so moving them out of
   the widget body keeps it focused on what you actually touch during play. Nothing changed about what
   they do.
+- **The settings-cog panel now opens next to the gear, not in the middle of the screen.** Clicking a
+  widget's settings cog used to pop its panel up centred over the canvas, away from the button you just
+  pressed. It now opens anchored just under the gear (flipping above it near the bottom edge), so the
+  controls appear where you're looking. The Pull-from-another-vault control in that panel also got a
+  tidy-up: it sits on its own line under a divider, with a clearer, labelled Pull button.
 
 ### Fixes
 

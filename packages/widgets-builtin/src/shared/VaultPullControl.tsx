@@ -20,6 +20,12 @@ interface Props {
   onPull: (vaultPath: string) => Promise<boolean>;
   /** Reports a failed pull, mirroring CollectionIO's onError. */
   onError?: (message: string) => void;
+  /**
+   * Inline use (e.g. Party Tracker's manage-modal row): drop the cog-section divider
+   * and top spacing so the control sits flush in a horizontal button row. Defaults to
+   * the cog layout (a divider above it), which is where six of the seven widgets use it.
+   */
+  flush?: boolean;
 }
 
 function failureMessage(err: unknown): string {
@@ -33,14 +39,16 @@ function failureMessage(err: unknown): string {
  * it through the same import path as a file (dedupe, conflict dialog, apply), so
  * pulling behaves exactly like importing a file the widget itself exported.
  */
-export function VaultPullControl({ otherVaults, onPull, onError }: Props) {
+export function VaultPullControl({ otherVaults, onPull, onError, flush }: Props) {
   const [selected, setSelected] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
+  const groupClass = flush ? styles.group : `${styles.group} ${styles.section}`;
+
   if (otherVaults.length === 0) {
     return (
-      <span className={styles.group}>
+      <span className={groupClass}>
         <span className={styles.hint}>Open another vault to pull from it</span>
       </span>
     );
@@ -67,7 +75,7 @@ export function VaultPullControl({ otherVaults, onPull, onError }: Props) {
   }
 
   return (
-    <span className={styles.group}>
+    <span className={groupClass}>
       <label className={styles.label}>
         Pull from
         <select
@@ -84,7 +92,19 @@ export function VaultPullControl({ otherVaults, onPull, onError }: Props) {
           ))}
         </select>
       </label>
-      <button type="button" className={styles.btn} onClick={handlePull} disabled={busy}>
+      <button
+        type="button"
+        className={styles.btn}
+        onClick={handlePull}
+        disabled={busy}
+        title="Pull this widget's content from another vault"
+      >
+        <svg
+          width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+        >
+          <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
+        </svg>
         {busy ? "Pulling…" : "Pull"}
       </button>
       {note && <span className={styles.note}>{note}</span>}

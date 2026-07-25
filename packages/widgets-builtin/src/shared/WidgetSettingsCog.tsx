@@ -4,7 +4,7 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useId, type ReactNode } from "react";
+import { useId, useRef, useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useWidgetChrome } from "@ttcanvas/core";
 import styles from "./WidgetSettingsCog.module.css";
@@ -29,9 +29,42 @@ interface Props {
 export function WidgetSettingsCog({ label = "Settings", children }: Props) {
   const popoverId = useId();
   const { headerSlot } = useWidgetChrome();
+  const cogRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // The panel is a top-layer popover, so it's positioned against the viewport - by
+  // default dead-centre. Anchor it just under the cog button instead (flipping above
+  // when the cog sits low on screen). CSS anchor positioning would be the native way,
+  // but it isn't in every WebView yet (WebKit), so we place it in JS on `beforetoggle`,
+  // which runs before the popover paints - so there's no visible jump.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    function place(e: Event) {
+      const cog = cogRef.current;
+      const p = panelRef.current;
+      if ((e as ToggleEvent).newState !== "open" || !cog || !p) return;
+      const r = cog.getBoundingClientRect();
+      const pad = 8;
+      const width = Math.min(320, window.innerWidth - 2 * pad);
+      // Right-align the panel to the cog, clamped inside the viewport.
+      p.style.left = `${Math.max(pad, Math.min(r.right - width, window.innerWidth - width - pad))}px`;
+      const spaceBelow = window.innerHeight - r.bottom;
+      if (spaceBelow >= 260 || spaceBelow >= r.top) {
+        p.style.top = `${r.bottom + 6}px`;
+        p.style.bottom = "auto";
+      } else {
+        p.style.bottom = `${window.innerHeight - r.top + 6}px`;
+        p.style.top = "auto";
+      }
+    }
+    panel.addEventListener("beforetoggle", place);
+    return () => panel.removeEventListener("beforetoggle", place);
+  }, []);
 
   const cogButton = (
     <button
+      ref={cogRef}
       type="button"
       className={styles.cog}
       popoverTarget={popoverId}
@@ -60,7 +93,7 @@ export function WidgetSettingsCog({ label = "Settings", children }: Props) {
   return (
     <>
       {headerSlot && createPortal(cogButton, headerSlot)}
-      <div id={popoverId} popover="auto" className={styles.panel}>
+      <div ref={panelRef} id={popoverId} popover="auto" className={styles.panel}>
         {children}
       </div>
     </>
