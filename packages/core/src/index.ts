@@ -6,7 +6,7 @@
 
 export * from "./types";
 export { VaultContext, useVault } from "./VaultContext";
-export type { VaultContextValue } from "./VaultContext";
+export type { VaultContextValue, OtherVault } from "./VaultContext";
 export { PartyContext, useParty } from "./PartyContext";
 export type { PartyContextValue, SharedPartyMember, PartyMemberPatch } from "./PartyContext";
 export { BestiaryContext, useBestiary } from "./BestiaryContext";

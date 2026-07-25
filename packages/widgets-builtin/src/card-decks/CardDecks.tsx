@@ -21,7 +21,9 @@ import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { ModeToggle } from "../shared/ModeToggle";
 import { RouteResultButton } from "../shared/RouteResultButton";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { copyVaultAssets } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
 import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import { mimeForImageExt } from "../shared/mime";
 import styles from "./CardDecks.module.css";
@@ -247,6 +249,25 @@ export function CardDecks({ state, onChange }: Props) {
       setImportError("Failed to read import file.");
       return;
     }
+    handleImportText(text);
+  }
+
+  // Pull decks from another vault: copy their card art across (imagePath is uuid-based,
+  // so the path stays valid), then merge through the same import path as a file.
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    const foreign = (await vault.readForeignSingleton(sourceVault, "card-decks")) as
+      | CardDecksState
+      | undefined;
+    if (!foreign?.decks?.length) return false;
+    const artPaths = foreign.decks.flatMap((d) => d.cards.flatMap((c) => (c.imagePath ? [c.imagePath] : [])));
+    await copyVaultAssets(sourceVault, artPaths, vault.readFileBase64, vault.writeFileBase64);
+    handleImportText(JSON.stringify(buildBundle("ttcanvas-card-decks", { decks: foreign.decks })));
+    return true;
+  }
+
+  function handleImportText(text: string) {
+    setImportError(null);
     const incoming = readBundle(text, "ttcanvas-card-decks", validateCardDecksBundle);
     if (!incoming) {
       setImportError("Not a valid Card Decks file.");
@@ -318,6 +339,7 @@ export function CardDecks({ state, onChange }: Props) {
         </div>
         <WidgetSettingsCog>
           <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={decks.length === 0} onError={setImportError} />
+          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
           {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
         </WidgetSettingsCog>
       </div>

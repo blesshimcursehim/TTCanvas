@@ -30,6 +30,8 @@ function makeMockVault(overrides: Partial<VaultContextValue> = {}): VaultContext
   return {
     vaultPath: "/fake/vault",
     vaultVersion: 1,
+    otherVaults: [],
+    readForeignSingleton: vi.fn().mockResolvedValue(undefined),
     openVault: vi.fn().mockResolvedValue(undefined),
     readFile: vi.fn().mockResolvedValue(""),
     writeFile: vi.fn().mockResolvedValue(undefined),

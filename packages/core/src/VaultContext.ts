@@ -6,10 +6,31 @@
 
 import { createContext, useContext } from "react";
 
+/** A vault the user could pull content from, other than the one currently open. */
+export interface OtherVault {
+  /** Absolute path to the vault folder. */
+  path: string;
+  /** Display name (the folder's basename). */
+  name: string;
+}
+
 export interface VaultContextValue {
   vaultPath: string | null;
   /** Increments whenever vault files change - use as useEffect dependency to re-load. */
   vaultVersion: number;
+  /**
+   * Other known vaults (recent, minus the one open now) offered as pull sources by
+   * the per-widget "Pull from" control. Capped by the recent-vaults list, so this is
+   * "recent", not every vault ever opened.
+   */
+  otherVaults: OtherVault[];
+  /**
+   * Read one widget type's singleton state from another vault's workspace.json,
+   * for cross-vault pull. Returns undefined when that vault has no state for the
+   * type. The foreign workspace is validated/migrated on the way in, same as loading
+   * a vault normally.
+   */
+  readForeignSingleton: (vaultPath: string, widgetType: string) => Promise<unknown>;
   openVault: () => Promise<void>;
   readFile: (relativePath: string) => Promise<string>;
   writeFile: (relativePath: string, content: string) => Promise<void>;

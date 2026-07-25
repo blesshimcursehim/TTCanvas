@@ -1302,7 +1302,7 @@ function App() {
   }
 
   return (
-    <VaultProvider vaultPath={vaultPath} onVaultPathChange={handleVaultChange}>
+    <VaultProvider vaultPath={vaultPath} recentVaults={appConfig.recentVaults} onVaultPathChange={handleVaultChange}>
       <NpcProvider>
       <GazetteerProvider>
       <MapPinsContext.Provider value={mapPinsContextValue}>

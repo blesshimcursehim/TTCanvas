@@ -10,7 +10,9 @@ import { autoAccentColor, npcInitials } from "../npc-library/npcFormat";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { mimeForImageExt } from "../shared/mime";
 import { dedupe, exportCollection, readBundle, buildBundle, hashContent, type DedupeResult } from "../shared/importExport";
+import { copyVaultAssets } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
 import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import { ConfirmDeleteButton as SharedConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
@@ -221,6 +223,31 @@ export function Gazetteer({ state, onChange }: Props) {
       setImportError("Could not read that file.");
       return;
     }
+    await handleImportText(text);
+  }
+
+  // Pull places from another vault: read its locations/*.json, copy the images they
+  // reference, then merge through the same import path as a file (one json per place).
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    const files = (await vault.listFolderFiles(sourceVault, "json")).filter((f) => f.startsWith("locations/"));
+    const foreign: GazetteerLocation[] = [];
+    for (const f of files) {
+      try {
+        foreign.push(parseLocationJson(f, await vault.readFolderFile(sourceVault, f)));
+      } catch (err) {
+        logWarn(`Gazetteer: skipping unreadable place "${f}" during pull`, err);
+      }
+    }
+    if (foreign.length === 0) return false;
+    const imgs = foreign.flatMap((l) => (l.imagePath ? [l.imagePath] : []));
+    await copyVaultAssets(sourceVault, imgs, vault.readFileBase64, vault.writeFileBase64);
+    await handleImportText(JSON.stringify(buildBundle("ttcanvas-gazetteer", { items: foreign })));
+    return true;
+  }
+
+  async function handleImportText(text: string) {
+    setImportError(null);
     const incoming = readBundle(text, "ttcanvas-gazetteer", validateGazetteerBundle);
     if (!incoming) { setImportError("That is not a Gazetteer export."); return; }
     const result = dedupe(incoming, locations, { idOf: (l) => l.id, contentKeyOf: locationContentKey });
@@ -308,6 +335,7 @@ export function Gazetteer({ state, onChange }: Props) {
         </div>
         <WidgetSettingsCog>
           <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={locations.length === 0} onError={setImportError} />
+          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
           {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
         </WidgetSettingsCog>
       </div>

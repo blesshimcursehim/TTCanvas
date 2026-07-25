@@ -10,7 +10,9 @@ import type { RuleCard, RuleCardsState } from "./types";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { pullSingletonBundle } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
 import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./RuleCards.module.css";
 
@@ -143,6 +145,28 @@ export function RuleCards({ state, onChange }: Props) {
       setImportError("Failed to read import file.");
       return;
     }
+    handleImportText(text);
+  }
+
+  // Pull cards from another vault through the same import path as a file.
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    return pullSingletonBundle(
+      vault.readForeignSingleton,
+      sourceVault,
+      "rule-cards",
+      "ttcanvas-rule-cards",
+      (foreign) => {
+        const s = foreign as RuleCardsState | undefined;
+        if (!s?.cards?.length) return null;
+        return { cards: s.cards };
+      },
+      handleImportText,
+    );
+  }
+
+  function handleImportText(text: string) {
+    setImportError(null);
     const incoming = readBundle(text, "ttcanvas-rule-cards", validateRuleCardsBundle);
     if (!incoming) {
       setImportError("Not a valid Rule Cards file.");
@@ -214,6 +238,7 @@ export function RuleCards({ state, onChange }: Props) {
         </div>
         <WidgetSettingsCog>
           <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={cards.length === 0} onError={setImportError} />
+          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
           {importError && (
             <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
           )}

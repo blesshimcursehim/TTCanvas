@@ -6,6 +6,16 @@ All notable changes are documented here.
 
 ### Features
 
+- **Pull a widget's content from another vault.** If you run the same campaign for two groups, you keep
+  two vaults, and there was no way to copy world data from one into the other without re-typing it.
+  Seven collection widgets - Bestiary, NPC Library, Gazetteer, Card Decks, Roll Tables, Rule Cards and
+  Party Tracker - now have a "Pull from <vault>" control in their settings cog (Party's is in its
+  Manage-party window). Pick another vault you've opened recently and it brings that widget's contents
+  in, reusing the same duplicate detection and conflict prompt as importing a file, so re-pulling never
+  makes duplicates. Referenced art comes across too: card art, character and NPC portraits, and place
+  images. It's entirely local - nothing leaves your machine, and each vault stays a self-contained
+  folder you can still copy elsewhere. (Calendar sharing is not in yet.)
+
 - **Mods can write to the diagnostics log.** A mod widget now gets `window.ttcanvas.log`, with
   `info`, `warn` and `error`, going to the same local redacted log as everything else, so a mod's
   failures show up in Preferences → Diagnostics instead of vanishing. Crashes and uncaught errors

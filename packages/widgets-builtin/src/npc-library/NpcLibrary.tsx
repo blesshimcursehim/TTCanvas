@@ -20,7 +20,9 @@ import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { NPCSheetModal } from "../shared/NPCSheetModal";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { copyVaultAssets } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
 import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./NpcLibrary.module.css";
 
@@ -405,6 +407,34 @@ export function NpcLibrary({ state, onChange }: Props) {
       setImportError("Failed to read import file.");
       return;
     }
+    await handleImportText(text);
+  }
+
+  // Pull NPCs from another vault: read its npcs/*.json, copy the portraits they
+  // reference (paths are npc-id-based, so they stay valid), then merge through the
+  // same import path as a file - which writes one json file per NPC into this vault.
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    const files = (await vault.listFolderFiles(sourceVault, "json")).filter((f) => f.startsWith("npcs/"));
+    const foreignNpcs: ParsedNpc[] = [];
+    for (const f of files) {
+      try {
+        foreignNpcs.push(parseNpcJson(f, await vault.readFolderFile(sourceVault, f)));
+      } catch (err) {
+        logWarn(`NPC Library: skipping unreadable NPC "${f}" during pull`, err);
+      }
+    }
+    if (foreignNpcs.length === 0) return false;
+    const portraits = foreignNpcs.flatMap((n) =>
+      [n.portrait, n.portraitFull].filter((p): p is string => !!p),
+    );
+    await copyVaultAssets(sourceVault, portraits, vault.readFileBase64, vault.writeFileBase64);
+    await handleImportText(JSON.stringify(buildBundle("ttcanvas-npc-library", { npcs: foreignNpcs })));
+    return true;
+  }
+
+  async function handleImportText(text: string) {
+    setImportError(null);
     const incoming = readBundle(text, "ttcanvas-npc-library", validateNpcBundle);
     if (!incoming) {
       setImportError("Not a valid NPC library file.");
@@ -517,6 +547,7 @@ export function NpcLibrary({ state, onChange }: Props) {
         </div>
         <WidgetSettingsCog>
           <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={npcs.length === 0} onError={setImportError} />
+          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
           {importError && (
             <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
           )}

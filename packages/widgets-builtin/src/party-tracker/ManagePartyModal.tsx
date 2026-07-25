@@ -12,8 +12,10 @@ import { portraitColor } from "./CharacterCard";
 import { CropModal } from "./CropModal";
 import { mimeForImageExt } from "../shared/mime";
 import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { dedupe, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { copyVaultAssets } from "../shared/crossVaultPull";
 import { validatePartyBundle, partyMemberContentKey } from "./partyImport";
 import styles from "./ManagePartyModal.module.css";
 
@@ -120,6 +122,27 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
       setImportError("Failed to read import file.");
       return;
     }
+    handleImportText(text);
+  }
+
+  // Pull party members from another vault: copy their portrait files across (paths are
+  // member-id-based, so they stay valid), then merge through the file import path.
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    const foreign = (await vault.readForeignSingleton(sourceVault, "party-tracker")) as
+      | { members?: PartyMember[] }
+      | undefined;
+    if (!foreign?.members?.length) return false;
+    const portraits = foreign.members.flatMap((m) =>
+      [m.portraitPath, m.portraitFullPath].filter((p): p is string => !!p),
+    );
+    await copyVaultAssets(sourceVault, portraits, vault.readFileBase64, vault.writeFileBase64);
+    handleImportText(JSON.stringify(buildBundle("ttcanvas-party", { members: foreign.members })));
+    return true;
+  }
+
+  function handleImportText(text: string) {
+    setImportError(null);
     const incoming = readBundle(text, "ttcanvas-party", validatePartyBundle);
     if (!incoming) {
       setImportError("Not a valid party file.");
@@ -345,6 +368,7 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
         <div className={styles.addRow}>
           <button className={styles.addBtn} onClick={add}>+ Add member</button>
           <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={draft.length === 0} onError={setImportError} />
+          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
         </div>
         {importError && (
           <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
