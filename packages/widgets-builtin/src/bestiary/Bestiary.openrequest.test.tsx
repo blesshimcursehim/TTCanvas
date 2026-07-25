@@ -13,7 +13,7 @@ import type { VaultContextValue } from "@ttcanvas/core";
 import { Bestiary } from "./Bestiary";
 import type { BestiaryEntry, BestiaryState } from "./types";
 
-const vault = { vaultPath: "/v", vaultVersion: 1 } as unknown as VaultContextValue;
+const vault = { vaultPath: "/v", vaultVersion: 1, otherVaults: [] } as unknown as VaultContextValue;
 
 const goblin: BestiaryEntry = {
   id: "g1", name: "Goblin", creatureType: "humanoid", tags: [], cr: "1/4", hp: 7, ac: 15,

@@ -9,8 +9,10 @@ import { useVault, useNpcs, useMapPins, pushLocationScene, logWarn, logError, ty
 import { autoAccentColor, npcInitials } from "../npc-library/npcFormat";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { mimeForImageExt } from "../shared/mime";
-import { dedupe, exportCollection, readBundle, buildBundle, hashContent, type DedupeResult } from "../shared/importExport";
+import { dedupe, exportCollection, readBundle, buildBundle, hashContent, importFailure, type DedupeResult } from "../shared/importExport";
+import { copyPulledAssets, type PullAssets } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
 import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import { ConfirmDeleteButton as SharedConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
@@ -55,6 +57,9 @@ export function Gazetteer({ state, onChange }: Props) {
   const [linkQuery, setLinkQuery] = useState("");
   const [images, setImages] = useState<Record<string, string>>({});
   const [pendingImport, setPendingImport] = useState<DedupeResult<GazetteerLocation> | null>(null);
+  // Held with pendingImport so the conflict dialog copies images only for the places the
+  // user accepts; null for a plain file import (no cross-vault assets to copy).
+  const [pendingPull, setPendingPull] = useState<PullAssets<GazetteerLocation> | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
   // ── Load places (NPC names for link labels and the picker come from useNpcs) ──
@@ -221,32 +226,72 @@ export function Gazetteer({ state, onChange }: Props) {
       setImportError("Could not read that file.");
       return;
     }
+    await handleImportText(text);
+  }
+
+  // Pull places from another vault: read its locations/*.json, then merge through the
+  // same import path as a file (one json per place). Images are copied by applyImport for
+  // the accepted places only, so a skipped/cancelled conflict never clobbers current art.
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    const files = (await vault.listFolderFiles(sourceVault, "json")).filter((f) => f.startsWith("locations/"));
+    const foreign: GazetteerLocation[] = [];
+    for (const f of files) {
+      try {
+        foreign.push(parseLocationJson(f, await vault.readFolderFile(sourceVault, f)));
+      } catch (err) {
+        logWarn(`Gazetteer: skipping unreadable place "${f}" during pull`, err);
+      }
+    }
+    if (foreign.length === 0) return false;
+    await handleImportText(JSON.stringify(buildBundle("ttcanvas-gazetteer", { items: foreign })), {
+      sourceVault,
+      assetsOf: (l) => [l.imagePath],
+    });
+    return true;
+  }
+
+  async function handleImportText(text: string, pull?: PullAssets<GazetteerLocation>) {
+    setImportError(null);
     const incoming = readBundle(text, "ttcanvas-gazetteer", validateGazetteerBundle);
     if (!incoming) { setImportError("That is not a Gazetteer export."); return; }
     const result = dedupe(incoming, locations, { idOf: (l) => l.id, contentKeyOf: locationContentKey });
-    if (result.idConflicts.length || result.contentDuplicates.length) setPendingImport(result);
-    else await applyImport(result, "skip");
+    if (result.idConflicts.length || result.contentDuplicates.length) {
+      setPendingImport(result);
+      setPendingPull(pull ?? null);
+    } else {
+      await applyImport(result, "skip", pull);
+    }
   }
 
-  async function applyImport(result: DedupeResult<GazetteerLocation>, mode: "skip" | "replace") {
+  async function applyImport(result: DedupeResult<GazetteerLocation>, mode: "skip" | "replace", pull?: PullAssets<GazetteerLocation> | null) {
     setPendingImport(null);
+    setPendingPull(null);
     if (!vault.vaultPath) return;
-    if (mode === "replace") {
-      for (const loc of result.idConflicts) {
-        const existing = locations.find((l) => l.id === loc.id);
-        if (existing) await vault.writeFile(existing.filename, serializeLocationJson({ ...loc, filename: existing.filename }));
+    try {
+      if (pull) await copyPulledAssets(pull, result, mode, vault.readFileBase64, vault.writeFileBase64);
+      if (mode === "replace") {
+        for (const loc of result.idConflicts) {
+          const existing = locations.find((l) => l.id === loc.id);
+          if (existing) await vault.writeFile(existing.filename, serializeLocationJson({ ...loc, filename: existing.filename }));
+        }
       }
+      const used = new Set(locations.map((l) => l.filename));
+      for (const loc of result.clean) {
+        let filename = nameToFilename(loc.name);
+        let suffix = 1;
+        const slug = slugFromFilename(filename);
+        while (used.has(filename)) filename = `locations/${slug}-${suffix++}.json`;
+        used.add(filename);
+        await vault.writeFile(filename, serializeLocationJson({ ...loc, filename }));
+      }
+      await loadAll();
+    } catch (err) {
+      // Surface a failed apply - matters most on the conflict path, where Skip/Replace
+      // call this detached from the pull's own error handling (an unhandled rejection).
+      logError("Gazetteer: import failed", err);
+      setImportError(importFailure(err));
     }
-    const used = new Set(locations.map((l) => l.filename));
-    for (const loc of result.clean) {
-      let filename = nameToFilename(loc.name);
-      let suffix = 1;
-      const slug = slugFromFilename(filename);
-      while (used.has(filename)) filename = `locations/${slug}-${suffix++}.json`;
-      used.add(filename);
-      await vault.writeFile(filename, serializeLocationJson({ ...loc, filename }));
-    }
-    await loadAll();
   }
 
   // ── Derived view data ──
@@ -308,6 +353,7 @@ export function Gazetteer({ state, onChange }: Props) {
         </div>
         <WidgetSettingsCog>
           <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={locations.length === 0} onError={setImportError} />
+          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
           {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
         </WidgetSettingsCog>
       </div>
@@ -484,9 +530,9 @@ export function Gazetteer({ state, onChange }: Props) {
           totalCount={pendingImport.idConflicts.length + pendingImport.contentDuplicates.length + pendingImport.clean.length}
           idConflicts={pendingImport.idConflicts.map((l) => ({ id: l.id, label: l.name }))}
           contentDuplicates={pendingImport.contentDuplicates.map((l) => ({ id: l.id, label: l.name }))}
-          onCancel={() => setPendingImport(null)}
-          onSkip={() => applyImport(pendingImport, "skip")}
-          onReplace={() => applyImport(pendingImport, "replace")}
+          onCancel={() => { setPendingImport(null); setPendingPull(null); }}
+          onSkip={() => applyImport(pendingImport, "skip", pendingPull)}
+          onReplace={() => applyImport(pendingImport, "replace", pendingPull)}
         />
       )}
     </div>

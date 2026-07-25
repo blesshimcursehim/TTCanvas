@@ -25,6 +25,7 @@ const FILES: Record<string, string> = {
 const vault = {
   vaultPath: "/v",
   vaultVersion: 1,
+  otherVaults: [],
   listFiles: async (ext: string) => (ext === "json" ? Object.keys(FILES) : []),
   readFile: async (p: string) => FILES[p],
   readFileBase64: async () => "BASE64",

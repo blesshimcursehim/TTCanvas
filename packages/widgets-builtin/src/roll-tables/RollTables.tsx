@@ -13,7 +13,9 @@ import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { ModeToggle } from "../shared/ModeToggle";
 import { RouteResultButton } from "../shared/RouteResultButton";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { pullSingletonBundle } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
 import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./RollTables.module.css";
 
@@ -237,6 +239,28 @@ export function RollTables({ state, onChange }: Props) {
       setImportError("Failed to read import file.");
       return;
     }
+    handleImportText(text);
+  }
+
+  // Pull tables from another vault through the same import path as a file.
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    return pullSingletonBundle(
+      vault.readForeignSingleton,
+      sourceVault,
+      "roll-tables",
+      "ttcanvas-roll-tables",
+      (foreign) => {
+        const s = foreign as RollTablesState | undefined;
+        if (!s?.tables?.length) return null;
+        return { tables: s.tables };
+      },
+      handleImportText,
+    );
+  }
+
+  function handleImportText(text: string) {
+    setImportError(null);
     const incoming = readBundle(text, "ttcanvas-roll-tables", validateRollTablesBundle);
     if (!incoming) {
       setImportError("Not a valid Roll Tables file.");
@@ -318,6 +342,7 @@ export function RollTables({ state, onChange }: Props) {
         </div>
         <WidgetSettingsCog>
           <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={tables.length === 0} onError={setImportError} />
+          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
           {importError && (
             <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
           )}

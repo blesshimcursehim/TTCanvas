@@ -6,6 +6,16 @@ All notable changes are documented here.
 
 ### Features
 
+- **Pull a widget's content from another vault.** If you run the same campaign for two groups, you keep
+  two vaults, and there was no way to copy world data from one into the other without re-typing it.
+  Seven collection widgets - Bestiary, NPC Library, Gazetteer, Card Decks, Roll Tables, Rule Cards and
+  Party Tracker - now have a "Pull from <vault>" control in their settings cog (Party's is in its
+  Manage-party window). Pick another vault you've opened recently and it brings that widget's contents
+  in, reusing the same duplicate detection and conflict prompt as importing a file, so re-pulling never
+  makes duplicates. Referenced art comes across too: card art, character and NPC portraits, and place
+  images. It's entirely local - nothing leaves your machine, and each vault stays a self-contained
+  folder you can still copy elsewhere. (Calendar sharing is not in yet.)
+
 - **Mods can write to the diagnostics log.** A mod widget now gets `window.ttcanvas.log`, with
   `info`, `warn` and `error`, going to the same local redacted log as everything else, so a mod's
   failures show up in Preferences → Diagnostics instead of vanishing. Crashes and uncaught errors
@@ -171,6 +181,11 @@ All notable changes are documented here.
   round, and the lair-action reminder). These are things you set once and forget, so moving them out of
   the widget body keeps it focused on what you actually touch during play. Nothing changed about what
   they do.
+- **The settings-cog panel now opens next to the gear, not in the middle of the screen.** Clicking a
+  widget's settings cog used to pop its panel up centred over the canvas, away from the button you just
+  pressed. It now opens anchored just under the gear (flipping above it near the bottom edge), so the
+  controls appear where you're looking. The Pull-from-another-vault control in that panel also got a
+  tidy-up: it sits on its own line under a divider, with a clearer, labelled Pull button.
 
 ### Fixes
 

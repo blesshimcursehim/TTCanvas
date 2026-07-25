@@ -7,13 +7,15 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { PartyMember, CustomField } from "./types";
-import { useVault } from "@ttcanvas/core";
+import { useVault, logError } from "@ttcanvas/core";
 import { portraitColor } from "./CharacterCard";
 import { CropModal } from "./CropModal";
 import { mimeForImageExt } from "../shared/mime";
 import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
-import { dedupe, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { dedupe, readBundle, buildBundle, exportCollection, importFailure, type DedupeResult } from "../shared/importExport";
+import { copyPulledAssets, type PullAssets } from "../shared/crossVaultPull";
 import { validatePartyBundle, partyMemberContentKey } from "./partyImport";
 import styles from "./ManagePartyModal.module.css";
 
@@ -103,6 +105,9 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
   const [draft, setDraft] = useState<PartyMember[]>(members);
   const [cropState, setCropState] = useState<{ dataUrl: string; memberId: string } | null>(null);
   const [pendingImport, setPendingImport] = useState<DedupeResult<PartyMember> | null>(null);
+  // Held with pendingImport so the conflict dialog copies portraits only for the members
+  // the user accepts; null for a plain file import (no cross-vault assets to copy).
+  const [pendingPull, setPendingPull] = useState<PullAssets<PartyMember> | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const vault = useVault();
 
@@ -120,6 +125,27 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
       setImportError("Failed to read import file.");
       return;
     }
+    handleImportText(text);
+  }
+
+  // Pull party members from another vault: merge through the file import path. Portraits
+  // (paths are member-id-based, so they stay valid) are copied by applyImport for the
+  // accepted members only, so a skipped/cancelled conflict never clobbers current art.
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    const foreign = (await vault.readForeignSingleton(sourceVault, "party-tracker")) as
+      | { members?: PartyMember[] }
+      | undefined;
+    if (!foreign?.members?.length) return false;
+    await handleImportText(JSON.stringify(buildBundle("ttcanvas-party", { members: foreign.members })), {
+      sourceVault,
+      assetsOf: (m) => [m.portraitPath, m.portraitFullPath],
+    });
+    return true;
+  }
+
+  async function handleImportText(text: string, pull?: PullAssets<PartyMember>) {
+    setImportError(null);
     const incoming = readBundle(text, "ttcanvas-party", validatePartyBundle);
     if (!incoming) {
       setImportError("Not a valid party file.");
@@ -130,15 +156,30 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
       return;
     }
     const result = dedupe(incoming, draft, { idOf: (m) => m.id, contentKeyOf: partyMemberContentKey });
-    if (result.idConflicts.length > 0 || result.contentDuplicates.length > 0) setPendingImport(result);
-    else applyImport(result, "skip");
+    if (result.idConflicts.length > 0 || result.contentDuplicates.length > 0) {
+      setPendingImport(result);
+      setPendingPull(pull ?? null);
+    } else {
+      await applyImport(result, "skip", pull);
+    }
   }
 
-  function applyImport(result: DedupeResult<PartyMember>, mode: "skip" | "replace") {
+  async function applyImport(result: DedupeResult<PartyMember>, mode: "skip" | "replace", pull?: PullAssets<PartyMember> | null) {
     setPendingImport(null);
-    // Portraits are vault files, not part of the JSON export: an imported
-    // member's portraitPath resolves only if that file already exists in this
-    // vault, otherwise the card falls back to its colour avatar.
+    setPendingPull(null);
+    // Portraits are vault files, not part of the JSON export. On a cross-vault pull we
+    // copy them here for the accepted members so their portraitPath resolves; on a plain
+    // file import the path resolves only if that file already exists in this vault,
+    // otherwise the card falls back to its colour avatar.
+    try {
+      if (pull) await copyPulledAssets(pull, result, mode, vault.readFileBase64, vault.writeFileBase64);
+    } catch (err) {
+      // Surface a failed asset copy - on the conflict path Skip/Replace call this
+      // detached from the pull's own error handling (an unhandled rejection).
+      logError("Party Tracker: import failed", err);
+      setImportError(importFailure(err));
+      return;
+    }
     let next = draft;
     if (mode === "replace") {
       const byId = new Map(result.idConflicts.map((m) => [m.id, m]));
@@ -345,6 +386,7 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
         <div className={styles.addRow}>
           <button className={styles.addBtn} onClick={add}>+ Add member</button>
           <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={draft.length === 0} onError={setImportError} />
+          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} flush />
         </div>
         {importError && (
           <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
@@ -362,9 +404,9 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
             totalCount={pendingImport.idConflicts.length + pendingImport.contentDuplicates.length + pendingImport.clean.length}
             idConflicts={pendingImport.idConflicts.map((m) => ({ id: m.id, label: m.name }))}
             contentDuplicates={pendingImport.contentDuplicates.map((m) => ({ id: m.id, label: m.name }))}
-            onCancel={() => setPendingImport(null)}
-            onSkip={() => applyImport(pendingImport, "skip")}
-            onReplace={() => applyImport(pendingImport, "replace")}
+            onCancel={() => { setPendingImport(null); setPendingPull(null); }}
+            onSkip={() => applyImport(pendingImport, "skip", pendingPull)}
+            onReplace={() => applyImport(pendingImport, "replace", pendingPull)}
           />
         )}
       </div>

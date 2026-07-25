@@ -11,7 +11,9 @@ import { CreatureSheetModal } from "./CreatureSheetModal";
 import { setActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { pullSingletonBundle } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
 import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./Bestiary.module.css";
 
@@ -146,6 +148,29 @@ export function Bestiary({ state, onChange }: Props) {
       setImportError("Failed to read import file.");
       return;
     }
+    handleImportText(text);
+  }
+
+  // Pull this widget's content from another vault: rebuild the export bundle from the
+  // source vault's singleton state and run it through the same import path as a file.
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    return pullSingletonBundle(
+      vault.readForeignSingleton,
+      sourceVault,
+      "bestiary",
+      "ttcanvas-bestiary",
+      (foreign) => {
+        const s = foreign as BestiaryState | undefined;
+        if (!s?.entries?.length) return null;
+        return { entries: s.entries, folders: s.folders ?? [] };
+      },
+      handleImportText,
+    );
+  }
+
+  function handleImportText(text: string) {
+    setImportError(null);
     const parsed = readBundle(text, "ttcanvas-bestiary", validateCreatureBundle);
     if (!parsed) {
       setImportError("Not a valid creature file - missing entries array or invalid JSON.");
@@ -339,6 +364,7 @@ export function Bestiary({ state, onChange }: Props) {
 
       <WidgetSettingsCog>
         <CollectionIO onImportFile={handleImport} onExportAll={exportAll} exportDisabled={entries.length === 0} onError={setImportError} />
+        <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
         {importError && (
           <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
         )}
