@@ -5,6 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import type { AbilityScores, NamedEntry, SpellcastingBlock } from "@ttcanvas/core";
+import type { NpcGeneratorState } from "../npc-generator/types";
 
 // Lives in core so NpcContext can expose it; re-exported here for the widget's own importers.
 export type { NpcRelationship } from "@ttcanvas/core";
@@ -80,4 +81,7 @@ export interface ParsedNpc {
 
 export interface NpcLibraryState {
   selectedFile: string | null;
+  // The NPC Generator's absorbed draft (see packages/widgets-builtin/src/npc-generator) - nested
+  // rather than routed through a context, since it's workflow scratch state with no other reader.
+  generatorDraft: NpcGeneratorState;
 }

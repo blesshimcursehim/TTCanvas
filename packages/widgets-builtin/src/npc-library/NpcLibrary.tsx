@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useVault, useGazetteerLocations, pushCharacterScene, logWarn, logError, type GazetteerLocationRef } from "@ttcanvas/core";
 import { CropModal } from "../party-tracker/CropModal";
+import { NpcGenerator } from "../npc-generator/NpcGenerator";
 import type { NpcLibraryState, ParsedNpc, NpcRelationship } from "./types";
 import {
   parseNpcJson, parseLegacyMd, serializeNpcJson,
@@ -66,8 +67,6 @@ type RelFilter = "all" | NpcRelationship;
 const REL_LABELS: Record<NpcRelationship, string> = {
   ally: "Ally", neutral: "Neutral", wary: "Wary", hostile: "Hostile",
 };
-
-const EMPTY_ADD = { name: "", race: "", occupation: "" };
 
 function AvatarCircle({ npc, size = 36, onClick, onDragStart, onDragEnd }: {
   npc: ParsedNpc; size?: number;
@@ -134,7 +133,6 @@ export function NpcLibrary({ state, onChange }: Props) {
   const [search, setSearch] = useState("");
   const [relFilter, setRelFilter] = useState<RelFilter>("all");
   const [adding, setAdding] = useState(false);
-  const [addForm, setAddForm] = useState(EMPTY_ADD);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ParsedNpc | null>(null);
   // The id (not a bare boolean) the delete confirmation was armed for, so switching the
@@ -146,7 +144,7 @@ export function NpcLibrary({ state, onChange }: Props) {
   // the user can finish typing the next tag.
   const [tagsText, setTagsText] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [, setSaving] = useState(false);
   const [cropDataUrl, setCropDataUrl] = useState<string | null>(null);
   const [pendingImport, setPendingImport] = useState<DedupeResult<ParsedNpc> | null>(null);
   // Held with pendingImport so the conflict dialog copies portraits only for the NPCs
@@ -236,7 +234,7 @@ export function NpcLibrary({ state, onChange }: Props) {
     setEditing(false);
     setDraft(null);
     setAdding(false);
-    onChange({ selectedFile: npc.filename });
+    onChange({ ...state, selectedFile: npc.filename });
   }
 
   // filter tabs counts
@@ -298,38 +296,13 @@ export function NpcLibrary({ state, onChange }: Props) {
     });
   }
 
-  async function handleAdd() {
-    const name = addForm.name.trim();
-    if (!name) return;
-    const finalFilename = uniqueNpcFilename(name, npcs.map((n) => n.filename));
-
-    const npc: ParsedNpc = {
-      filename: finalFilename,
-      id: crypto.randomUUID(),
-      name,
-      race: addForm.race.trim(),
-      occupation: addForm.occupation.trim(),
-    };
-    setSaving(true);
-    try {
-      await vault.writeFile(finalFilename, serializeNpcJson(npc));
-      setNpcs((prev) => [...prev, npc].sort((a, b) => a.name.localeCompare(b.name)));
-      setSelectedId(npc.id);
-      onChange({ selectedFile: npc.filename });
-      setAdding(false);
-      setAddForm(EMPTY_ADD);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function handleDelete() {
     if (!selectedNpc) return;
     await vault.deleteFile(selectedNpc.filename);
     const remaining = npcs.filter((n) => n.id !== selectedNpc.id);
     setNpcs(remaining);
     setSelectedId(remaining[0]?.id ?? null);
-    onChange({ selectedFile: remaining[0]?.filename ?? null });
+    onChange({ ...state, selectedFile: remaining[0]?.filename ?? null });
     setEditing(false);
     setDraft(null);
     setConfirmDeleteId(null);
@@ -503,7 +476,7 @@ export function NpcLibrary({ state, onChange }: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button className={styles.addIconBtn} onClick={() => { setAdding(true); setAddForm(EMPTY_ADD); }} title="Add NPC">+</button>
+          <button className={styles.addIconBtn} onClick={() => setAdding(true)} title="Add NPC">+</button>
         </div>
 
         <div className={styles.filterTabs}>
@@ -569,22 +542,14 @@ export function NpcLibrary({ state, onChange }: Props) {
       <div className={styles.right}>
         {adding ? (
           <div className={styles.addForm}>
-            <div className={styles.addFormTitle}>New NPC</div>
-            <label className={styles.addLabel}>Name
-              <input className={styles.addInput} value={addForm.name} autoFocus onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }} />
-            </label>
-            <label className={styles.addLabel}>Race
-              <input className={styles.addInput} value={addForm.race} placeholder="e.g. Human" onChange={(e) => setAddForm((f) => ({ ...f, race: e.target.value }))} />
-            </label>
-            <label className={styles.addLabel}>Occupation
-              <input className={styles.addInput} value={addForm.occupation} placeholder="e.g. Guard" onChange={(e) => setAddForm((f) => ({ ...f, occupation: e.target.value }))} />
-            </label>
-            <div className={styles.addActions}>
+            <div className={styles.addFormTitle}>
+              New NPC
               <button className={styles.cancelBtn} onClick={() => setAdding(false)}>Cancel</button>
-              <button className={styles.saveBtn} onClick={handleAdd} disabled={saving || !addForm.name.trim()}>
-                {saving ? "Saving…" : "Create"}
-              </button>
             </div>
+            <NpcGenerator
+              state={state.generatorDraft}
+              onChange={(g) => onChange({ ...state, generatorDraft: g })}
+            />
           </div>
         ) : displayNpc ? (
           <div className={styles.detail}>

@@ -1125,7 +1125,10 @@ function App() {
   }
 
   const handleOpenNpc = useCallback((filename: string) => {
-    setSingletonStates((ss) => ({ ...ss, "npc-library": { selectedFile: filename } }));
+    setSingletonStates((ss) => ({
+      ...ss,
+      "npc-library": { ...(ss["npc-library"] as object | undefined ?? {}), selectedFile: filename },
+    }));
     revealWidget("npc-library");
   }, [revealWidget]);
 

@@ -345,32 +345,15 @@
 }
 .confirmNo:hover { background: var(--surface); }
 
-/* ── Add form ─────────────────────────────────────────────── */
-.addForm { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+/* ── Add form (hosts the embedded NPC Generator) ─────────────── */
+.addForm { display: flex; flex-direction: column; height: 100%; }
 .addFormTitle {
-  font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
-  letter-spacing: 0.15em; color: var(--ink-3); margin-bottom: 4px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.15em; color: var(--ink-3); border-bottom: 1px solid var(--line);
 }
-.addLabel {
-  display: flex; flex-direction: column; gap: 3px;
-  font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase;
-  letter-spacing: 0.1em; color: var(--ink-3);
-}
-.addInput {
-  background: var(--surface); border: 1px solid var(--line); border-radius: 5px;
-  padding: 5px 8px; font-size: 13px; color: var(--ink); box-sizing: border-box;
-}
-.addInput:focus { outline: none; border-color: var(--accent); }
-
-.addActions { display: flex; gap: 8px; margin-top: 4px; }
 .cancelBtn {
-  flex: 1; padding: 7px 0; background: var(--surface-2); border: 1px solid var(--line);
-  border-radius: 5px; color: var(--ink-3); font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 5px 10px; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 5px; color: var(--ink-3); font-size: 11px; font-weight: 600; cursor: pointer;
 }
 .cancelBtn:hover { background: var(--surface-3, var(--surface-2)); }
-.saveBtn {
-  flex: 1; padding: 7px 0; background: var(--accent); border: none; border-radius: 5px;
-  color: oklch(0.12 0.01 258); font-size: 13px; font-weight: 600; cursor: pointer;
-}
-.saveBtn:hover:not(:disabled) { filter: brightness(1.1); }
-.saveBtn:disabled { opacity: 0.4; cursor: default; }
