@@ -76,44 +76,52 @@ export function CommandPalette({ openTypes, disabledWidgetTypes, onAdd, onFocus,
       });
     });
 
-  npcFiles
-    .filter((f) => hit(fileToLabel(f)))
-    .slice(0, MAX_PER_GROUP)
-    .forEach((f) => {
-      results.push({
-        id: `npc:${f}`,
-        group: "NPCs",
-        label: fileToLabel(f),
-        sub: "NPC Library",
-        action: () => { onOpenNpc(f); onClose(); },
+  // Each of these opens by revealing its owning singleton widget, which now no-ops when that
+  // widget is disabled - so hide the result rather than offer an action that silently does nothing.
+  if (!disabledWidgetTypes.includes("npc-library")) {
+    npcFiles
+      .filter((f) => hit(fileToLabel(f)))
+      .slice(0, MAX_PER_GROUP)
+      .forEach((f) => {
+        results.push({
+          id: `npc:${f}`,
+          group: "NPCs",
+          label: fileToLabel(f),
+          sub: "NPC Library",
+          action: () => { onOpenNpc(f); onClose(); },
+        });
       });
-    });
+  }
 
-  vaultFiles
-    .filter((f) => hit(f.split("/").pop()?.replace(/\.md$/, "") ?? f))
-    .slice(0, MAX_PER_GROUP)
-    .forEach((f) => {
-      results.push({
-        id: `file:${f}`,
-        group: "Notes",
-        label: f.split("/").pop()?.replace(/\.md$/, "") ?? f,
-        sub: f.includes("/") ? f.split("/").slice(0, -1).join("/") : undefined,
-        action: () => { onOpenFile(f); onClose(); },
+  if (!disabledWidgetTypes.includes("session-notes")) {
+    vaultFiles
+      .filter((f) => hit(f.split("/").pop()?.replace(/\.md$/, "") ?? f))
+      .slice(0, MAX_PER_GROUP)
+      .forEach((f) => {
+        results.push({
+          id: `file:${f}`,
+          group: "Notes",
+          label: f.split("/").pop()?.replace(/\.md$/, "") ?? f,
+          sub: f.includes("/") ? f.split("/").slice(0, -1).join("/") : undefined,
+          action: () => { onOpenFile(f); onClose(); },
+        });
       });
-    });
+  }
 
-  events
-    .filter((e) => hit(e.title) || (e.note ? hit(e.note) : false))
-    .slice(0, MAX_PER_GROUP)
-    .forEach((e) => {
-      results.push({
-        id: `evt:${e.id}`,
-        group: "Calendar Events",
-        label: e.title,
-        sub: e.note,
-        action: () => { onOpenCalendarEvent(e.start); onClose(); },
+  if (!disabledWidgetTypes.includes("custom-calendar")) {
+    events
+      .filter((e) => hit(e.title) || (e.note ? hit(e.note) : false))
+      .slice(0, MAX_PER_GROUP)
+      .forEach((e) => {
+        results.push({
+          id: `evt:${e.id}`,
+          group: "Calendar Events",
+          label: e.title,
+          sub: e.note,
+          action: () => { onOpenCalendarEvent(e.start); onClose(); },
+        });
       });
-    });
+  }
 
   const hi = Math.min(highlighted, Math.max(0, results.length - 1));
 
