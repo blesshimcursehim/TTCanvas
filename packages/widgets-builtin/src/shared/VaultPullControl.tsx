@@ -46,8 +46,11 @@ export function VaultPullControl({ otherVaults, onPull, onError }: Props) {
     );
   }
 
-  // Fall back to the first source until the user picks one, so Pull always has a target.
-  const target = selected || otherVaults[0].path;
+  // Only honour a selection still in the list. After the vault list changes (e.g. the
+  // user switched vaults), a retained selection can point at a vault that's gone - or at
+  // the now-current one, which is absent from otherVaults - so fall back to the first
+  // source rather than pulling from a stale, possibly-current, path.
+  const target = otherVaults.some((v) => v.path === selected) ? selected : otherVaults[0].path;
 
   async function handlePull() {
     setNote(null);

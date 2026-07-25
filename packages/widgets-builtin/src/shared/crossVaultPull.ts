@@ -9,7 +9,7 @@
 // bundle the widget exports, and feed it through the widget's existing import path so
 // dedupe, the conflict dialog and apply are all reused unchanged.
 
-import { buildBundle } from "./importExport";
+import { buildBundle, type DedupeResult } from "./importExport";
 
 /**
  * Read `singletonKey`'s state from `sourceVault`, turn it into a `bundleType` bundle
@@ -61,11 +61,46 @@ export async function copyVaultAssets(
     if (slash < 0) continue; // not a foldered asset path - nothing to copy
     const folder = rel.slice(0, slash);
     const fileName = rel.slice(slash + 1);
+    // Catch only the *read*: a missing source asset is an acceptable degrade-to-text
+    // (the item just renders without art). A *write* failure - permissions, full disk -
+    // is a real fault that would leave dangling references, so let it propagate and be
+    // surfaced by the caller rather than swallowing it as a missing source.
+    let b64: string;
     try {
-      const b64 = await readFileBase64(`${sourceVault}/${folder}`, fileName);
-      await writeFileBase64(rel, b64);
+      b64 = await readFileBase64(`${sourceVault}/${folder}`, fileName);
     } catch {
-      // Source asset absent - leave the reference dangling; the UI degrades to text.
+      continue;
     }
+    await writeFileBase64(rel, b64);
   }
+}
+
+/**
+ * The subset of a pull that copies assets, deferred so it runs only for content the
+ * user actually accepts. `assetsOf` lists an item's vault-relative asset paths (nulls
+ * allowed - they're filtered).
+ */
+export interface PullAssets<T> {
+  sourceVault: string;
+  assetsOf: (item: T) => readonly (string | null | undefined)[];
+}
+
+/**
+ * Copy assets for the *accepted* items of a dedupe result only - never for skipped or
+ * cancelled conflicts. Clean items are always accepted; id-conflict items count only
+ * when the user chose "replace" (matching ids reuse the same id-based asset path, so
+ * copying a *skipped* conflict would clobber the current vault's art). Call this from
+ * the widget's apply step, before it commits the collection, so a copy failure aborts
+ * the whole pull instead of leaving content without its art.
+ */
+export async function copyPulledAssets<T>(
+  pull: PullAssets<T>,
+  result: DedupeResult<T>,
+  mode: "skip" | "replace",
+  readFileBase64: (folderPath: string, fileName: string) => Promise<string>,
+  writeFileBase64: (relativePath: string, base64Content: string) => Promise<void>,
+): Promise<void> {
+  const accepted = mode === "replace" ? [...result.clean, ...result.idConflicts] : result.clean;
+  const paths = accepted.flatMap((item) => pull.assetsOf(item)).filter((p): p is string => !!p);
+  await copyVaultAssets(pull.sourceVault, paths, readFileBase64, writeFileBase64);
 }

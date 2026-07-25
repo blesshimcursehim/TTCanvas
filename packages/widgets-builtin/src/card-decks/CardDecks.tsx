@@ -21,7 +21,7 @@ import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { ModeToggle } from "../shared/ModeToggle";
 import { RouteResultButton } from "../shared/RouteResultButton";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
-import { copyVaultAssets } from "../shared/crossVaultPull";
+import { copyPulledAssets, type PullAssets } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
 import { VaultPullControl } from "../shared/VaultPullControl";
 import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
@@ -83,6 +83,9 @@ export function CardDecks({ state, onChange }: Props) {
   const [renameDraft, setRenameDraft] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
   const [pendingImport, setPendingImport] = useState<DedupeResult<Deck> | null>(null);
+  // Held alongside pendingImport so the conflict dialog's Skip/Replace can copy assets
+  // for exactly the accepted decks; null for a plain file import (no assets to copy).
+  const [pendingPull, setPendingPull] = useState<PullAssets<Deck> | null>(null);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [confirmDeleteDeck, setConfirmDeleteDeck] = useState(false);
   const [query, setQuery] = useState("");
@@ -252,21 +255,23 @@ export function CardDecks({ state, onChange }: Props) {
     handleImportText(text);
   }
 
-  // Pull decks from another vault: copy their card art across (imagePath is uuid-based,
-  // so the path stays valid), then merge through the same import path as a file.
+  // Pull decks from another vault: merge through the same import path as a file. Card
+  // art (imagePath is uuid-based, so the path stays valid) is copied by applyImport for
+  // the accepted decks only, so a skipped/cancelled conflict never clobbers current art.
   async function handlePull(sourceVault: string): Promise<boolean> {
     setImportError(null);
     const foreign = (await vault.readForeignSingleton(sourceVault, "card-decks")) as
       | CardDecksState
       | undefined;
     if (!foreign?.decks?.length) return false;
-    const artPaths = foreign.decks.flatMap((d) => d.cards.flatMap((c) => (c.imagePath ? [c.imagePath] : [])));
-    await copyVaultAssets(sourceVault, artPaths, vault.readFileBase64, vault.writeFileBase64);
-    handleImportText(JSON.stringify(buildBundle("ttcanvas-card-decks", { decks: foreign.decks })));
+    await handleImportText(JSON.stringify(buildBundle("ttcanvas-card-decks", { decks: foreign.decks })), {
+      sourceVault,
+      assetsOf: (d) => d.cards.map((c) => c.imagePath),
+    });
     return true;
   }
 
-  function handleImportText(text: string) {
+  async function handleImportText(text: string, pull?: PullAssets<Deck>) {
     setImportError(null);
     const incoming = readBundle(text, "ttcanvas-card-decks", validateCardDecksBundle);
     if (!incoming) {
@@ -274,11 +279,17 @@ export function CardDecks({ state, onChange }: Props) {
       return;
     }
     const result = dedupe(incoming, decks, { idOf: (d) => d.id, contentKeyOf: deckContentKey });
-    if (result.idConflicts.length > 0 || result.contentDuplicates.length > 0) setPendingImport(result);
-    else applyImport(result, "skip");
+    if (result.idConflicts.length > 0 || result.contentDuplicates.length > 0) {
+      setPendingImport(result);
+      setPendingPull(pull ?? null);
+    } else {
+      await applyImport(result, "skip", pull);
+    }
   }
-  function applyImport(result: DedupeResult<Deck>, conflictMode: "skip" | "replace") {
+  async function applyImport(result: DedupeResult<Deck>, conflictMode: "skip" | "replace", pull?: PullAssets<Deck> | null) {
     setPendingImport(null);
+    setPendingPull(null);
+    if (pull) await copyPulledAssets(pull, result, conflictMode, vault.readFileBase64, vault.writeFileBase64);
     let nextDecks = decks;
     if (conflictMode === "replace") {
       const byId = new Map(result.idConflicts.map((d) => [d.id, d]));
@@ -548,9 +559,9 @@ export function CardDecks({ state, onChange }: Props) {
           totalCount={pendingImport.idConflicts.length + pendingImport.contentDuplicates.length + pendingImport.clean.length}
           idConflicts={pendingImport.idConflicts.map((d) => ({ id: d.id, label: d.name }))}
           contentDuplicates={pendingImport.contentDuplicates.map((d) => ({ id: d.id, label: d.name }))}
-          onCancel={() => setPendingImport(null)}
-          onSkip={() => applyImport(pendingImport, "skip")}
-          onReplace={() => applyImport(pendingImport, "replace")}
+          onCancel={() => { setPendingImport(null); setPendingPull(null); }}
+          onSkip={() => applyImport(pendingImport, "skip", pendingPull)}
+          onReplace={() => applyImport(pendingImport, "replace", pendingPull)}
         />
       )}
     </div>

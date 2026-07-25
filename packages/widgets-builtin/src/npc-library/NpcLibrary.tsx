@@ -20,7 +20,7 @@ import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { NPCSheetModal } from "../shared/NPCSheetModal";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
-import { copyVaultAssets } from "../shared/crossVaultPull";
+import { copyPulledAssets, type PullAssets } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
 import { VaultPullControl } from "../shared/VaultPullControl";
 import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
@@ -149,6 +149,9 @@ export function NpcLibrary({ state, onChange }: Props) {
   const [saving, setSaving] = useState(false);
   const [cropDataUrl, setCropDataUrl] = useState<string | null>(null);
   const [pendingImport, setPendingImport] = useState<DedupeResult<ParsedNpc> | null>(null);
+  // Held with pendingImport so the conflict dialog copies portraits only for the NPCs
+  // the user accepts; null for a plain file import (no cross-vault assets to copy).
+  const [pendingPull, setPendingPull] = useState<PullAssets<ParsedNpc> | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
@@ -410,9 +413,10 @@ export function NpcLibrary({ state, onChange }: Props) {
     await handleImportText(text);
   }
 
-  // Pull NPCs from another vault: read its npcs/*.json, copy the portraits they
-  // reference (paths are npc-id-based, so they stay valid), then merge through the
-  // same import path as a file - which writes one json file per NPC into this vault.
+  // Pull NPCs from another vault: read its npcs/*.json, then merge through the same
+  // import path as a file - which writes one json file per NPC into this vault. Portraits
+  // (paths are npc-id-based, so they stay valid) are copied by applyImport for the
+  // accepted NPCs only, so a skipped/cancelled conflict never clobbers current art.
   async function handlePull(sourceVault: string): Promise<boolean> {
     setImportError(null);
     const files = (await vault.listFolderFiles(sourceVault, "json")).filter((f) => f.startsWith("npcs/"));
@@ -425,15 +429,14 @@ export function NpcLibrary({ state, onChange }: Props) {
       }
     }
     if (foreignNpcs.length === 0) return false;
-    const portraits = foreignNpcs.flatMap((n) =>
-      [n.portrait, n.portraitFull].filter((p): p is string => !!p),
-    );
-    await copyVaultAssets(sourceVault, portraits, vault.readFileBase64, vault.writeFileBase64);
-    await handleImportText(JSON.stringify(buildBundle("ttcanvas-npc-library", { npcs: foreignNpcs })));
+    await handleImportText(JSON.stringify(buildBundle("ttcanvas-npc-library", { npcs: foreignNpcs })), {
+      sourceVault,
+      assetsOf: (n) => [n.portrait, n.portraitFull],
+    });
     return true;
   }
 
-  async function handleImportText(text: string) {
+  async function handleImportText(text: string, pull?: PullAssets<ParsedNpc>) {
     setImportError(null);
     const incoming = readBundle(text, "ttcanvas-npc-library", validateNpcBundle);
     if (!incoming) {
@@ -443,15 +446,18 @@ export function NpcLibrary({ state, onChange }: Props) {
     const result = dedupe(incoming, npcs, { idOf: (n) => n.id, contentKeyOf: npcContentKey });
     if (result.idConflicts.length > 0 || result.contentDuplicates.length > 0) {
       setPendingImport(result);
+      setPendingPull(pull ?? null);
     } else {
-      await applyImport(result, "skip");
+      await applyImport(result, "skip", pull);
     }
   }
 
-  async function applyImport(result: DedupeResult<ParsedNpc>, conflictMode: "skip" | "replace") {
+  async function applyImport(result: DedupeResult<ParsedNpc>, conflictMode: "skip" | "replace", pull?: PullAssets<ParsedNpc> | null) {
     setPendingImport(null);
+    setPendingPull(null);
     setSaving(true);
     try {
+      if (pull) await copyPulledAssets(pull, result, conflictMode, vault.readFileBase64, vault.writeFileBase64);
       if (conflictMode === "replace") {
         for (const npc of result.idConflicts) {
           const existing = npcs.find((n) => n.id === npc.id);
@@ -798,9 +804,9 @@ export function NpcLibrary({ state, onChange }: Props) {
           totalCount={pendingImport.idConflicts.length + pendingImport.contentDuplicates.length + pendingImport.clean.length}
           idConflicts={pendingImport.idConflicts.map((n) => ({ id: n.id, label: n.name }))}
           contentDuplicates={pendingImport.contentDuplicates.map((n) => ({ id: n.id, label: n.name }))}
-          onCancel={() => setPendingImport(null)}
-          onSkip={() => applyImport(pendingImport, "skip")}
-          onReplace={() => applyImport(pendingImport, "replace")}
+          onCancel={() => { setPendingImport(null); setPendingPull(null); }}
+          onSkip={() => applyImport(pendingImport, "skip", pendingPull)}
+          onReplace={() => applyImport(pendingImport, "replace", pendingPull)}
         />
       )}
     </div>

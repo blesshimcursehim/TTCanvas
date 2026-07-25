@@ -5,8 +5,8 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { describe, it, expect, vi } from "vitest";
-import { pullSingletonBundle, copyVaultAssets } from "./crossVaultPull";
-import { BUNDLE_VERSION } from "./importExport";
+import { pullSingletonBundle, copyVaultAssets, copyPulledAssets } from "./crossVaultPull";
+import { BUNDLE_VERSION, type DedupeResult } from "./importExport";
 
 describe("pullSingletonBundle", () => {
   it("rebuilds the export bundle from a foreign singleton and feeds it to importText", async () => {
@@ -90,5 +90,48 @@ describe("copyVaultAssets", () => {
     // Only the readable one gets written.
     expect(writeFileBase64).toHaveBeenCalledTimes(1);
     expect(writeFileBase64).toHaveBeenCalledWith("portraits/there.jpg", "YmFzZTY0");
+  });
+
+  it("propagates a write failure instead of swallowing it as a missing source", async () => {
+    const readFileBase64 = vi.fn().mockResolvedValue("YmFzZTY0");
+    const writeFileBase64 = vi.fn().mockRejectedValue(new Error("disk full"));
+
+    // A target-side write fault (permissions, full disk) is a real error, not a
+    // degrade-to-text, so it must reject rather than report a silent success.
+    await expect(
+      copyVaultAssets("/vaults/source", ["portraits/a.jpg"], readFileBase64, writeFileBase64),
+    ).rejects.toThrow("disk full");
+  });
+});
+
+describe("copyPulledAssets", () => {
+  interface Item { id: string; art: string }
+  const result: DedupeResult<Item> = {
+    clean: [{ id: "c1", art: "portraits/c1.jpg" }],
+    idConflicts: [{ id: "k1", art: "portraits/k1.jpg" }],
+    contentDuplicates: [{ id: "d1", art: "portraits/d1.jpg" }],
+  };
+  const pull = { sourceVault: "/vaults/source", assetsOf: (i: Item) => [i.art] };
+
+  it("copies only clean assets on skip - never a skipped conflict's art", async () => {
+    const readFileBase64 = vi.fn().mockResolvedValue("YmFzZTY0");
+    const writeFileBase64 = vi.fn().mockResolvedValue(undefined);
+
+    await copyPulledAssets(pull, result, "skip", readFileBase64, writeFileBase64);
+
+    expect(writeFileBase64).toHaveBeenCalledTimes(1);
+    expect(writeFileBase64).toHaveBeenCalledWith("portraits/c1.jpg", "YmFzZTY0");
+  });
+
+  it("copies clean and replaced-conflict assets on replace, but not content duplicates", async () => {
+    const readFileBase64 = vi.fn().mockResolvedValue("YmFzZTY0");
+    const writeFileBase64 = vi.fn().mockResolvedValue(undefined);
+
+    await copyPulledAssets(pull, result, "replace", readFileBase64, writeFileBase64);
+
+    const written = writeFileBase64.mock.calls.map((c) => c[0]);
+    expect(written).toEqual(expect.arrayContaining(["portraits/c1.jpg", "portraits/k1.jpg"]));
+    expect(written).not.toContain("portraits/d1.jpg");
+    expect(writeFileBase64).toHaveBeenCalledTimes(2);
   });
 });
