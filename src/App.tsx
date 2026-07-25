@@ -29,6 +29,7 @@ import { ModTrustPrompt } from "./canvas/ModTrustPrompt";
 import { deleteVaultFile } from "./vault";
 import { loadWorkspace, saveWorkspace, WORKSPACE_VERSION } from "./workspace";
 import type { WidgetInstance, Layout, WorkspaceState } from "./workspace";
+import { appendCalendarEvent, appendChronicleEntry, collectPinnedLocationRefs } from "./singletonState";
 import { DEFAULT_SESSION_TIMER, bankSessionTimer } from "./sessionTimer";
 import { VaultProvider } from "./VaultProvider";
 import { NpcProvider } from "./NpcProvider";
@@ -36,7 +37,7 @@ import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
 import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, logError, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
-import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState, type CampaignTimelineState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
+import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
 
@@ -49,7 +50,6 @@ const CANVAS_AREA: React.CSSProperties = {
 };
 
 const DEFAULT_CAL_STATE: CalendarState = { def: null, events: [] };
-const DEFAULT_TIMELINE_STATE: CampaignTimelineState = { entries: [] };
 const DEFAULT_TIME_STATE: TimeTrackerState = {
   currentDate: null, currentHour: 8, currentMinute: 0, currentSecond: 0, history: [], showOnPlayer: false,
   jumps: [...DEFAULT_JUMPS],
@@ -790,19 +790,10 @@ function App() {
   // Which Gazetteer places already have a pin, gathered across every scene, so Gazetteer's "Pin this
   // place" button can say so without reading Map Display's widget state. Same effective-state read as
   // bestiaryCreatures (singleton first, widget instance as the un-migrated fallback).
-  const pinnedLocationRefs = useMemo<ReadonlySet<string>>(() => {
-    const s = (singletonStates["map-display"] ?? widgets.find((w) => w.type === "map-display")?.state) as
-      { scenes?: { tokens?: { locationRef?: string }[] }[]; tokens?: { locationRef?: string }[] } | undefined;
-    const refs = new Set<string>();
-    const add = (tokens: { locationRef?: string }[] | undefined) => {
-      for (const token of tokens ?? []) if (token.locationRef) refs.add(token.locationRef);
-    };
-    for (const scene of s?.scenes ?? []) add(scene.tokens);
-    // Pre-scenes workspaces keep tokens at the top level until Map Display is opened and migrates them
-    // (MapDisplay's migrateState). Read those too, or a place stays "unpinned" until the widget is opened.
-    add(s?.tokens);
-    return refs;
-  }, [widgets, singletonStates]);
+  const pinnedLocationRefs = useMemo<ReadonlySet<string>>(
+    () => collectPinnedLocationRefs(singletonStates, widgets),
+    [widgets, singletonStates],
+  );
   const mapPinsContextValue = useMemo(() => ({ pinnedLocationRefs }), [pinnedLocationRefs]);
 
   // Name lists for the wikilink resolver's state-backed targets. Read straight from singleton state
@@ -883,25 +874,19 @@ function App() {
   // a bare default would write a singleton holding only the new event, and since the render path
   // prefers `singletonStates[type] ?? w.state`, that would hide every existing event.
   const addCalendarEvent = useCallback(
-    (ev: CalEvent) => setSingletonStates((ss) => {
-      const cur = (ss["custom-calendar"]
-        ?? widgetsRef.current.find((w) => w.type === "custom-calendar")?.state
-        ?? DEFAULT_CAL_STATE) as CalendarState;
-      return { ...ss, "custom-calendar": { ...cur, events: [...(cur.events ?? []), ev] } };
-    }),
+    (ev: CalEvent) => setSingletonStates((ss) => appendCalendarEvent(ss, widgetsRef.current, ev)),
     [setSingletonStates],
   );
   // Append one Chronicle entry to the Campaign Timeline singleton (e.g. a Session Logger summary sent
-  // to it), minting the id here. Same functional-updater care and the same instance-state fallback as
-  // addCalendarEvent, and it works whether or not a Campaign Timeline widget is on the canvas.
+  // to it), minting the id here rather than inside the updater - Strict Mode can replay a functional
+  // updater, and randomUUID() in there would mint a second, different id on replay. Same functional-
+  // updater care and the same instance-state fallback as addCalendarEvent, and it works whether or not
+  // a Campaign Timeline widget is on the canvas.
   const addChronicleEntry = useCallback(
-    (draft: ChronicleDraft) => setSingletonStates((ss) => {
-      const cur = (ss["campaign-timeline"]
-        ?? widgetsRef.current.find((w) => w.type === "campaign-timeline")?.state
-        ?? DEFAULT_TIMELINE_STATE) as CampaignTimelineState;
+    (draft: ChronicleDraft) => {
       const entry: TimelineEntry = { id: crypto.randomUUID(), ...draft };
-      return { ...ss, "campaign-timeline": { ...cur, entries: [...(cur.entries ?? []), entry] } };
-    }),
+      setSingletonStates((ss) => appendChronicleEntry(ss, widgetsRef.current, entry));
+    },
     [setSingletonStates],
   );
   const setTimeState = useCallback(
