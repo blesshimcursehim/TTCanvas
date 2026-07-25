@@ -199,8 +199,11 @@ export function parseNpcGeneratorState(raw: unknown): unknown {
 // ---------------------------------------------------------------------------
 
 const npcLibrarySchema = z
-  .object({ selectedFile: z.string().nullable().catch(null) })
-  .catch({ selectedFile: null });
+  .object({
+    selectedFile: z.string().nullable().catch(null),
+    generatorDraft: npcGeneratorSchema.catch({ ...defaultNpcGen }),
+  })
+  .catch({ selectedFile: null, generatorDraft: { ...defaultNpcGen } });
 
 export function parseNpcLibraryState(raw: unknown): unknown {
   return npcLibrarySchema.parse(raw);

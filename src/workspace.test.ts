@@ -272,3 +272,41 @@ describe("migrateWorkspace - sessionTimer", () => {
     expect(migrateWorkspace(raw).sessionTimer).toEqual({ startedAt: null, accumulatedMs: 0 });
   });
 });
+
+describe("migrateWorkspace - npc generator draft", () => {
+  const base = { version: 2, activeLayout: "Default", layouts: { Default: { widgets: [] } } };
+  const draft = { name: "Vex", systemPrompt: "A grim coastal city", locked: { name: true } };
+
+  it("copies the old npc-generator singleton into npc-library's generatorDraft", () => {
+    const raw = { ...base, singletonStates: { "npc-generator": draft, "npc-library": { selectedFile: "npcs/vex.json" } } };
+    const result = migrateWorkspace(raw);
+    expect(result.singletonStates?.["npc-library"]).toEqual({ selectedFile: "npcs/vex.json", generatorDraft: draft });
+  });
+
+  it("falls back to an on-canvas npc-generator widget instance when there's no singleton", () => {
+    const gen = { id: "w1", type: "npc-generator", x: 0, y: 0, width: 320, height: 480, state: draft };
+    const raw = { ...base, layouts: { Default: { widgets: [gen] } } };
+    const result = migrateWorkspace(raw);
+    expect((result.singletonStates?.["npc-library"] as { generatorDraft?: unknown })?.generatorDraft).toEqual(draft);
+  });
+
+  it("does nothing when npc-library already has a draft", () => {
+    const raw = {
+      ...base,
+      singletonStates: { "npc-generator": draft, "npc-library": { generatorDraft: { name: "Bram" } } },
+    };
+    const result = migrateWorkspace(raw);
+    expect((result.singletonStates?.["npc-library"] as { generatorDraft?: unknown })?.generatorDraft).toEqual({ name: "Bram" });
+  });
+
+  it("does nothing when there is no old npc-generator state anywhere", () => {
+    const raw = { ...base, singletonStates: { "npc-library": { selectedFile: null } } };
+    const result = migrateWorkspace(raw);
+    expect(result.singletonStates?.["npc-library"]).toEqual({ selectedFile: null });
+  });
+
+  it("is a no-op when neither npc-generator nor npc-library have ever existed", () => {
+    const result = migrateWorkspace(base);
+    expect(result.singletonStates?.["npc-library"]).toBeUndefined();
+  });
+});

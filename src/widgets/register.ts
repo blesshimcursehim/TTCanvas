@@ -117,12 +117,18 @@ registerWidget({
   component: InitiativeTracker as WidgetComponent,
 });
 
+// Retired: folded into NPC Library above (the "+" button there now opens this same generator).
+// Kept registered - and so still renderable and state-parseable - so any NPC Generator already
+// placed on a canvas keeps working, but hidden from the Add Widget picker and Command Palette so
+// no new one is created. Same "leave the old identifier alone" approach as the Almanac merge
+// retired the standalone Time Tracker.
 registerWidget({
   type: "npc-generator",
   title: "NPC Generator",
-  help: "# NPC Generator\n\nGenerate an NPC from the selected options, then edit any result before saving it to the NPC Library.\n\nGeneration changes the current draft only. Save when you want the NPC to become a vault file.",
+  help: "# NPC Generator\n\nGenerate an NPC from the selected options, then edit any result before saving it to the NPC Library.\n\nGeneration changes the current draft only. Save when you want the NPC to become a vault file.\n\nThis widget has been folded into the **NPC Library**'s own \"+\" button, which opens the same generator. Add an NPC Library from the Add Widget menu to get both.",
   icon: "wand",
   category: "NPC Management",
+  hidden: true,
   defaultSize: { width: 320, height: 480 },
   defaultState: createDefaultNpcGeneratorState,
   singleton: true,
@@ -135,14 +141,17 @@ registerWidget({
 registerWidget({
   type: "npc-library",
   title: "NPC Library",
-  help: "# NPC Library\n\nCreate and organise NPCs stored as individual files in your vault. Select an NPC to edit its profile, notes, portrait and relationships.\n\nUse `[[wikilinks]]` in NPC notes to link to notes, places or other NPCs. Prefix a target with `place:` or `npc:` when the name is ambiguous.\n\nOn a stat block's Abilities tab, click an ability modifier, saving throw or skill to roll it in the Dice Roller - hold Shift for advantage or Alt for disadvantage.",
+  help: "# NPC Library\n\nCreate and organise NPCs stored as individual files in your vault. Select an NPC to edit its profile, notes, portrait and relationships.\n\nHit \"+\" to generate a new NPC from random tables or AI, edit any result, then save it to the library.\n\nUse `[[wikilinks]]` in NPC notes to link to notes, places or other NPCs. Prefix a target with `place:` or `npc:` when the name is ambiguous.\n\nOn a stat block's Abilities tab, click an ability modifier, saving throw or skill to roll it in the Dice Roller - hold Shift for advantage or Alt for disadvantage.",
   icon: "library",
   category: "NPC Management",
-  defaultSize: { width: 500, height: 420 },
-  defaultState: { selectedFile: null } satisfies NpcLibraryState,
+  defaultSize: { width: 500, height: 480 },
+  defaultState: { selectedFile: null, generatorDraft: createDefaultNpcGeneratorState() } satisfies NpcLibraryState,
   singleton: true,
-  minWidth: 300,
-  minHeight: 240,
+  // The left (list) pane has a 160px CSS floor (NpcLibrary.module.css .left), and the embedded NPC
+  // Generator needs its own standalone minWidth (260) to lay out - below ~420 the right pane gets
+  // squeezed under the Generator's own minimum.
+  minWidth: 420,
+  minHeight: 340,
   parseState: parseNpcLibraryState,
   component: NpcLibrary as WidgetComponent,
 });
