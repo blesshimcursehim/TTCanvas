@@ -37,26 +37,28 @@ describe("appendCalendarEvent", () => {
 });
 
 describe("appendChronicleEntry", () => {
-  const draft = { date: { year: 1, month: 1, day: 1 }, title: "The party arrives", category: "session" };
+  // appendChronicleEntry takes the completed entry rather than minting an id itself (the id is
+  // minted by the caller, outside the setSingletonStates updater - see App.tsx), so these tests
+  // supply a fixed id and assert the exact entry that was appended.
+  const entry = { id: "t1", date: { year: 1, month: 1, day: 1 }, title: "The party arrives", category: "session" };
 
-  it("mints an id and appends onto an existing singleton state", () => {
+  it("appends the given entry onto an existing singleton state", () => {
     const ss = { "campaign-timeline": { entries: [{ id: "t0", date: { year: 1, month: 1, day: 1 }, title: "Old", category: "session" }] } };
-    const result = appendChronicleEntry(ss, [], draft);
-    const entries = (result["campaign-timeline"] as { entries: { id: string }[] }).entries;
-    expect(entries).toHaveLength(2);
-    expect(entries[1].id).not.toBe("t0");
+    const result = appendChronicleEntry(ss, [], entry);
+    const entries = (result["campaign-timeline"] as { entries: unknown[] }).entries;
+    expect(entries).toEqual([ss["campaign-timeline"].entries[0], entry]);
   });
 
   it("falls back to the widget instance state, not an empty default, when no singleton exists", () => {
     const existing = { entries: [{ id: "t0", date: { year: 1, month: 1, day: 1 }, title: "Old", category: "session" }] };
-    const result = appendChronicleEntry({}, [widget("campaign-timeline", existing)], draft);
-    const entries = (result["campaign-timeline"] as { entries: { id: string }[] }).entries;
-    expect(entries.map((e) => e.id)).toEqual(["t0", entries[1].id]);
+    const result = appendChronicleEntry({}, [widget("campaign-timeline", existing)], entry);
+    const entries = (result["campaign-timeline"] as { entries: unknown[] }).entries;
+    expect(entries).toEqual([existing.entries[0], entry]);
   });
 
   it("falls back to the empty default when neither singleton nor widget instance exists", () => {
-    const result = appendChronicleEntry({}, [], draft);
-    expect((result["campaign-timeline"] as { entries: unknown[] }).entries).toHaveLength(1);
+    const result = appendChronicleEntry({}, [], entry);
+    expect((result["campaign-timeline"] as { entries: unknown[] }).entries).toEqual([entry]);
   });
 });
 

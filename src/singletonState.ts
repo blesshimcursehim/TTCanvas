@@ -4,7 +4,7 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import type { CalendarState, CalEvent, ChronicleDraft } from "@ttcanvas/core";
+import type { CalendarState, CalEvent } from "@ttcanvas/core";
 import type { CampaignTimelineState, TimelineEntry } from "@ttcanvas/widgets-builtin";
 import type { WidgetInstance } from "./workspace";
 
@@ -33,17 +33,18 @@ export function appendCalendarEvent(
   return { ...ss, "custom-calendar": { ...cur, events: [...(cur.events ?? []), ev] } };
 }
 
-// Same instance-state fallback as appendCalendarEvent, minting the entry id here so callers
-// only need to supply the draft.
+// Same instance-state fallback as appendCalendarEvent. Takes the completed entry rather than
+// minting an id itself: React Strict Mode can replay a functional updater, and this function is
+// called from inside one (via setSingletonStates), so the id has to come from the caller or a
+// replay would produce two different states from identical inputs.
 export function appendChronicleEntry(
   ss: SingletonStates,
   widgets: readonly WidgetInstance[],
-  draft: ChronicleDraft,
+  entry: TimelineEntry,
 ): SingletonStates {
   const cur = (ss["campaign-timeline"]
     ?? widgets.find((w) => w.type === "campaign-timeline")?.state
     ?? DEFAULT_TIMELINE_STATE) as CampaignTimelineState;
-  const entry: TimelineEntry = { id: crypto.randomUUID(), ...draft };
   return { ...ss, "campaign-timeline": { ...cur, entries: [...(cur.entries ?? []), entry] } };
 }
 

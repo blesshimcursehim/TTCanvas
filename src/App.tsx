@@ -37,7 +37,7 @@ import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
 import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, logError, DEFAULT_JUMPS, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
-import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState } from "@ttcanvas/widgets-builtin";
+import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, type XpTrackerState, type DiceRollerState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
 
@@ -878,10 +878,15 @@ function App() {
     [setSingletonStates],
   );
   // Append one Chronicle entry to the Campaign Timeline singleton (e.g. a Session Logger summary sent
-  // to it), minting the id here. Same functional-updater care and the same instance-state fallback as
-  // addCalendarEvent, and it works whether or not a Campaign Timeline widget is on the canvas.
+  // to it), minting the id here rather than inside the updater - Strict Mode can replay a functional
+  // updater, and randomUUID() in there would mint a second, different id on replay. Same functional-
+  // updater care and the same instance-state fallback as addCalendarEvent, and it works whether or not
+  // a Campaign Timeline widget is on the canvas.
   const addChronicleEntry = useCallback(
-    (draft: ChronicleDraft) => setSingletonStates((ss) => appendChronicleEntry(ss, widgetsRef.current, draft)),
+    (draft: ChronicleDraft) => {
+      const entry: TimelineEntry = { id: crypto.randomUUID(), ...draft };
+      setSingletonStates((ss) => appendChronicleEntry(ss, widgetsRef.current, entry));
+    },
     [setSingletonStates],
   );
   const setTimeState = useCallback(
