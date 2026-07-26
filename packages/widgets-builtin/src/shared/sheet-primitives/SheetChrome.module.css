@@ -1,13 +1,5 @@
-.scrim {
-  position: fixed;
-  inset: 0;
-  background: oklch(0.10 0.012 258 / 0.7);
-  backdrop-filter: blur(2px);
-  z-index: 9500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+/* The scrim is gone: ModalDialog's <dialog> does the centring, the dim (its ::backdrop) and the
+   stacking (the top layer), so this file only styles the sheet itself now. */
 
 .sheet {
   display: flex;

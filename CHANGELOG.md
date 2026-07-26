@@ -152,6 +152,15 @@ All notable changes are documented here.
 
 ### Changes
 
+- **Escape closes windows, and a screen reader can follow them.** Every panel that opens over the
+  canvas - Preferences, the keyboard shortcuts card, character and creature sheets, Manage Party,
+  calendar setup, the portrait cropper and the add-creature form - is now a real dialog rather than a
+  panel painted on top. Escape closes it, keyboard focus moves into it when it opens and returns to
+  where you were when it shuts, Tab stays inside it instead of wandering off into the canvas behind,
+  and a screen reader announces it by name and ignores the page underneath. Sheet tabs move with the
+  arrow keys. Forms with something half-typed in them still ignore a stray click outside, as before.
+  Notifications are announced when they appear, and errors interrupt rather than queue.
+
 - **A character's gold is now one number.** The GP box on a character's card and the Gold field in
   their sheet's Inventory tab were separate values that nothing kept in step, so the same character
   could show 10 gold on the card and 50 on the sheet. They are now the same number, read and written

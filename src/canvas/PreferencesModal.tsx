@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { createPortal } from "react-dom";
+import { ModalDialog } from "@ttcanvas/widgets-builtin";
 import { getAddableWidgets } from "../registry";
 import type { AppTheme, AppAccent, AppDensity, AppClockFormat, AppConfig } from "../appConfig";
 import { useToast, redact, logError, type AIProvider } from "@ttcanvas/core";
@@ -193,13 +193,9 @@ export function PreferencesModal({
   const [pane, setPane] = useState<Pane>("appearance");
   const addableWidgets = getAddableWidgets();
 
-  function handleBackdrop(e: React.MouseEvent) {
-    if (e.target === e.currentTarget) onClose();
-  }
-
-  return createPortal(
-    <div className={styles.scrim} onMouseDown={handleBackdrop}>
-      <div className={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
+  return (
+    <ModalDialog label="Preferences" onClose={onClose}>
+      <div className={styles.modal}>
 
         {/* Left rail */}
         <div className={styles.rail}>
@@ -304,12 +300,13 @@ export function PreferencesModal({
               </div>
 
               <div className={styles.toggleRow}>
-                <span className={styles.toggleLabel}>Reduce motion</span>
+                <span className={styles.toggleLabel} id="pref-reduce-motion">Reduce motion</span>
                 <button
                   className={`${styles.toggle} ${config.reduceMotion ? styles.toggleOn : ""}`}
                   onClick={() => onChange({ reduceMotion: !config.reduceMotion })}
                   role="switch"
                   aria-checked={config.reduceMotion}
+                  aria-labelledby="pref-reduce-motion"
                 >
                   <span className={styles.toggleThumb} />
                 </button>
@@ -473,7 +470,6 @@ export function PreferencesModal({
           )}
         </div>
       </div>
-    </div>,
-    document.body,
+    </ModalDialog>
   );
 }

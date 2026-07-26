@@ -106,6 +106,9 @@ export type { HandoutGalleryState } from "./handout-gallery/types";
 
 export { mimeForImageExt } from "./shared/mime";
 export { renderMarkdown } from "./shared/markdownRenderer";
+// The shared modal shell, exported so the app chrome (Preferences, keyboard help, mod trust)
+// gets the same native-<dialog> semantics as the widgets.
+export { ModalDialog } from "./shared/ModalDialog";
 
 // Wikilink resolution helpers (used by the app-level WikilinkResolver).
 export { linkKey, basenameLabel, buildResolveIndex, resolveLink, parseLinkTarget } from "./shared/wikilinks";

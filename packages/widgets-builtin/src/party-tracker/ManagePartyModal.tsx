@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
+import { ModalDialog } from "../shared/ModalDialog";
 import type { PartyMember, CustomField } from "./types";
 import { useVault, logError } from "@ttcanvas/core";
 import { portraitColor } from "./CharacterCard";
@@ -240,12 +240,12 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
     update(memberId, { customFields: (m.customFields ?? []).filter((_, i) => i !== idx) });
   }
 
-  const modal = createPortal(
-    <div className={styles.overlay} onMouseDown={(e) => e.stopPropagation()}>
+  const modal = (
+    <ModalDialog label="Manage party" onClose={onClose} backdropClose={false}>
       <div className={styles.modal}>
         <div className={styles.header}>
           <span className={styles.title}>Manage Party</span>
-          <button className={styles.closeBtn} onClick={onClose}>×</button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close manage party">×</button>
         </div>
 
         <div className={styles.list}>
@@ -410,8 +410,7 @@ export function ManagePartyModal({ members, onChange, onClose }: Props) {
           />
         )}
       </div>
-    </div>,
-    document.body,
+    </ModalDialog>
   );
 
   return (

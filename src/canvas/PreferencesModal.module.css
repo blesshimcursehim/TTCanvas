@@ -1,15 +1,6 @@
-/* ── Scrim + modal shell ─────────────────────────────────── */
-
-.scrim {
-  position: fixed;
-  inset: 0;
-  background: oklch(0.10 0.012 258 / 0.62);
-  backdrop-filter: blur(2px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9000;
-}
+/* ── Modal shell ─────────────────────────────────────────── */
+/* The scrim moved to ModalDialog: its <dialog> centres this box, dims behind it via ::backdrop,
+   and sits in the top layer, so there is no overlay div and no z-index here any more. */
 
 .modal {
   display: flex;

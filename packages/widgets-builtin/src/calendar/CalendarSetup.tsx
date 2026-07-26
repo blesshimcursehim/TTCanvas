@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useRef } from "react";
-import { createPortal } from "react-dom";
+import { ModalDialog } from "../shared/ModalDialog";
 import type { CalendarDef, MonthDef, IntercalaryPeriod } from "@ttcanvas/core";
 import { useVault } from "@ttcanvas/core";
 import { PRESETS } from "./presets";
@@ -206,12 +206,14 @@ export function CalendarSetup({ initial, initialYear, onConfirm, onCancel }: Pro
 
   const weekLen = parseInt(form.weekLength, 10) || 1;
 
-  return createPortal(
-    <div className={styles.overlay} onMouseDown={(e) => e.stopPropagation()}>
+  const heading = initial ? "Edit Calendar" : "Set Up Calendar";
+
+  return (
+    <ModalDialog label={heading} onClose={onCancel} backdropClose={false}>
       <div className={styles.modal}>
         <div className={styles.header}>
-          <span className={styles.title}>{initial ? "Edit Calendar" : "Set Up Calendar"}</span>
-          <button className={styles.closeBtn} onClick={onCancel}>×</button>
+          <span className={styles.title}>{heading}</span>
+          <button className={styles.closeBtn} onClick={onCancel} aria-label="Close calendar setup">×</button>
         </div>
 
         <div className={styles.body}>
@@ -425,7 +427,6 @@ export function CalendarSetup({ initial, initialYear, onConfirm, onCancel }: Pro
           </button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </ModalDialog>
   );
 }

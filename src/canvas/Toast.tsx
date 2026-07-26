@@ -20,11 +20,13 @@ interface ToastItem {
 function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`; }
 
 function ToastStack({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss: (id: string) => void }) {
-  if (toasts.length === 0) return null;
+  // The container stays mounted even with nothing in it: a live region has to be in the DOM
+  // before content lands inside it, or screen readers announce nothing.
   return createPortal(
-    <div className={styles.stack}>
+    <div className={styles.stack} aria-live="polite" aria-atomic="false">
       {toasts.map((t) => (
-        <div key={t.id} className={`${styles.toast} ${styles[t.type]}`}>
+        // An error interrupts; the rest wait their turn.
+        <div key={t.id} className={`${styles.toast} ${styles[t.type]}`} role={t.type === "error" ? "alert" : undefined}>
           <span className={styles.msg}>{t.message}</span>
           <button className={styles.dismiss} onClick={() => onDismiss(t.id)} aria-label="Dismiss">×</button>
         </div>

@@ -1,14 +1,5 @@
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: oklch(0 0 0 / 0.75);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Must sit above the launching modal AND the creature SheetChrome scrim (z-index 9500),
-     since the crop is opened from inside those - otherwise it renders hidden behind them. */
-  z-index: 9999;
-}
+/* The overlay div and its z-index are gone. The crop opens from inside another modal, and the top
+   layer stacks dialogs in the order they were opened, so it lands above its launcher by default. */
 
 .modal {
   background: var(--bg-2);
