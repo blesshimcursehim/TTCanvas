@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { createContext, useContext } from "react";
-import type { AbilityScores } from "./types";
+import type { AbilityScores, PCCurrency } from "./types";
 
 export interface SharedPartyMember {
   id: string;
@@ -29,6 +29,14 @@ export interface PartyMemberPatch {
   /** Clamped to [0, maxHp] by the writer, matching the Party Tracker's own clamp. */
   hp?: number;
   level?: number;
+  /**
+   * Coins to ADD to this member's purse, not the purse to set - "+3 gp", never "gp is now 13".
+   * The addition happens inside the state updater, so a share handed out by the Inventory widget
+   * cannot clobber a coin edit the GM made on the sheet in between. Negative values are allowed and
+   * floor at zero, so a caller that needs to know whether the member could afford it must check
+   * first. Absent coins are left untouched.
+   */
+  currencyDelta?: Partial<PCCurrency>;
 }
 
 export interface PartyContextValue {

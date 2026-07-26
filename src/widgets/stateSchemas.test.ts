@@ -18,6 +18,7 @@ import {
   parseTimeTrackerState,
   parseRulesReferenceState,
   parseRuleCardsState,
+  parseInventoryState,
   parseXpTrackerState,
   parseRollTablesState,
   parseEncounterBuilderState,
@@ -690,5 +691,141 @@ describe("parseCampaignTimelineState", () => {
   it("defaults sortDirection to asc when missing or invalid", () => {
     expect((parseCampaignTimelineState({ entries: [] }) as { sortDirection: string }).sortDirection).toBe("asc");
     expect((parseCampaignTimelineState({ entries: [], sortDirection: "sideways" }) as { sortDirection: string }).sortDirection).toBe("asc");
+  });
+});
+
+describe("parseInventoryState", () => {
+  const item = {
+    id: "i1", name: "Sunblade", kind: "weapon", rarity: "very-rare",
+    valueCp: 500000, weightLb: 3, description: "Radiant.", attuned: true,
+    holdings: [{ holderId: null, qty: 1 }],
+  };
+  const base = {
+    items: [item], currency: { cp: 1, sp: 2, ep: 0, gp: 3, pp: 0 },
+    query: "", kindFilter: null, showWeight: false, carryLimitLb: null,
+  };
+
+  it("passes valid state through", () => {
+    expect(parseInventoryState(base)).toEqual(base);
+  });
+
+  it("drops an item with no id rather than inventing one", () => {
+    const result = parseInventoryState({ ...base, items: [item, { name: "No id", holdings: [] }] }) as { items: unknown[] };
+    expect(result.items).toHaveLength(1);
+  });
+
+  it("falls back to gear for an unknown kind", () => {
+    const result = parseInventoryState({ ...base, items: [{ ...item, kind: "wondrous" }] }) as { items: { kind: string }[] };
+    expect(result.items[0].kind).toBe("gear");
+  });
+
+  it("drops an unknown rarity instead of keeping the item stuck", () => {
+    const result = parseInventoryState({ ...base, items: [{ ...item, rarity: "mythic" }] }) as { items: { rarity?: string }[] };
+    expect(result.items[0].rarity).toBeUndefined();
+  });
+
+  it("drops a holding with a non-numeric quantity", () => {
+    const holdings = [{ holderId: "pc1", qty: "many" }, { holderId: null, qty: 2 }];
+    const result = parseInventoryState({ ...base, items: [{ ...item, holdings }] }) as { items: { holdings: unknown[] }[] };
+    expect(result.items[0].holdings).toEqual([{ holderId: null, qty: 2 }]);
+  });
+
+  it("keeps the rest of an item when one field is garbage", () => {
+    const result = parseInventoryState({ ...base, items: [{ ...item, weightLb: "heavy" }] }) as { items: { name: string; weightLb?: number }[] };
+    expect(result.items[0].name).toBe("Sunblade");
+    expect(result.items[0].weightLb).toBeUndefined();
+  });
+
+  it("zeroes a corrupt coin without wiping the purse", () => {
+    const result = parseInventoryState({ ...base, currency: { cp: "lots", sp: 2, ep: 0, gp: 3, pp: 0 } }) as { currency: Record<string, number> };
+    expect(result.currency).toEqual({ cp: 0, sp: 2, ep: 0, gp: 3, pp: 0 });
+  });
+
+  it("resets an unknown kindFilter so nothing filters everything out", () => {
+    const result = parseInventoryState({ ...base, kindFilter: "wondrous" }) as { kindFilter: string | null };
+    expect(result.kindFilter).toBeNull();
+  });
+
+  it("returns default for null", () => {
+    expect(parseInventoryState(null)).toEqual({
+      items: [], currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+      query: "", kindFilter: null, showWeight: false, carryLimitLb: null,
+    });
+  });
+});
+
+describe("parseInventoryState quantity and range guards", () => {
+  const item = { id: "i1", name: "Rations", kind: "gear", holdings: [] as unknown[] };
+  const base = {
+    items: [item], currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+    query: "", kindFilter: null, showWeight: false, carryLimitLb: null,
+  };
+
+  function holdingsOf(holdings: unknown[]): unknown[] {
+    const result = parseInventoryState({ ...base, items: [{ ...item, holdings }] }) as { items: { holdings: unknown[] }[] };
+    return result.items[0].holdings;
+  }
+
+  it("drops a fractional quantity rather than flooring it to a phantom holding", () => {
+    expect(holdingsOf([{ holderId: "pc1", qty: 0.5 }])).toEqual([]);
+  });
+
+  it("drops a zero or negative quantity", () => {
+    expect(holdingsOf([{ holderId: "pc1", qty: 0 }, { holderId: "pc2", qty: -3 }])).toEqual([]);
+  });
+
+  it("keeps the valid holdings beside a dropped one", () => {
+    expect(holdingsOf([{ holderId: "pc1", qty: -1 }, { holderId: null, qty: 4 }]))
+      .toEqual([{ holderId: null, qty: 4 }]);
+  });
+
+  it("zeroes a negative or fractional coin", () => {
+    const result = parseInventoryState({ ...base, currency: { cp: -5, sp: 1.5, ep: 0, gp: 3, pp: 0 } }) as { currency: Record<string, number> };
+    expect(result.currency).toEqual({ cp: 0, sp: 0, ep: 0, gp: 3, pp: 0 });
+  });
+
+  it("drops a negative or fractional value in copper", () => {
+    const neg = parseInventoryState({ ...base, items: [{ ...item, valueCp: -100 }] }) as { items: { valueCp?: number }[] };
+    const frac = parseInventoryState({ ...base, items: [{ ...item, valueCp: 12.5 }] }) as { items: { valueCp?: number }[] };
+    expect(neg.items[0].valueCp).toBeUndefined();
+    expect(frac.items[0].valueCp).toBeUndefined();
+  });
+
+  it("allows a fractional weight but not a negative one", () => {
+    const half = parseInventoryState({ ...base, items: [{ ...item, weightLb: 0.5 }] }) as { items: { weightLb?: number }[] };
+    const neg = parseInventoryState({ ...base, items: [{ ...item, weightLb: -2 }] }) as { items: { weightLb?: number }[] };
+    expect(half.items[0].weightLb).toBe(0.5);
+    expect(neg.items[0].weightLb).toBeUndefined();
+  });
+
+  it("drops a negative carry limit", () => {
+    const result = parseInventoryState({ ...base, carryLimitLb: -50 }) as { carryLimitLb: number | null };
+    expect(result.carryLimitLb).toBeNull();
+  });
+});
+
+// App.tsx builds RollTablesContext and InventoryContext off these slices before any widget renders,
+// so a corrupt collection has to come back as an empty array here rather than reaching a .map/for-of
+// at app level, outside every widget error boundary.
+describe("shared-context slices survive corrupt state", () => {
+  it("turns a non-array roll-tables collection into an empty one", () => {
+    const result = parseRollTablesState({ tables: "corrupt", selectedId: null, mode: "roll", history: [] }) as { tables: unknown[] };
+    expect(result.tables).toEqual([]);
+  });
+
+  it("turns a non-array inventory collection into an empty one", () => {
+    const result = parseInventoryState({ items: "corrupt" }) as { items: unknown[] };
+    expect(result.items).toEqual([]);
+  });
+
+  it("turns non-array holdings into an empty list instead of a non-iterable", () => {
+    const item = { id: "i1", name: "Rations", kind: "gear", holdings: 7 };
+    const result = parseInventoryState({ items: [item] }) as { items: { holdings: unknown[] }[] };
+    expect(result.items[0].holdings).toEqual([]);
+  });
+
+  it("returns usable defaults when a widget has never been opened", () => {
+    expect((parseInventoryState(undefined) as { items: unknown[] }).items).toEqual([]);
+    expect((parseRollTablesState(undefined) as { tables: unknown[] }).tables).toEqual([]);
   });
 });

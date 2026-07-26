@@ -4,7 +4,11 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import type { SharedPartyMember, AbilityScores, NamedEntry, SpellcastingBlock } from "@ttcanvas/core";
+import type { SharedPartyMember, AbilityScores, NamedEntry, SpellcastingBlock, PCCurrency } from "@ttcanvas/core";
+
+// PCCurrency moved to core (the Inventory widget and PartyMemberPatch need it too); re-exported here
+// so existing importers of party-tracker/types keep resolving.
+export type { PCCurrency };
 
 export interface CustomField {
   label: string;
@@ -16,14 +20,6 @@ export interface DeathSaves {
   failures: number;
 }
 
-export interface PCCurrency {
-  cp: number;
-  sp: number;
-  ep: number;
-  gp: number;
-  pp: number;
-}
-
 export interface PartyMember extends SharedPartyMember {
   race: string;
   cls: string;        // "class" is a reserved word
@@ -33,7 +29,7 @@ export interface PartyMember extends SharedPartyMember {
   sp: number;
   maxSp: number;
   pp: number;         // passive perception
-  gp: number;         // gold pieces (quick card stat)
+  gp: number;         // legacy gold field - mirrors currency.gp; read/write via ./currency.ts
   notes: string;
   inspiration: boolean;
   portraitPath?: string | null;

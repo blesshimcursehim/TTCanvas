@@ -480,6 +480,74 @@ export function parseRuleCardsState(raw: unknown): unknown {
 }
 
 // ---------------------------------------------------------------------------
+// inventory
+// ---------------------------------------------------------------------------
+
+// Coins are whole and never negative; a fractional or negative one is a corrupt value, not a debt.
+const coinSchema = z.number().int().nonnegative().catch(0);
+
+const currencySchema = z
+  .object({
+    cp: coinSchema,
+    sp: coinSchema,
+    ep: coinSchema,
+    gp: coinSchema,
+    pp: coinSchema,
+  })
+  .catch({ cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 });
+
+const ITEM_KIND_VALUES = ["weapon", "armour", "consumable", "magic", "treasure", "gear"] as const;
+const RARITY_VALUES = ["common", "uncommon", "rare", "very-rare", "legendary", "artifact"] as const;
+
+// holderId null = the party stash. A holding with a garbage qty is dropped rather than defaulted,
+// since inventing a quantity is worse than losing an entry the ledger never showed correctly. The
+// quantity must be a positive integer: a zero or fractional one would leave a holding that the
+// holder labels and the row total disagree about (0.5 floors to 0 while the holder still reads as
+// carrying it), and a negative one would subtract from the party total.
+const holdingSchema = z.object({
+  holderId: z.string().nullable().catch(null),
+  qty: z.number().int().positive(),
+});
+
+const inventoryItemSchema = z.object({
+  id: z.string(),
+  name: z.string().catch("Unnamed item"),
+  kind: z.enum(ITEM_KIND_VALUES).catch("gear"),
+  rarity: z.enum(RARITY_VALUES).optional().catch(undefined),
+  // Value is in whole copper, weight may be fractional (a 0.5 lb dagger); neither can be negative.
+  valueCp: z.number().int().nonnegative().optional().catch(undefined),
+  weightLb: z.number().nonnegative().finite().optional().catch(undefined),
+  description: z.string().optional().catch(undefined),
+  attuned: z.boolean().optional().catch(undefined),
+  holdings: filterArr(holdingSchema),
+});
+
+const INVENTORY_DEFAULT = {
+  items: [],
+  currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+  query: "",
+  kindFilter: null,
+  showWeight: false,
+  carryLimitLb: null,
+};
+
+const inventorySchema = z
+  .object({
+    items: filterArr(inventoryItemSchema),
+    currency: currencySchema,
+    query: z.string().catch(""),
+    kindFilter: z.enum(ITEM_KIND_VALUES).nullable().catch(null),
+    showWeight: z.boolean().catch(false),
+    carryLimitLb: z.number().nonnegative().finite().nullable().catch(null),
+    pullVaultPath: z.string().optional().catch(undefined),
+  })
+  .catch(INVENTORY_DEFAULT);
+
+export function parseInventoryState(raw: unknown): unknown {
+  return inventorySchema.parse(raw);
+}
+
+// ---------------------------------------------------------------------------
 // xp-tracker
 // ---------------------------------------------------------------------------
 

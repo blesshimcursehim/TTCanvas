@@ -5,14 +5,15 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState } from "react";
-import type { PartyMember, PCCurrency } from "../party-tracker/types";
+import type { PartyMember } from "../party-tracker/types";
 import { SheetChrome } from "./sheet-primitives/SheetChrome";
 import { SectionHead } from "./sheet-primitives/SectionHead";
 import { AbilityGrid } from "./sheet-primitives/AbilityGrid";
 import { RollableStat } from "./sheet-primitives/RollableStat";
 import { NamedEntryList } from "./sheet-primitives/NamedEntryList";
-import type { AbilityScores, SpellSlots } from "@ttcanvas/core";
-import { useVault, pushCharacterScene, abilityModifier, proficiencyBonus } from "@ttcanvas/core";
+import type { AbilityScores, SpellSlots, PCCurrency } from "@ttcanvas/core";
+import { useVault, useInventory, pushCharacterScene, abilityModifier, proficiencyBonus, CURRENCY_KEYS, formatCoin } from "@ttcanvas/core";
+import { currencyOf, withCurrency } from "../party-tracker/currency";
 import { portraitColor } from "../party-tracker/CharacterCard";
 import styles from "./PCSheetModal.module.css";
 
@@ -31,13 +32,11 @@ const ABILITY_LABELS: Record<keyof AbilityScores, string> = {
   str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA",
 };
 
-const CURRENCY_KEYS: (keyof PCCurrency)[] = ["cp", "sp", "ep", "gp", "pp"];
 const CURRENCY_LABELS: Record<keyof PCCurrency, string> = {
   cp: "Copper", sp: "Silver", ep: "Electrum", gp: "Gold", pp: "Platinum",
 };
 
 const DEFAULT_SCORES: AbilityScores = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
-const DEFAULT_CURRENCY: PCCurrency = { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
 const SPELL_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 function fmtBonus(n: number): string {
@@ -52,6 +51,7 @@ interface Props {
 
 export function PCSheetModal({ member, onSave, onClose }: Props) {
   const vault = useVault();
+  const ledgerItems = useInventory().itemsFor(member.id);
   const [tab, setTab] = useState<Tab>("Overview");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<PartyMember>(member);
@@ -496,11 +496,11 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
                     className={styles.currencyInput}
                     type="number"
                     min={0}
-                    value={draft.currency?.[key] ?? 0}
-                    onChange={(e) => patch({ currency: { ...(draft.currency ?? DEFAULT_CURRENCY), [key]: Number(e.target.value) || 0 } })}
+                    value={currencyOf(draft)[key]}
+                    onChange={(e) => patch(withCurrency(draft, { ...currencyOf(draft), [key]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
                   />
                 ) : (
-                  <span className={styles.currencyValue}>{draft.currency?.[key] ?? 0}</span>
+                  <span className={styles.currencyValue}>{currencyOf(draft)[key]}</span>
                 )}
                 <span className={styles.currencyName}>{CURRENCY_LABELS[key]}</span>
               </label>
@@ -560,6 +560,31 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
                 }}
               >+</button>
             </div>
+          )}
+
+          {/* Items the Inventory widget has assigned to this character. Read-only and driven by
+              `member.id`, never `draft`, so a save can never fold them into `equipment: string[]` -
+              that would flatten away rarity, value and weight, and duplicate them permanently.
+              Renders nothing at all when the ledger holds none, so sheets look unchanged without it. */}
+          {ledgerItems.length > 0 && (
+            <>
+              <SectionHead style={{ marginTop: 14 }}>Party ledger</SectionHead>
+              <div className={styles.ledgerList}>
+                {ledgerItems.map((i) => (
+                  <div key={i.id} className={styles.ledgerRow}>
+                    <span className={styles.ledgerQty}>{i.qty}</span>
+                    <span className={styles.ledgerName}>
+                      {i.name}
+                      <span className={styles.ledgerMeta}>
+                        {i.kind}{i.rarity ? ` · ${i.rarity.replace("-", " ")}` : ""}
+                        {i.weightLb ? ` · ${i.weightLb} lb` : ""}
+                      </span>
+                    </span>
+                    <span className={styles.ledgerValue}>{i.valueCp ? formatCoin(i.valueCp) : ""}</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}

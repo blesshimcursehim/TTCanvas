@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { describe, it, expect } from "vitest";
-import { abilityModifier, proficiencyBonus, proficiencyBonusForCr } from "./types";
+import { abilityModifier, proficiencyBonus, proficiencyBonusForCr, applyCurrencyDelta, formatCoin } from "./types";
 
 describe("abilityModifier", () => {
   it("is +0 at 10-11 and rounds down", () => {
@@ -54,5 +54,43 @@ describe("proficiencyBonusForCr", () => {
   it("falls back to +2 for an unparseable CR", () => {
     expect(proficiencyBonusForCr("")).toBe(2);
     expect(proficiencyBonusForCr("weird")).toBe(2);
+  });
+});
+
+describe("applyCurrencyDelta", () => {
+  it("adds onto an existing purse and leaves untouched coins alone", () => {
+    const base = { cp: 5, sp: 0, ep: 0, gp: 10, pp: 1 };
+    expect(applyCurrencyDelta(base, { gp: 3 })).toEqual({ cp: 5, sp: 0, ep: 0, gp: 13, pp: 1 });
+  });
+
+  it("treats an absent purse as all zeroes", () => {
+    expect(applyCurrencyDelta(undefined, { gp: 4 })).toEqual({ cp: 0, sp: 0, ep: 0, gp: 4, pp: 0 });
+  });
+
+  it("floors at zero rather than going into debt", () => {
+    expect(applyCurrencyDelta({ cp: 0, sp: 2, ep: 0, gp: 1, pp: 0 }, { gp: -5, sp: -1 }))
+      .toEqual({ cp: 0, sp: 1, ep: 0, gp: 0, pp: 0 });
+  });
+
+  it("rounds so a fractional share never persists", () => {
+    expect(applyCurrencyDelta(undefined, { gp: 12.5 }).gp).toBe(13);
+  });
+});
+
+describe("formatCoin", () => {
+  it("picks the largest denomination that divides cleanly", () => {
+    expect(formatCoin(0)).toBe("0 cp");
+    expect(formatCoin(7)).toBe("7 cp");
+    expect(formatCoin(50)).toBe("1 ep");
+    expect(formatCoin(500)).toBe("5 gp");
+    expect(formatCoin(2000)).toBe("2 pp");
+  });
+
+  it("falls back to fractional gp when nothing divides evenly", () => {
+    expect(formatCoin(125)).toBe("1.25 gp");
+  });
+
+  it("survives a non-finite amount", () => {
+    expect(formatCoin(Number.NaN)).toBe("-");
   });
 });

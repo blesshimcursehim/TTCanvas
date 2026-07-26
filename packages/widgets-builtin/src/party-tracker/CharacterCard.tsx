@@ -7,6 +7,7 @@
 import { useState, useEffect } from "react";
 import type { PartyMember } from "./types";
 import { useVault, pushCharacterScene } from "@ttcanvas/core";
+import { currencyOf, withCurrency } from "./currency";
 import { CropModal } from "./CropModal";
 import { setActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
 import { mimeForImageExt } from "../shared/mime";
@@ -322,12 +323,13 @@ export function CharacterCard({ member, onChange, onOpenSheet }: Props) {
           borderColor="oklch(0.74 0.11 305 / 0.28)"
           onChange={(pp) => patch({ pp })}
         />
+        {/* The same gold as the sheet's purse, not a second tally - see ./currency.ts. */}
         <StatBox
           label="GP"
-          value={member.gp}
+          value={currencyOf(member).gp}
           color="var(--gp)"
           borderColor="oklch(0.82 0.11 90 / 0.28)"
-          onChange={(gp) => patch({ gp })}
+          onChange={(gp) => patch(withCurrency(member, { ...currencyOf(member), gp }))}
         />
       </div>
 
