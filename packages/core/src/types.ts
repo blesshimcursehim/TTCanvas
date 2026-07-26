@@ -195,6 +195,56 @@ export interface SpellcastingBlock {
   spells?: { level: number; name: string; prepared?: boolean }[];
 }
 
+/** Coin purse. Lives here rather than in party-tracker/types.ts because both the PC sheet and the
+ *  Inventory widget hold one, and PartyMemberPatch carries deltas of it. */
+export interface PCCurrency {
+  cp: number;
+  sp: number;
+  ep: number;
+  gp: number;
+  pp: number;
+}
+
+/** Low denomination first, so display and rollup code iterate in a predictable order. `as const`
+ *  keeps the tuple's literal element types, which is what makes `PCCurrency[k]` index cleanly. */
+export const CURRENCY_KEYS = ["cp", "sp", "ep", "gp", "pp"] as const;
+
+export const DEFAULT_CURRENCY: PCCurrency = { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
+
+/**
+ * Add a signed delta onto a purse. Absent coins count as 0, results are floored at 0 and rounded, so
+ * a fractional share from an even split can never persist "12.5 gp". Additive rather than absolute so
+ * callers hand back "+3 gp" and the sum happens inside the state updater, where it cannot race a
+ * concurrent edit of the same purse.
+ */
+export function applyCurrencyDelta(base: PCCurrency | undefined, delta: Partial<PCCurrency>): PCCurrency {
+  const cur = base ?? DEFAULT_CURRENCY;
+  const next = { ...DEFAULT_CURRENCY };
+  for (const k of CURRENCY_KEYS) {
+    next[k] = Math.max(0, Math.round((cur[k] ?? 0) + (delta[k] ?? 0)));
+  }
+  return next;
+}
+
+/** SRD 5.2.1 coin values in copper. Electrum sits at 50cp even though most tables ignore it. */
+export const COIN_IN_CP: Record<keyof PCCurrency, number> = { cp: 1, sp: 10, ep: 50, gp: 100, pp: 1000 };
+
+/**
+ * Render a copper amount as the largest single denomination that divides it cleanly, falling back to
+ * gp with two decimals. Item prices are stored in copper so a 5sp torch never becomes 0.5gp and drifts
+ * through float arithmetic; this is the display half of that.
+ */
+export function formatCoin(cp: number): string {
+  if (!Number.isFinite(cp)) return "-";
+  if (cp === 0) return "0 cp";
+  for (const k of ["pp", "gp", "ep", "sp"] as const) {
+    const unit = COIN_IN_CP[k];
+    if (cp >= unit && cp % unit === 0) return `${cp / unit} ${k}`;
+  }
+  if (cp < COIN_IN_CP.gp) return `${cp} cp`;
+  return `${(cp / COIN_IN_CP.gp).toFixed(2)} gp`;
+}
+
 /**
  * The title bar's real-world session timer. Distinct from the in-game calendar clock, which
  * lives in the Time Tracker widget and flows through CalendarContext.

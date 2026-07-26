@@ -18,6 +18,7 @@ import {
   parseTimeTrackerState,
   parseRulesReferenceState,
   parseRuleCardsState,
+  parseInventoryState,
   parseXpTrackerState,
   parseRollTablesState,
   parseEncounterBuilderState,
@@ -690,5 +691,65 @@ describe("parseCampaignTimelineState", () => {
   it("defaults sortDirection to asc when missing or invalid", () => {
     expect((parseCampaignTimelineState({ entries: [] }) as { sortDirection: string }).sortDirection).toBe("asc");
     expect((parseCampaignTimelineState({ entries: [], sortDirection: "sideways" }) as { sortDirection: string }).sortDirection).toBe("asc");
+  });
+});
+
+describe("parseInventoryState", () => {
+  const item = {
+    id: "i1", name: "Sunblade", kind: "weapon", rarity: "very-rare",
+    valueCp: 500000, weightLb: 3, description: "Radiant.", attuned: true,
+    holdings: [{ holderId: null, qty: 1 }],
+  };
+  const base = {
+    items: [item], currency: { cp: 1, sp: 2, ep: 0, gp: 3, pp: 0 },
+    query: "", kindFilter: null, showWeight: false, carryLimitLb: null,
+  };
+
+  it("passes valid state through", () => {
+    expect(parseInventoryState(base)).toEqual(base);
+  });
+
+  it("drops an item with no id rather than inventing one", () => {
+    const result = parseInventoryState({ ...base, items: [item, { name: "No id", holdings: [] }] }) as { items: unknown[] };
+    expect(result.items).toHaveLength(1);
+  });
+
+  it("falls back to gear for an unknown kind", () => {
+    const result = parseInventoryState({ ...base, items: [{ ...item, kind: "wondrous" }] }) as { items: { kind: string }[] };
+    expect(result.items[0].kind).toBe("gear");
+  });
+
+  it("drops an unknown rarity instead of keeping the item stuck", () => {
+    const result = parseInventoryState({ ...base, items: [{ ...item, rarity: "mythic" }] }) as { items: { rarity?: string }[] };
+    expect(result.items[0].rarity).toBeUndefined();
+  });
+
+  it("drops a holding with a non-numeric quantity", () => {
+    const holdings = [{ holderId: "pc1", qty: "many" }, { holderId: null, qty: 2 }];
+    const result = parseInventoryState({ ...base, items: [{ ...item, holdings }] }) as { items: { holdings: unknown[] }[] };
+    expect(result.items[0].holdings).toEqual([{ holderId: null, qty: 2 }]);
+  });
+
+  it("keeps the rest of an item when one field is garbage", () => {
+    const result = parseInventoryState({ ...base, items: [{ ...item, weightLb: "heavy" }] }) as { items: { name: string; weightLb?: number }[] };
+    expect(result.items[0].name).toBe("Sunblade");
+    expect(result.items[0].weightLb).toBeUndefined();
+  });
+
+  it("zeroes a corrupt coin without wiping the purse", () => {
+    const result = parseInventoryState({ ...base, currency: { cp: "lots", sp: 2, ep: 0, gp: 3, pp: 0 } }) as { currency: Record<string, number> };
+    expect(result.currency).toEqual({ cp: 0, sp: 2, ep: 0, gp: 3, pp: 0 });
+  });
+
+  it("resets an unknown kindFilter so nothing filters everything out", () => {
+    const result = parseInventoryState({ ...base, kindFilter: "wondrous" }) as { kindFilter: string | null };
+    expect(result.kindFilter).toBeNull();
+  });
+
+  it("returns default for null", () => {
+    expect(parseInventoryState(null)).toEqual({
+      items: [], currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+      query: "", kindFilter: null, showWeight: false, carryLimitLb: null,
+    });
   });
 });

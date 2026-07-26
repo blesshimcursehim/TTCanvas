@@ -101,6 +101,8 @@ const PATHS: Record<string, string> = {
     "M2 6h14v14H2V6zM8 2h14v14H8V2zM11 6h8M11 10h5",
   stopwatch:
     "M10 2h4M12 2v3M12 14l3-3M4 14a8 8 0 1 0 16 0 8 8 0 1 0-16 0",
+  chest:
+    "M3 10a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v9H3v-9zM3 12h18M10 12h4v3h-4z",
   table:
     "M3 4h18v16H3zM3 9h18M3 14h18M9 9v11",
   flag:

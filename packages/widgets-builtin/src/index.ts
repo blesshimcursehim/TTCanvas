@@ -72,6 +72,11 @@ export type { RulesReferenceState } from "./rules-reference/types";
 export { RuleCards } from "./rule-cards/RuleCards";
 export type { RuleCardsState, RuleCard } from "./rule-cards/types";
 
+export { Inventory } from "./inventory/Inventory";
+export type { InventoryState, InventoryItem, Holding, ItemKind, Rarity } from "./inventory/types";
+// Exported for App.tsx, which projects the ledger onto InventoryContext for the PC sheet.
+export { qtyFor, totalQty } from "./inventory/inventory";
+
 
 export { XpTracker } from "./xp-tracker/XpTracker";
 export type { XpTrackerState } from "./xp-tracker/types";
@@ -79,6 +84,10 @@ export { applyEncounterAward } from "./xp-tracker/xpMath";
 
 export { RollTables } from "./roll-tables/RollTables";
 export type { RollTablesState, RollTable, RollTableEntry, RollHistoryItem } from "./roll-tables/types";
+// Exported for App.tsx, which serves RollTablesContext so loot rolls work with the widget closed.
+export { rollTableMultiple } from "./roll-tables/engine";
+export type { ResolvedRoll, RollStep } from "./roll-tables/engine";
+export { buildRollHistoryItems, HISTORY_CAP } from "./roll-tables/rollHistory";
 
 export { CardDecks } from "./card-decks/CardDecks";
 export type { CardDecksState, Deck, DeckCard, DrawnCard, DeckDrawState } from "./card-decks/types";

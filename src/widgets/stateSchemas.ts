@@ -480,6 +480,67 @@ export function parseRuleCardsState(raw: unknown): unknown {
 }
 
 // ---------------------------------------------------------------------------
+// inventory
+// ---------------------------------------------------------------------------
+
+const currencySchema = z
+  .object({
+    cp: z.number().catch(0),
+    sp: z.number().catch(0),
+    ep: z.number().catch(0),
+    gp: z.number().catch(0),
+    pp: z.number().catch(0),
+  })
+  .catch({ cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 });
+
+const ITEM_KIND_VALUES = ["weapon", "armour", "consumable", "magic", "treasure", "gear"] as const;
+const RARITY_VALUES = ["common", "uncommon", "rare", "very-rare", "legendary", "artifact"] as const;
+
+// holderId null = the party stash. A holding with a garbage qty is dropped rather than defaulted,
+// since inventing a quantity is worse than losing an entry the ledger never showed correctly.
+const holdingSchema = z.object({
+  holderId: z.string().nullable().catch(null),
+  qty: z.number(),
+});
+
+const inventoryItemSchema = z.object({
+  id: z.string(),
+  name: z.string().catch("Unnamed item"),
+  kind: z.enum(ITEM_KIND_VALUES).catch("gear"),
+  rarity: z.enum(RARITY_VALUES).optional().catch(undefined),
+  valueCp: z.number().optional().catch(undefined),
+  weightLb: z.number().optional().catch(undefined),
+  description: z.string().optional().catch(undefined),
+  attuned: z.boolean().optional().catch(undefined),
+  holdings: filterArr(holdingSchema),
+});
+
+const INVENTORY_DEFAULT = {
+  items: [],
+  currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+  query: "",
+  kindFilter: null,
+  showWeight: false,
+  carryLimitLb: null,
+};
+
+const inventorySchema = z
+  .object({
+    items: filterArr(inventoryItemSchema),
+    currency: currencySchema,
+    query: z.string().catch(""),
+    kindFilter: z.enum(ITEM_KIND_VALUES).nullable().catch(null),
+    showWeight: z.boolean().catch(false),
+    carryLimitLb: z.number().nullable().catch(null),
+    pullVaultPath: z.string().optional().catch(undefined),
+  })
+  .catch(INVENTORY_DEFAULT);
+
+export function parseInventoryState(raw: unknown): unknown {
+  return inventorySchema.parse(raw);
+}
+
+// ---------------------------------------------------------------------------
 // xp-tracker
 // ---------------------------------------------------------------------------
 

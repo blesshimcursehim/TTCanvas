@@ -6,6 +6,19 @@ All notable changes are documented here.
 
 ### Features
 
+- **Inventory.** A new widget holding one ledger of everything the party owns. Each item carries a
+  kind, rarity, value, weight and a Markdown description, and quantities are tracked per holder, so a
+  stack of rations split between three characters is still one row rather than three. Items you assign
+  to a character also show up on that character's sheet with all of those fields intact, which the old
+  equipment list couldn't do because it stored bare strings. That list is untouched and still works.
+  Along the bottom sits the shared party purse: **Split coin** divides it evenly between everyone in
+  the Party Tracker and adds each share to their sheet, leaving anything that won't divide behind, and
+  **Tidy** rolls loose copper up into larger coins. **Roll loot** runs one of your own Roll Tables and
+  drops the results straight in, recording the pull in that widget's history so you can read it back.
+  Weight and a carry limit are off by default, under the cog. Item libraries export, import and pull
+  across vaults like the other collection widgets, though holders stay behind since they belong to the
+  campaign you pulled from. No item or loot tables ship with the app.
+
 - **Pull a widget's content from another vault.** If you run the same campaign for two groups, you keep
   two vaults, and there was no way to copy world data from one into the other without re-typing it.
   Seven collection widgets - Bestiary, NPC Library, Gazetteer, Card Decks, Roll Tables, Rule Cards and

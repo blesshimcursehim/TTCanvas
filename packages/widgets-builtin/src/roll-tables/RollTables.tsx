@@ -6,8 +6,9 @@
 
 import { useRef, useState } from "react";
 import { useVault, logError } from "@ttcanvas/core";
-import type { RollTable, RollTableEntry, RollHistoryItem, RollTablesState } from "./types";
+import type { RollTable, RollTableEntry, RollTablesState } from "./types";
 import { entryRanges, totalWeight, padValue, formatRange, parseCount, rollTableMultiple } from "./engine";
+import { buildRollHistoryItems, HISTORY_CAP } from "./rollHistory";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { ModeToggle } from "../shared/ModeToggle";
@@ -25,7 +26,6 @@ interface Props {
 }
 
 const DIE_PRESETS = [4, 6, 8, 10, 12, 20, 100];
-const HISTORY_CAP = 50;
 
 function tableContentKey(t: RollTable): string {
   const { id: _id, ...rest } = t;
@@ -200,17 +200,7 @@ export function RollTables({ state, onChange }: Props) {
     if (!selected) return;
     const results = rollTableMultiple(selected, tables);
     if (results.length === 0) return;
-    const at = Date.now();
-    const items: RollHistoryItem[] = results.map((r) => ({
-      id: crypto.randomUUID(),
-      tableId: selected.id,
-      tableName: selected.name,
-      roll: r.steps[0]?.roll ?? 0,
-      text: r.text || "(empty entry)",
-      note: r.note,
-      chain: r.steps.length > 1 ? r.steps.map((s) => s.tableName).join(" → ") : undefined,
-      at,
-    }));
+    const items = buildRollHistoryItems(selected, results, Date.now());
     onChange({ ...state, history: [...items, ...history].slice(0, HISTORY_CAP) });
   }
 
