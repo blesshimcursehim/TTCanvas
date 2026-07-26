@@ -37,15 +37,13 @@ const RARITY_LABELS: Record<Rarity, string> = {
 };
 
 // An item description is an entity body, so like Gazetteer/NPC notes its [[links]] go through the
-// cross-entity channel - [[Vex]] resolves to that NPC, [[A Note]] still opens the note. Returns
-// whether a link was handled, so the click-to-edit swap can stand down when one was.
-function handleWikilinkClick(e: React.MouseEvent): boolean {
+// cross-entity channel - [[Vex]] resolves to that NPC, [[A Note]] still opens the note.
+function handleWikilinkClick(e: React.MouseEvent) {
   const link = (e.target as HTMLElement).closest("[data-wikilink]") as HTMLElement | null;
-  if (!link) return false;
+  if (!link) return;
   e.preventDefault();
   const name = link.dataset.wikilink;
   if (name) window.dispatchEvent(new CustomEvent("ttcanvas:open-entity-link", { detail: { name } }));
-  return true;
 }
 
 function itemContentKey(item: InventoryItem): string {
@@ -73,21 +71,26 @@ function validateInventoryBundle(parsed: unknown): InventoryItem[] | null {
     if (!raw || typeof raw !== "object") return [];
     const i = raw as Record<string, unknown>;
     if (typeof i.id !== "string" || typeof i.name !== "string" || !i.name.trim()) return [];
+    // A quantity must be a positive integer. Flooring 0.5 to 0 and keeping the holding would leave a
+    // holder labelled as carrying something the totals say they do not, so drop it outright instead.
     const holdings = Array.isArray(i.holdings)
       ? i.holdings.flatMap((h: unknown) => {
         if (!h || typeof h !== "object") return [];
         const { holderId, qty } = h as Record<string, unknown>;
-        if (typeof qty !== "number" || !Number.isFinite(qty) || qty <= 0) return [];
-        return [{ holderId: typeof holderId === "string" ? holderId : null, qty: Math.floor(qty) }];
+        if (typeof qty !== "number" || !Number.isInteger(qty) || qty <= 0) return [];
+        return [{ holderId: typeof holderId === "string" ? holderId : null, qty }];
       })
       : [];
+    const valueCp = i.valueCp;
+    const weightLb = i.weightLb;
     return [{
       id: i.id,
       name: i.name,
       kind: isKind(i.kind) ? i.kind : "gear",
       ...(isRarity(i.rarity) ? { rarity: i.rarity } : {}),
-      ...(typeof i.valueCp === "number" && Number.isFinite(i.valueCp) ? { valueCp: i.valueCp } : {}),
-      ...(typeof i.weightLb === "number" && Number.isFinite(i.weightLb) ? { weightLb: i.weightLb } : {}),
+      // Value is whole copper, weight may be fractional; neither can be negative.
+      ...(typeof valueCp === "number" && Number.isInteger(valueCp) && valueCp >= 0 ? { valueCp } : {}),
+      ...(typeof weightLb === "number" && Number.isFinite(weightLb) && weightLb >= 0 ? { weightLb } : {}),
       ...(typeof i.description === "string" ? { description: i.description } : {}),
       ...(i.attuned === true ? { attuned: true } : {}),
       holdings,
@@ -344,7 +347,7 @@ export function Inventory({ state, onChange }: Props) {
                         value={item.rarity ?? ""}
                         onChange={(e) => patchItem(item.id, { rarity: isRarity(e.target.value) ? e.target.value : undefined })}
                       >
-                        <option value="">—</option>
+                        <option value="">None</option>
                         {RARITIES.map((r) => <option key={r} value={r}>{RARITY_LABELS[r]}</option>)}
                       </select>
                     </label>
@@ -392,31 +395,32 @@ export function Inventory({ state, onChange }: Props) {
                     </label>
                   </div>
 
-                  {/* Click-to-edit: the description reads as rendered Markdown until you click it. */}
+                  {/* A real button toggles the editor rather than the rendered block being one: the
+                      block contains its own links, so making it a button would nest interactive
+                      elements, swallow Space, and leave no sensible focus ring. */}
+                  <div className={styles.descHead}>
+                    <span>Description</span>
+                    <button
+                      className={styles.descEditBtn}
+                      onClick={() => setEditingDescId(editingDescId === item.id ? null : item.id)}
+                    >{editingDescId === item.id ? "Done" : "Edit"}</button>
+                  </div>
                   {editingDescId === item.id ? (
                     <textarea
                       className={styles.desc}
                       value={item.description ?? ""}
                       autoFocus
-                      placeholder="Description… supports Markdown and [[wikilinks]]"
-                      onBlur={() => setEditingDescId(null)}
+                      aria-label={`Description of ${item.name}`}
+                      placeholder="Supports Markdown and [[wikilinks]]"
                       onChange={(e) => patchItem(item.id, { description: e.target.value })}
                     />
                   ) : (
                     <div
                       className={styles.descView}
-                      role="button"
-                      tabIndex={0}
-                      title="Click to edit"
-                      // Follow a [[wikilink]] rather than swapping in the textarea - otherwise the
-                      // click-to-edit would make every link in a description unreachable.
-                      onClick={(e) => {
-                        if (!handleWikilinkClick(e)) setEditingDescId(item.id);
-                      }}
-                      onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) setEditingDescId(item.id); }}
+                      onClick={handleWikilinkClick}
                       {...(item.description
                         ? { dangerouslySetInnerHTML: { __html: renderMarkdown(item.description) } }
-                        : { children: <span className={styles.descEmpty}>Add a description…</span> })}
+                        : { children: <span className={styles.descEmpty}>No description yet.</span> })}
                     />
                   )}
 
@@ -457,7 +461,7 @@ export function Inventory({ state, onChange }: Props) {
 
                   <div className={styles.detailFoot}>
                     <ConfirmDeleteButton
-                      trigger="🗑 Remove"
+                      trigger="Remove"
                       triggerLabel={`Remove ${item.name}`}
                       confirmQuestion={`Remove "${item.name}"?`}
                       confirming={confirmingId === item.id}

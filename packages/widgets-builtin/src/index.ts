@@ -72,6 +72,10 @@ export type { RulesReferenceState } from "./rules-reference/types";
 export { RuleCards } from "./rule-cards/RuleCards";
 export type { RuleCardsState, RuleCard } from "./rule-cards/types";
 
+// The single read/write path for a character's coin - see the file header for why there are two fields.
+export { currencyOf, withCurrency } from "./party-tracker/currency";
+export type { CoinBearing } from "./party-tracker/currency";
+
 export { Inventory } from "./inventory/Inventory";
 export type { InventoryState, InventoryItem, Holding, ItemKind, Rarity } from "./inventory/types";
 // Exported for App.tsx, which projects the ledger onto InventoryContext for the PC sheet.

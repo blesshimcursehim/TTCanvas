@@ -94,14 +94,14 @@ export interface CoinSplit {
 }
 
 /**
- * Divide the purse evenly between members. Splits on the flattened copper total so 3 gp between two
- * characters becomes 1gp 5sp each rather than one of them getting the odd coin, then hands the
- * indivisible copper remainder back to the party rather than silently dropping it. Electrum is left
- * in the purse untouched, matching `normaliseCurrency`.
+ * Divide the whole purse evenly between members. Splits on the flattened copper total so 3 gp between
+ * two characters becomes 1gp 5sp each rather than one of them getting the odd coin, then hands the
+ * indivisible copper remainder back to the party rather than silently dropping it. Electrum counts
+ * towards each share like any other coin - it is only excluded from what the shares are *paid in*,
+ * via `normaliseCurrency`, so nobody is handed a denomination their table never uses.
  */
 export function splitEvenly(currency: PCCurrency, memberIds: string[]): CoinSplit {
-  const ep = Math.max(0, Math.floor(currency.ep ?? 0));
-  const divisible = currencyToCp(currency) - ep * COIN_IN_CP.ep;
+  const divisible = currencyToCp(currency);
   if (memberIds.length === 0 || divisible <= 0) {
     return { shares: [], remainder: currency };
   }
@@ -110,6 +110,6 @@ export function splitEvenly(currency: PCCurrency, memberIds: string[]): CoinSpli
   const shareCoins = normaliseCurrency({ cp: each, sp: 0, ep: 0, gp: 0, pp: 0 });
   return {
     shares: memberIds.map((memberId) => ({ memberId, delta: shareCoins })),
-    remainder: normaliseCurrency({ cp: leftover, sp: 0, ep, gp: 0, pp: 0 }),
+    remainder: normaliseCurrency({ cp: leftover, sp: 0, ep: 0, gp: 0, pp: 0 }),
   };
 }

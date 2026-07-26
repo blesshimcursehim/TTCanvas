@@ -29,7 +29,7 @@ export interface PartyMember extends SharedPartyMember {
   sp: number;
   maxSp: number;
   pp: number;         // passive perception
-  gp: number;         // gold pieces (quick card stat)
+  gp: number;         // legacy gold field - mirrors currency.gp; read/write via ./currency.ts
   notes: string;
   inspiration: boolean;
   portraitPath?: string | null;

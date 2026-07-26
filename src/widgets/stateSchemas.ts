@@ -483,13 +483,16 @@ export function parseRuleCardsState(raw: unknown): unknown {
 // inventory
 // ---------------------------------------------------------------------------
 
+// Coins are whole and never negative; a fractional or negative one is a corrupt value, not a debt.
+const coinSchema = z.number().int().nonnegative().catch(0);
+
 const currencySchema = z
   .object({
-    cp: z.number().catch(0),
-    sp: z.number().catch(0),
-    ep: z.number().catch(0),
-    gp: z.number().catch(0),
-    pp: z.number().catch(0),
+    cp: coinSchema,
+    sp: coinSchema,
+    ep: coinSchema,
+    gp: coinSchema,
+    pp: coinSchema,
   })
   .catch({ cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 });
 
@@ -497,10 +500,13 @@ const ITEM_KIND_VALUES = ["weapon", "armour", "consumable", "magic", "treasure",
 const RARITY_VALUES = ["common", "uncommon", "rare", "very-rare", "legendary", "artifact"] as const;
 
 // holderId null = the party stash. A holding with a garbage qty is dropped rather than defaulted,
-// since inventing a quantity is worse than losing an entry the ledger never showed correctly.
+// since inventing a quantity is worse than losing an entry the ledger never showed correctly. The
+// quantity must be a positive integer: a zero or fractional one would leave a holding that the
+// holder labels and the row total disagree about (0.5 floors to 0 while the holder still reads as
+// carrying it), and a negative one would subtract from the party total.
 const holdingSchema = z.object({
   holderId: z.string().nullable().catch(null),
-  qty: z.number(),
+  qty: z.number().int().positive(),
 });
 
 const inventoryItemSchema = z.object({
@@ -508,8 +514,9 @@ const inventoryItemSchema = z.object({
   name: z.string().catch("Unnamed item"),
   kind: z.enum(ITEM_KIND_VALUES).catch("gear"),
   rarity: z.enum(RARITY_VALUES).optional().catch(undefined),
-  valueCp: z.number().optional().catch(undefined),
-  weightLb: z.number().optional().catch(undefined),
+  // Value is in whole copper, weight may be fractional (a 0.5 lb dagger); neither can be negative.
+  valueCp: z.number().int().nonnegative().optional().catch(undefined),
+  weightLb: z.number().nonnegative().finite().optional().catch(undefined),
   description: z.string().optional().catch(undefined),
   attuned: z.boolean().optional().catch(undefined),
   holdings: filterArr(holdingSchema),
@@ -531,7 +538,7 @@ const inventorySchema = z
     query: z.string().catch(""),
     kindFilter: z.enum(ITEM_KIND_VALUES).nullable().catch(null),
     showWeight: z.boolean().catch(false),
-    carryLimitLb: z.number().nullable().catch(null),
+    carryLimitLb: z.number().nonnegative().finite().nullable().catch(null),
     pullVaultPath: z.string().optional().catch(undefined),
   })
   .catch(INVENTORY_DEFAULT);

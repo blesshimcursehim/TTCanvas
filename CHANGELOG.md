@@ -152,6 +152,12 @@ All notable changes are documented here.
 
 ### Changes
 
+- **A character's gold is now one number.** The GP box on a character's card and the Gold field in
+  their sheet's Inventory tab were separate values that nothing kept in step, so the same character
+  could show 10 gold on the card and 50 on the sheet. They are now the same number, read and written
+  in one place. If yours currently disagree, the sheet's figure is the one that survives, and if a
+  character has never had a sheet purse the card's gold carries into it rather than resetting.
+
 - **Widget failures now leave a trace in the log.** Until now every log entry came from the app shell,
   and the widgets themselves wrote nothing at all, so a map that wouldn't load, a sound pad that
   wouldn't play, an AI summary that failed or a whole NPC library that came back empty all just looked

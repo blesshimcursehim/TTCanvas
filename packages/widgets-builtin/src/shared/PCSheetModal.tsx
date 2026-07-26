@@ -12,7 +12,8 @@ import { AbilityGrid } from "./sheet-primitives/AbilityGrid";
 import { RollableStat } from "./sheet-primitives/RollableStat";
 import { NamedEntryList } from "./sheet-primitives/NamedEntryList";
 import type { AbilityScores, SpellSlots, PCCurrency } from "@ttcanvas/core";
-import { useVault, useInventory, pushCharacterScene, abilityModifier, proficiencyBonus, CURRENCY_KEYS, DEFAULT_CURRENCY, formatCoin } from "@ttcanvas/core";
+import { useVault, useInventory, pushCharacterScene, abilityModifier, proficiencyBonus, CURRENCY_KEYS, formatCoin } from "@ttcanvas/core";
+import { currencyOf, withCurrency } from "../party-tracker/currency";
 import { portraitColor } from "../party-tracker/CharacterCard";
 import styles from "./PCSheetModal.module.css";
 
@@ -495,11 +496,11 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
                     className={styles.currencyInput}
                     type="number"
                     min={0}
-                    value={draft.currency?.[key] ?? 0}
-                    onChange={(e) => patch({ currency: { ...(draft.currency ?? DEFAULT_CURRENCY), [key]: Number(e.target.value) || 0 } })}
+                    value={currencyOf(draft)[key]}
+                    onChange={(e) => patch(withCurrency(draft, { ...currencyOf(draft), [key]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
                   />
                 ) : (
-                  <span className={styles.currencyValue}>{draft.currency?.[key] ?? 0}</span>
+                  <span className={styles.currencyValue}>{currencyOf(draft)[key]}</span>
                 )}
                 <span className={styles.currencyName}>{CURRENCY_LABELS[key]}</span>
               </label>

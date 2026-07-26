@@ -37,7 +37,8 @@ import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
 import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, RollTablesContext, InventoryContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, logError, DEFAULT_JUMPS, applyCurrencyDelta, type PCCurrency, type RollTableRef, type RollTableOutcome, type InventoryItemRef, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
-import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, rollTableMultiple, buildRollHistoryItems, HISTORY_CAP, type XpTrackerState, type DiceRollerState, type RollTablesState, type InventoryState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
+import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, rollTableMultiple, buildRollHistoryItems, HISTORY_CAP, currencyOf, withCurrency, type XpTrackerState, type DiceRollerState, type RollTablesState, type InventoryState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
+import { parseRollTablesState, parseInventoryState } from "./widgets/stateSchemas";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
 import * as vaultApi from "./vault";
 
@@ -811,8 +812,15 @@ function App() {
   // sheet's ledger section must work whether or not their source widget is on the canvas. Keyed on
   // the slice rather than all of `singletonStates`, so an unrelated singleton write (the Time
   // Tracker ticks every second) doesn't rebuild either projection.
-  const rollTablesState = singletonStates["roll-tables"] ?? widgets.find((w) => w.type === "roll-tables")?.state;
-  const inventoryState = singletonStates["inventory"] ?? widgets.find((w) => w.type === "inventory")?.state;
+  //
+  // Run the same zod schema the render path applies before building a context off it. A widget gets
+  // its state through `parseState`, but these projections read the raw slice, so a corrupt saved
+  // `tables`/`items` would throw here - at App level, outside any widget error boundary, taking the
+  // whole canvas down instead of one widget.
+  const rollTablesRaw = singletonStates["roll-tables"] ?? widgets.find((w) => w.type === "roll-tables")?.state;
+  const inventoryRaw = singletonStates["inventory"] ?? widgets.find((w) => w.type === "inventory")?.state;
+  const rollTablesState = useMemo(() => parseRollTablesState(rollTablesRaw) as RollTablesState, [rollTablesRaw]);
+  const inventoryState = useMemo(() => parseInventoryState(inventoryRaw) as InventoryState, [inventoryRaw]);
   const resolverCreatures = useMemo<NamedRef[]>(() => {
     const s = bestiaryState as { entries?: { id: string; name: string }[] } | undefined;
     return (s?.entries ?? []).map((e) => ({ ref: e.id, name: e.name }));
@@ -1024,19 +1032,23 @@ function App() {
     if (patches.length === 0) return;
     setSingletonStates((ss) => {
       const base = (ss["party-tracker"] ?? widgetsRef.current.find((w) => w.type === "party-tracker")?.state) as
-        { members?: { id: string; hp: number; maxHp: number; level: number; currency?: PCCurrency }[]; compact?: boolean } | undefined;
+        { members?: { id: string; hp: number; maxHp: number; level: number; gp?: number; currency?: PCCurrency }[]; compact?: boolean } | undefined;
       if (!base?.members) return ss;
       const byId = new Map(patches.map((p) => [p.id, p]));
       const members = base.members.map((m) => {
         const p = byId.get(m.id);
         if (!p) return m;
-        return {
+        const patched = {
           ...m,
           ...(p.hp !== undefined ? { hp: Math.max(0, Math.min(p.hp, m.maxHp)) } : {}),
           ...(p.level !== undefined ? { level: p.level } : {}),
-          // Additive, and deliberately inside the updater - see PartyMemberPatch.currencyDelta.
-          ...(p.currencyDelta ? { currency: applyCurrencyDelta(m.currency, p.currencyDelta) } : {}),
         };
+        // Additive, and deliberately inside the updater - see PartyMemberPatch.currencyDelta. Applied
+        // last and through withCurrency, so the card's GP stat and the sheet's purse stay one number
+        // (see party-tracker/currency.ts) without re-spreading `m` over the hp/level patches above.
+        return p.currencyDelta
+          ? withCurrency(patched, applyCurrencyDelta(currencyOf(patched), p.currencyDelta))
+          : patched;
       });
       return { ...ss, "party-tracker": { ...base, members } };
     });
@@ -1086,11 +1098,11 @@ function App() {
   // back a result that disagreed with the history it recorded. No revealWidget - the result lands in
   // the caller's own widget, so popping this one open mid-session would just be noise.
   const rollOnTable = useCallback((tableId: string): RollTableOutcome[] | null => {
-    const current = (singletonStatesRef.current["roll-tables"]
-      ?? widgetsRef.current.find((w) => w.type === "roll-tables")?.state) as RollTablesState | undefined;
-    const table = current?.tables?.find((t) => t.id === tableId);
+    const current = parseRollTablesState(singletonStatesRef.current["roll-tables"]
+      ?? widgetsRef.current.find((w) => w.type === "roll-tables")?.state) as RollTablesState;
+    const table = current.tables.find((t) => t.id === tableId);
     if (!table) return null;
-    const results = rollTableMultiple(table, current?.tables ?? []);
+    const results = rollTableMultiple(table, current.tables);
     if (results.length === 0) return null;
     const items = buildRollHistoryItems(table, results, Date.now());
     setSingletonStates((ss) => {
@@ -1148,10 +1160,10 @@ function App() {
   const diceContextValue = useMemo(() => ({ roll: rollToDiceRoller }), [rollToDiceRoller]);
   const bestiaryContextValue = useMemo(() => ({ creatures: bestiaryCreatures }), [bestiaryCreatures]);
 
-  const rollTableRefs = useMemo<RollTableRef[]>(() => {
-    const s = rollTablesState as RollTablesState | undefined;
-    return (s?.tables ?? []).map((t) => ({ id: t.id, name: t.name }));
-  }, [rollTablesState]);
+  const rollTableRefs = useMemo<RollTableRef[]>(
+    () => rollTablesState.tables.map((t) => ({ id: t.id, name: t.name })),
+    [rollTablesState],
+  );
   const rollTablesContextValue = useMemo(
     () => ({ tables: rollTableRefs, rollOn: rollOnTable }),
     [rollTableRefs, rollOnTable],
@@ -1160,10 +1172,9 @@ function App() {
   // Project the ledger into per-holder buckets once, so the PC sheet's ledger section is a Map
   // lookup rather than a full rescan on every render.
   const inventoryByHolder = useMemo(() => {
-    const s = inventoryState as InventoryState | undefined;
     const byHolder = new Map<string, InventoryItemRef[]>();
-    for (const item of s?.items ?? []) {
-      for (const h of item.holdings ?? []) {
+    for (const item of inventoryState.items) {
+      for (const h of item.holdings) {
         if (h.holderId === null || h.qty <= 0) continue;  // the party stash is nobody's sheet
         const bucket = byHolder.get(h.holderId) ?? [];
         bucket.push({

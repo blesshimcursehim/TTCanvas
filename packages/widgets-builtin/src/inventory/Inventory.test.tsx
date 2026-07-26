@@ -173,7 +173,7 @@ describe("Inventory loot rolling", () => {
 });
 
 describe("Inventory descriptions", () => {
-  it("follows a wikilink instead of swapping in the editor", () => {
+  it("routes a wikilink click to the cross-entity channel", () => {
     const heard: string[] = [];
     const listener = (e: Event) => heard.push((e as CustomEvent<{ name: string }>).detail.name);
     window.addEventListener("ttcanvas:open-entity-link", listener);
@@ -183,17 +183,28 @@ describe("Inventory descriptions", () => {
       // By role, not text - "Vex" also appears as a holder row in the holdings list.
       fireEvent.click(screen.getByRole("link", { name: "Vex" }));
       expect(heard).toEqual(["Vex"]);
-      // Still the rendered view, not a textarea.
-      expect(screen.queryByPlaceholderText(/Description/)).toBeNull();
+      // The rendered view stays put; only the Edit button opens the textarea.
+      expect(screen.queryByRole("textbox", { name: /Description of/ })).toBeNull();
     } finally {
       window.removeEventListener("ttcanvas:open-entity-link", listener);
     }
   });
 
-  it("opens the editor when the description body itself is clicked", () => {
+  it("opens and closes the editor from a real button", () => {
+    renderInventory(baseState({ items: [item({ description: "Forged by [[Vex]]." })] }));
+    fireEvent.click(screen.getByText("Sunblade"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByRole("textbox", { name: "Description of Sunblade" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("textbox", { name: /Description of/ })).toBeNull();
+  });
+
+  it("leaves the rendered description alone when its body is clicked", () => {
     renderInventory(baseState({ items: [item({ description: "Forged by [[Vex]]." })] }));
     fireEvent.click(screen.getByText("Sunblade"));
     fireEvent.click(screen.getByText(/Forged by/));
-    expect(screen.getByPlaceholderText(/Description/)).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: /Description of/ })).toBeNull();
   });
 });

@@ -115,9 +115,13 @@ describe("splitEvenly", () => {
     expect(splitEvenly(purse, [])).toEqual({ shares: [], remainder: purse });
   });
 
-  it("keeps electrum in the purse instead of dividing it", () => {
+  it("divides electrum by value without paying anyone in electrum", () => {
     const { shares, remainder } = splitEvenly({ ...NO_COIN, ep: 2 }, ["a", "b"]);
-    expect(shares).toEqual([]);
-    expect(remainder.ep).toBe(2);
+    // 2 ep = 100 cp, so 5 sp each rather than "nothing to split".
+    expect(shares).toEqual([
+      { memberId: "a", delta: { cp: 0, sp: 5, ep: 0, gp: 0, pp: 0 } },
+      { memberId: "b", delta: { cp: 0, sp: 5, ep: 0, gp: 0, pp: 0 } },
+    ]);
+    expect(remainder).toEqual(NO_COIN);
   });
 });
