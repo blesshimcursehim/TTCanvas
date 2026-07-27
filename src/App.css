@@ -31,10 +31,11 @@ body {
   outline-offset: var(--focus-ring-offset);
 }
 
-/* ── EB Garamond token ─────────────────────────────── */
+/* ── Font tokens ─────────────────────────────────── */
 
 :root {
   --font-serif: "EB GaramondVariable", "EB Garamond", Georgia, serif;
+  --font-mono: "JetBrains MonoVariable", "JetBrains Mono", monospace;
 }
 
 /* ── Global scrollbars ─────────────────────────────── */
