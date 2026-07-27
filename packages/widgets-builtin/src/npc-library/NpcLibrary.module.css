@@ -216,6 +216,10 @@
 }
 
 .metaVal { font-size: 12.5px; color: var(--ink-2); }
+/* Last Seen and custom fields render inline wikilinks (applyInline), same look as Notes' full
+   renderMarkdown - the two share the same [[link]] styling rather than one reading as broken. */
+.metaVal :global(.wikilink) { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent-line); cursor: pointer; }
+.metaVal :global(.wikilink:hover) { border-bottom-style: solid; }
 .metaInput {
   background: var(--surface); border: 1px solid var(--line); border-radius: 5px;
   padding: 4px 8px; font-size: 12.5px; color: var(--ink); width: 100%; box-sizing: border-box;

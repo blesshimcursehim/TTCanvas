@@ -15,7 +15,7 @@ import {
   makeBlankNpc, autoAccentColor, npcInitials,
 } from "./npcFormat";
 import { setActiveTokenDrag, clearActiveTokenDrag, placeTokenAtCenter } from "../shared/tokenDrag";
-import { renderMarkdown } from "../shared/markdownRenderer";
+import { renderMarkdown, applyInline } from "../shared/markdownRenderer";
 import { mimeForImageExt } from "../shared/mime";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { NPCSheetModal } from "../shared/NPCSheetModal";
@@ -641,7 +641,9 @@ export function NpcLibrary({ state, onChange }: Props) {
               <div className={styles.sectionHead}>Last seen</div>
               {editing
                 ? <input className={styles.metaInput} value={draft?.lastSeen ?? ""} onChange={(e) => setNpc("lastSeen", e.target.value || undefined)} placeholder="-" />
-                : <span className={styles.metaVal}>{displayNpc.lastSeen || "-"}</span>}
+                : displayNpc.lastSeen
+                  ? <span className={styles.metaVal} dangerouslySetInnerHTML={{ __html: applyInline(displayNpc.lastSeen) }} onClick={onNpcWikilinkClick} />
+                  : <span className={styles.metaVal}>-</span>}
             </div>
 
             {/* Custom fields */}
@@ -686,7 +688,9 @@ export function NpcLibrary({ state, onChange }: Props) {
               (displayNpc.customFields ?? []).filter((f) => f.label).map((f, i) => (
                 <div key={i} className={styles.metaField}>
                   <div className={styles.sectionHead}>{f.label}</div>
-                  <span className={styles.metaVal}>{f.value || "-"}</span>
+                  {f.value
+                    ? <span className={styles.metaVal} dangerouslySetInnerHTML={{ __html: applyInline(f.value) }} onClick={onNpcWikilinkClick} />
+                    : <span className={styles.metaVal}>-</span>}
                 </div>
               ))
             )}

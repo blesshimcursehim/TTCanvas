@@ -14,7 +14,13 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function applyInline(text: string): string {
+/**
+ * Inline markup only - bold/italic/strikethrough, inline code and `[[wikilinks]]` - with no block
+ * wrapper. Exported for one-line meta fields (an NPC's Last Seen, a custom field) that want
+ * wikilinks to resolve/click the same way Notes does, but shouldn't get `renderMarkdown`'s block-
+ * level `<p>`/`<ul>`/table handling, which is the wrong fit for a single short line.
+ */
+export function applyInline(text: string): string {
   // Protect inline code first so literal wikilink examples cannot become anchors.
   const codePlaceholders: string[] = [];
   const withCodePlaceholders = text.replace(/`(.+?)`/g, (_, code: string) => {

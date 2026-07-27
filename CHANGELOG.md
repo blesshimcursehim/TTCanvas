@@ -248,6 +248,11 @@ All notable changes are documented here.
 
 ### Fixes
 
+- **`[[wikilinks]]` now work in an NPC's Last Seen and custom fields.** Those short fields printed
+  the raw `[[place:...]]` bracket text with no link at all, while the exact same syntax in Notes
+  resolved and opened fine - so a link typed into Last Seen looked broken right next to a working
+  one. Both now render and click the same way Notes does.
+
 - **Map tokens can now be renamed, and placing one no longer pops open a shape's editor by
   mistake.** A plain token dropped on the map had no way to be named beyond an auto-generated
   "Token 1", "Token 2", and no way to fix that afterwards. Double-click any token (a fresh one
