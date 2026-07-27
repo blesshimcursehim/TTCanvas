@@ -101,3 +101,55 @@ describe("NpcLibrary - embedded NPC Generator (merge)", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Save to library" })).not.toBeInTheDocument());
   });
 });
+
+describe("NpcLibrary - wikilinks in Last Seen and custom fields", () => {
+  // Bugs.md: only the Notes field ran wikilinks through renderMarkdown - Last Seen and custom
+  // fields printed the raw [[...]] text with no link at all. These pin the fix.
+  const AGNES: ParsedNpc = {
+    filename: "npcs/agnes.json", id: "agnes-id", name: "Agnes Holk", race: "Human", occupation: "Spy",
+    lastSeen: "[[place:The Gilded Keel]]",
+    customFields: [{ label: "Pet", value: "Keeps a [[creature:Goblin]] in the basement" }],
+  };
+  const agnesVault = {
+    vaultPath: "/v",
+    vaultVersion: 1,
+    otherVaults: [],
+    listFiles: async (ext: string) => (ext === "json" ? ["npcs/agnes.json"] : []),
+    readFile: async () => serializeNpcJson(AGNES),
+    writeFile: async () => {},
+    deleteFile: async () => {},
+    readFileBase64: async () => "",
+  } as unknown as VaultContextValue;
+
+  function renderAgnes() {
+    return render(
+      <VaultContext.Provider value={agnesVault}>
+        <NpcLibrary state={makeState({ selectedFile: "npcs/agnes.json" })} onChange={vi.fn()} />
+      </VaultContext.Provider>,
+    );
+  }
+
+  it("renders a Last Seen wikilink as a clickable anchor, not raw bracket text", async () => {
+    renderAgnes();
+    await screen.findByText("Last seen");
+    const link = document.querySelector('[data-wikilink="place:The Gilded Keel"]');
+    expect(link).toBeTruthy();
+    expect(screen.queryByText("[[place:The Gilded Keel]]")).not.toBeInTheDocument();
+  });
+
+  it("renders a custom field's wikilink the same way", async () => {
+    renderAgnes();
+    await screen.findByText("Last seen");
+    expect(document.querySelector('[data-wikilink="creature:Goblin"]')).toBeTruthy();
+  });
+
+  it("clicking the Last Seen link dispatches ttcanvas:open-entity-link with the prefixed name", async () => {
+    renderAgnes();
+    await screen.findByText("Last seen");
+    const spy = vi.fn();
+    window.addEventListener("ttcanvas:open-entity-link", spy);
+    fireEvent.click(document.querySelector('[data-wikilink="place:The Gilded Keel"]')!);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect((spy.mock.calls[0][0] as CustomEvent).detail).toEqual({ name: "place:The Gilded Keel" });
+  });
+});
