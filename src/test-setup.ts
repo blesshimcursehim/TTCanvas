@@ -32,9 +32,15 @@ if (typeof HTMLCanvasElement !== "undefined") {
   };
 }
 
-// jsdom does not implement <dialog> showModal/close (used by Map Display's full-screen expand) -
-// the `open` property is already implemented and reflects the attribute, so toggling it is enough.
+// jsdom does not implement <dialog> showModal/close (used by Map Display's full-screen expand and
+// by every ModalDialog) - the `open` property is already implemented and reflects the attribute,
+// so toggling it is enough. close() also fires the `close` event, since that is the single exit
+// path ModalDialog listens on.
 if (typeof HTMLDialogElement !== "undefined") {
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
-  HTMLDialogElement.prototype.close = function () { this.open = false; };
+  HTMLDialogElement.prototype.close = function () {
+    if (!this.open) return;
+    this.open = false;
+    this.dispatchEvent(new Event("close"));
+  };
 }

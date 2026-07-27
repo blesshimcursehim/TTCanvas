@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { ModalDialog } from "../shared/ModalDialog";
 import { useVault, useParty, useNpcs, useGazetteerLocations, type NpcRef } from "@ttcanvas/core";
 import { autoAccentColor } from "../npc-library/npcFormat";
 import { ConfirmDeleteButton as SharedConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
@@ -287,11 +287,10 @@ export function RelationshipWeb({ state, onChange }: Props) {
   const body = <>{toolbar}{stage}</>;
 
   if (expanded) {
-    return createPortal(
-      <div className={styles.scrim}>
+    return (
+      <ModalDialog label="Relationship Web, full screen" onClose={() => setExpanded(false)}>
         <div className={styles.fullWrap}>{body}</div>
-      </div>,
-      document.body,
+      </ModalDialog>
     );
   }
   return <div className={styles.root}>{body}</div>;
@@ -469,7 +468,9 @@ function EdgeInspector({ edge, fromName, toName, onUpdate, onDelete, onClose }: 
         <button className={styles.iconBtn} onClick={onClose} aria-label="Close">✕</button>
       </div>
       <p className={styles.edgeEnds}>{fromName} → {toName}</p>
-      <label className={styles.fieldLabel}>Type</label>
+      {/* A span, not a label: the select carries its own aria-label, so a <label> here would be
+          one that labels nothing. */}
+      <span className={styles.fieldLabel}>Type</span>
       <select className={styles.select} value={edge.type} onChange={(e) => onUpdate(edge.id, { type: e.target.value as EdgeType })} aria-label="Link type">
         {(Object.keys(EDGE_TYPES) as EdgeType[]).map((t) => (
           <option key={t} value={t}>{EDGE_TYPES[t].label}</option>

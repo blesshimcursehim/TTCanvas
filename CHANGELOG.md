@@ -6,6 +6,14 @@ All notable changes are documented here.
 
 ### Features
 
+- **Move and resize widgets from the keyboard.** Every widget's drag handle and resize corner are now
+  real, Tab-reachable controls: Tab to one, arrow keys move or resize it, Shift for a bigger step.
+  Tabbing to a handle also pans the canvas to bring that widget into view, since panning here is a
+  transform rather than a scrollbar the browser can scroll-into-view on its own. Undo (Ctrl/Cmd+Z)
+  works the same as it does after a mouse drag. Party Tracker, Bestiary and NPC Library also gained a
+  "place at map center" button next to each portrait - the same one-click placement Initiative Tracker
+  already had - so getting a character or creature onto the map no longer requires a drag.
+
 - **Inventory.** A new widget holding one ledger of everything the party owns. Each item carries a
   kind, rarity, value, weight and a Markdown description, and quantities are tracked per holder, so a
   stack of rations split between three characters is still one row rather than three. Items you assign
@@ -149,8 +157,40 @@ All notable changes are documented here.
   until you set a portrait (or shows straight away if that portrait file already exists in the target
   vault). The Bestiary also gained an "Export all" for the whole library, alongside its existing
   per-creature and per-folder exports.
+- **Interface size, and a separate size for the player window.** Appearance had no way to make the
+  type bigger. Density only ever changed spacing, so a GM reading a dense screen at arm's length was
+  stuck with 12px text. There are now two controls. **Interface size** (Normal, Large, Larger) scales
+  the whole GM window the way a browser's zoom does, text, spacing and icons together. **Player window
+  text** sizes that window separately, since it gets read from across a table or off a projector, and
+  it scales text only so cast maps and handouts keep their full size. Both are per machine rather than
+  per campaign, because your eyes don't change between vaults.
 
 ### Changes
+
+- **Muted text is easier to read.** The two faintest text shades failed the WCAG AA contrast minimum
+  against the lighter panel backgrounds, some of them badly, which covered most of the app's small
+  print: toolbar titles, hints, timestamps and field labels. All four text shades were re-spread so
+  every one of them now clears the minimum on every surface in both themes. Muted text is noticeably
+  brighter than before, and the contrast between the boldest and faintest text is gentler. The accent
+  colours were measured too and all four already passed everywhere, so they are unchanged.
+
+- **Keyboard focus is always visible now.** Tabbing through the app showed whatever the system chose,
+  and on a couple of dozen fields (the command palette's search, sticky notes, most inline rename and
+  stat boxes) it showed nothing at all, so you could type into a box with no idea it was selected.
+  Every focusable thing now gets the same accent ring, and only when you are navigating by keyboard,
+  so nothing changes for mouse users.
+
+- **Escape closes windows, and a screen reader can follow them.** Every panel that opens over the
+  canvas - Preferences, the keyboard shortcuts card, character and creature sheets, Manage Party,
+  calendar setup, the portrait cropper and the add-creature form - is now a real dialog rather than a
+  panel painted on top. Escape closes it, keyboard focus moves into it when it opens and returns to
+  where you were when it shuts, Tab stays inside it instead of wandering off into the canvas behind,
+  and a screen reader announces it by name and ignores the page underneath. Sheet tabs move with the
+  arrow keys. Forms with something half-typed in them still ignore a stray click outside, as before.
+  Notifications are announced when they appear, and errors interrupt rather than queue. The Initiative
+  Tracker announces whose turn it is, which until now was shown only by a highlighted row, and the
+  condition picker closes on Escape, takes keyboard focus when it opens, hands it back when it shuts,
+  and reads out full condition names rather than the abbreviations on its chips.
 
 - **A character's gold is now one number.** The GP box on a character's card and the Gold field in
   their sheet's Inventory tab were separate values that nothing kept in step, so the same character

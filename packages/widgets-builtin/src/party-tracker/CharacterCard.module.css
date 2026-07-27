@@ -126,6 +126,22 @@
 }
 .sheetBtn:hover { background: var(--surface-2); color: var(--accent); border-color: var(--accent); }
 
+.mapBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mapBtn:hover { background: var(--surface-2); color: var(--accent); border-color: var(--accent); }
+
 .acGroup {
   display: flex;
   align-items: center;
@@ -429,3 +445,12 @@
   min-width: 0;
 }
 .customFieldInput:focus { border-color: var(--accent-line); }
+
+/* These suppress the browser's outline but put nothing back, so keyboard focus was invisible on
+   them. The app-wide :focus-visible ring in App.css ties with them on specificity and loses on
+   source order, hence the explicit rule. */
+.acValue:focus-visible,
+.statValue:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

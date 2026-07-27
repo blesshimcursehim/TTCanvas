@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import { ModalDialog } from "../shared/ModalDialog";
 import styles from "./CropModal.module.css";
 
 const MAX_DISPLAY_W = 520;
@@ -141,12 +141,12 @@ export function CropModal({ imgDataUrl, onConfirm, onCancel }: Props) {
   const { x, y, size } = crop;
   const { w, h } = display;
 
-  return createPortal(
-    <div className={styles.overlay} onMouseDown={(e) => e.stopPropagation()}>
+  return (
+    <ModalDialog label="Crop portrait" onClose={onCancel} backdropClose={false}>
       <div className={styles.modal}>
         <div className={styles.header}>
           <span className={styles.title}>Crop Portrait</span>
-          <button className={styles.closeBtn} onClick={onCancel}>×</button>
+          <button className={styles.closeBtn} onClick={onCancel} aria-label="Cancel cropping">×</button>
         </div>
 
         <div className={styles.body}>
@@ -192,7 +192,6 @@ export function CropModal({ imgDataUrl, onConfirm, onCancel }: Props) {
           <button className={styles.confirmBtn} onClick={handleConfirm}>Crop & Save</button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </ModalDialog>
   );
 }

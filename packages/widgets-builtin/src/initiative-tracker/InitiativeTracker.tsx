@@ -12,6 +12,7 @@ import { CombatantRow } from "./CombatantRow";
 import { GroupRow } from "./GroupRow";
 import { EndCombatModal } from "./EndCombatModal";
 import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
+import { placeTokenAtCenter } from "../shared/tokenDrag";
 import { wrapForward, wrapBack } from "./roundClock";
 import { buildTurnOrder, syncGroupInitiative, createGroup, dissolveGroup, pruneEmptyGroups } from "./groups";
 import styles from "./InitiativeTracker.module.css";
@@ -273,18 +274,26 @@ export function InitiativeTracker({ state, onChange }: Props) {
   const placeCombatantAtCenter = (c: Combatant) => {
     const kind = c.kind ?? "foe";
     const tokenColor = kind === "pc" ? portraitColor(c.id) : KIND_TOKEN_COLORS[kind];
-    window.dispatchEvent(
-      new CustomEvent("ttcanvas:place-token", {
-        // Prefer the origin entity's id (party member / bestiary creature) so the map can
-        // dedupe against the same character dragged in directly, instead of making a
-        // portraitless duplicate. Falls back to the combatant id for ad-hoc combatants.
-        detail: { sourceId: c.sourceId ?? c.id, label: c.name, color: tokenColor, portraitPath: c.portraitPath },
-      }),
-    );
+    // Prefer the origin entity's id (party member / bestiary creature) so the map can dedupe
+    // against the same character dragged in directly, instead of making a portraitless duplicate.
+    // Falls back to the combatant id for ad-hoc combatants.
+    placeTokenAtCenter({ sourceId: c.sourceId ?? c.id, label: c.name, color: tokenColor, portraitPath: c.portraitPath });
   };
+
+  // Whose turn it is, for the live region below. The turn order is a mix of single combatants and
+  // combined groups, so the label follows the same rule as the player overlay's.
+  const currentEntry = ordered.find((e) => e.id === state.currentId);
+  const currentName = currentEntry
+    ? (currentEntry.kind === "group" ? currentEntry.group.label : currentEntry.combatant.name)
+    : null;
 
   return (
     <div className={styles.root}>
+      {/* Whose turn it is is conveyed only by a highlighted row, which a screen reader can't see.
+          Same live region the player window already carries, so both surfaces announce a turn. */}
+      <span className={styles.visuallyHidden} aria-live="polite">
+        {currentName ? `Current turn: ${currentName}, round ${state.round}` : ""}
+      </span>
       {/* Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.roundGroup}>

@@ -4,8 +4,8 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useState, useEffect, useId, useRef } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
+import { ModalDialog } from "../shared/ModalDialog";
 import type { Combatant, SharedPartyMember, PartyMemberPatch, CombatEncounterRef } from "@ttcanvas/core";
 import { buildEndCombatReview, type UnlinkedCombatant } from "./endCombat";
 import { splitXp } from "../xp-tracker/xpMath";
@@ -102,36 +102,14 @@ export function EndCombatModal({ combatants, party, round, encounter, xpMode, on
 
   const unlinkedSummary = summariseUnlinked(review.unlinked);
 
-  const titleId = useId();
-  const modalRef = useRef<HTMLDivElement>(null);
-  // Give the dialog keyboard entry (move focus into it on open) and Escape-to-cancel. The app's
-  // modals are plain portalled <div> overlays rather than native <dialog>, so focus and dismissal
-  // are wired by hand here; converting every modal to <dialog> for focus containment and restoration
-  // is a systemic follow-up filed in tracking/bugs.md. stopPropagation keeps Escape from also
-  // reaching the canvas's own "clear selection" handler behind the overlay.
-  useEffect(() => { modalRef.current?.focus(); }, []);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      onCancel();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onCancel]);
-
-  return createPortal(
-    <div className={styles.overlay} onMouseDown={(e) => e.stopPropagation()}>
-      <div
-        ref={modalRef}
-        className={styles.modal}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-      >
+  // The hand-rolled focus/Escape/role wiring that used to live here is now ModalDialog's job, and
+  // the native dialog also keeps Escape from reaching the canvas's "clear selection" handler,
+  // which is what the old stopPropagation was for.
+  return (
+    <ModalDialog label="End combat" onClose={onCancel} backdropClose={false}>
+      <div className={styles.modal}>
         <div className={styles.header}>
-          <span className={styles.title} id={titleId}>End combat</span>
+          <span className={styles.title}>End combat</span>
           <span className={styles.round}>Round {round}</span>
         </div>
 
@@ -215,7 +193,6 @@ export function EndCombatModal({ combatants, party, round, encounter, xpMode, on
           <button className={styles.endBtn} onClick={handleEnd}>End combat</button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </ModalDialog>
   );
 }

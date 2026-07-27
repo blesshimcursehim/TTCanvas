@@ -399,7 +399,11 @@
 }
 
 .row:hover .mapBtn,
-.row:hover .removeBtn {
+.row:hover .removeBtn,
+.mapBtn:focus-visible,
+.removeBtn:focus-visible {
+  /* :focus-visible alongside :hover, or a keyboard user tabbing here without also hovering the
+     row with a mouse would land on an invisible (opacity: 0) button. */
   opacity: 1;
 }
 
@@ -415,4 +419,15 @@
 .removeBtn:hover {
   background: oklch(0.70 0.13 22 / 0.2);
   color: oklch(0.70 0.13 22);
+}
+
+/* These suppress the browser's outline but put nothing back, so keyboard focus was invisible on
+   them. The app-wide :focus-visible ring in App.css ties with them on specificity and loses on
+   source order, hence the explicit rule. */
+.initInput:focus-visible,
+.nameInput:focus-visible,
+.hpInput:focus-visible,
+.acInput:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }

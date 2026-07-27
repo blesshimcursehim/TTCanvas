@@ -68,13 +68,19 @@
 
 .emptyList { padding: 20px 10px; color: var(--ink-4); font-size: 12px; text-align: center; }
 
-.listRow {
+/* The wrapper carries the row's chrome (padding, rule, hover, active marker) so that the select
+   button and the place-on-map button can sit inside it as siblings. */
+.listRowWrap {
   display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 6px 8px; background: transparent; border: none;
-  border-bottom: 1px solid var(--line-soft); text-align: left; cursor: pointer;
+  padding: 6px 8px; border-bottom: 1px solid var(--line-soft);
   position: relative;
 }
-.listRow:hover { background: var(--surface); }
+.listRowWrap:hover { background: var(--surface); }
+.listRow {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+  padding: 0; background: transparent; border: none;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
 .listRowActive {
   background: var(--bg-2);
 }
@@ -132,6 +138,18 @@
 .relBadge[data-rel="neutral"] { background: oklch(0.36 0.04 258 / 0.3); color: oklch(0.76 0.04 258); border-color: oklch(0.52 0.05 258 / 0.5); }
 .relBadge[data-rel="wary"]    { background: oklch(0.42 0.10 80  / 0.3); color: oklch(0.80 0.10 80);  border-color: oklch(0.58 0.12 80  / 0.5); }
 .relBadge[data-rel="hostile"] { background: oklch(0.38 0.14 22  / 0.3); color: oklch(0.80 0.12 22);  border-color: oklch(0.54 0.16 22  / 0.5); }
+
+.listMapBtn {
+  width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent; border-radius: 4px;
+  color: var(--ink-4); cursor: pointer; padding: 0; flex-shrink: 0;
+  opacity: 0; transition: opacity 0.1s, background 0.1s, color 0.1s, border-color 0.1s;
+}
+.listRowWrap:hover .listMapBtn,
+.listMapBtn:focus-visible {
+  opacity: 1;
+}
+.listMapBtn:hover { background: var(--surface-2); border-color: var(--line); color: var(--ink); }
 
 .listFooter {
   padding: 5px 6px 5px 10px; font-family: var(--font-mono); font-size: 10px; color: var(--ink-4);
@@ -357,3 +375,11 @@
   border-radius: 5px; color: var(--ink-3); font-size: 11px; font-weight: 600; cursor: pointer;
 }
 .cancelBtn:hover { background: var(--surface-3, var(--surface-2)); }
+
+/* These suppress the browser's outline but put nothing back, so keyboard focus was invisible on
+   them. The app-wide :focus-visible ring in App.css ties with them on specificity and loses on
+   source order, hence the explicit rule. */
+.customLabelInput:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

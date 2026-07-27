@@ -31,6 +31,12 @@ export async function pushLocationScene(location: LocationPayload): Promise<void
   await emitTo("player", "player-update", { type: "location", location } satisfies PlayerScene);
 }
 
+// Separate channel for the player window's text scale. It reads the setting rather than owning it,
+// because the player webview's capability is deliberately listen-only and can't load app config.
+export async function pushPlayerTextScale(scale: number): Promise<void> {
+  await emitTo("player", "text-scale", scale);
+}
+
 // Separate channel for the date overlay - does not touch the map scene.
 export async function pushDateOverlay(date: string | null): Promise<void> {
   await emitTo("player", "date-update", date);

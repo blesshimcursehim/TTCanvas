@@ -193,8 +193,41 @@
   transition: opacity 0.1s, background 0.1s, color 0.1s, border-color 0.1s;
   z-index: 1;
 }
-.cardWrap:hover .cardExportBtn { opacity: 1; }
+.cardWrap:hover .cardExportBtn,
+.cardExportBtn:focus-visible {
+  /* :focus-visible alongside :hover, or a keyboard user tabbing here without also hovering the
+     card with a mouse would land on an invisible (opacity: 0) button. Same fix on .cardCastBtn
+     and both flat-row siblings below. */
+  opacity: 1;
+}
 .cardExportBtn:hover {
+  background: var(--surface-2);
+  border-color: var(--accent-line);
+  color: var(--ink);
+}
+
+.cardMapBtn {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-3);
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+}
+.cardWrap:hover .cardMapBtn,
+.cardMapBtn:focus-visible {
+  opacity: 1;
+}
+.cardMapBtn:hover {
   background: var(--surface-2);
   border-color: var(--accent-line);
   color: var(--ink);
@@ -500,8 +533,34 @@
   transition: opacity 0.1s, background 0.1s, color 0.1s, border-color 0.1s;
   flex-shrink: 0;
 }
-.flatRow:hover .flatRowExport { opacity: 1; }
+.flatRow:hover .flatRowExport,
+.flatRowExport:focus-visible {
+  opacity: 1;
+}
 .flatRowExport:hover { background: var(--surface-2); border-color: var(--line); color: var(--ink); }
+
+.flatRowMap {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--ink-4);
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s, color 0.1s, border-color 0.1s;
+  flex-shrink: 0;
+}
+.flatRow:hover .flatRowMap,
+.flatRowMap:focus-visible {
+  opacity: 1;
+}
+.flatRowMap:hover { background: var(--surface-2); border-color: var(--line); color: var(--ink); }
 
 .flatRowExportSaved {
   opacity: 1 !important;
@@ -530,7 +589,10 @@
   transition: opacity 0.1s, background 0.1s;
   z-index: 1;
 }
-.cardWrap:hover .cardCastBtn { opacity: 1; }
+.cardWrap:hover .cardCastBtn,
+.cardCastBtn:focus-visible {
+  opacity: 1;
+}
 .cardCastBtn:hover { background: var(--surface-2); }
 
 .flatRowCast {
@@ -551,10 +613,22 @@
   transition: opacity 0.1s, background 0.1s;
   flex-shrink: 0;
 }
-.flatRow:hover .flatRowCast { opacity: 1; }
+.flatRow:hover .flatRowCast,
+.flatRowCast:focus-visible {
+  opacity: 1;
+}
 .flatRowCast:hover { background: var(--surface-2); border-color: var(--line); }
 .importError {
   padding: 4px 8px; font-size: 10px; cursor: pointer;
   background: oklch(0.38 0.14 22 / 0.18); border-bottom: 1px solid oklch(0.38 0.14 22 / 0.35);
   color: oklch(0.80 0.12 22);
+}
+
+/* These suppress the browser's outline but put nothing back, so keyboard focus was invisible on
+   them. The app-wide :focus-visible ring in App.css ties with them on specificity and loses on
+   source order, hence the explicit rule. */
+.search:focus-visible,
+.renameInput:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }

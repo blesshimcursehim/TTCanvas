@@ -36,10 +36,11 @@ import { NpcProvider } from "./NpcProvider";
 import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, RollTablesContext, InventoryContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, useToast, logError, DEFAULT_JUMPS, applyCurrencyDelta, type PCCurrency, type RollTableRef, type RollTableOutcome, type InventoryItemRef, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, RollTablesContext, InventoryContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, pushPlayerTextScale, useToast, logError, logWarn, DEFAULT_JUMPS, applyCurrencyDelta, type PCCurrency, type RollTableRef, type RollTableOutcome, type InventoryItemRef, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
 import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, rollTableMultiple, buildRollHistoryItems, HISTORY_CAP, currencyOf, withCurrency, type XpTrackerState, type DiceRollerState, type RollTablesState, type InventoryState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
 import { parseRollTablesState, parseInventoryState } from "./widgets/stateSchemas";
-import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, type AppConfig, type AIConfigPatch } from "./appConfig";
+import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, INTERFACE_SCALE_FACTOR, type AppConfig, type AIConfigPatch } from "./appConfig";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import * as vaultApi from "./vault";
 
 const CANVAS_AREA: React.CSSProperties = {
@@ -213,7 +214,7 @@ function App() {
   // otherwise wipe a running timer.
   const [sessionTimer, setSessionTimer] = useState<SessionTimerState>(DEFAULT_SESSION_TIMER);
   const [vaultPath, setVaultPath] = useState<string | null>(null);
-  const [appConfig, setAppConfig] = useState<AppConfig>({ recentVaults: [], lastBrowsePath: null, aiProvider: "ollama", aiBaseUrl: "", aiApiKey: "", aiModel: null, playerWindowX: null, playerWindowY: null, playerWindowW: null, playerWindowH: null, customConditions: [], theme: "dark-vellum", accent: "amber", density: "comfortable", reduceMotion: false, clockFormat: "system", trustedModHashes: [] });
+  const [appConfig, setAppConfig] = useState<AppConfig>({ recentVaults: [], lastBrowsePath: null, aiProvider: "ollama", aiBaseUrl: "", aiApiKey: "", aiModel: null, playerWindowX: null, playerWindowY: null, playerWindowW: null, playerWindowH: null, customConditions: [], theme: "dark-vellum", accent: "amber", density: "comfortable", reduceMotion: false, clockFormat: "system", interfaceScale: "normal", playerTextScale: "normal", trustedModHashes: [] });
   const [loaded, setLoaded] = useState(false);
   const [playerWindowOpen, setPlayerWindowOpen] = useState(false);
   const [playerFullscreen, setPlayerFullscreen] = useState(false);
@@ -356,7 +357,10 @@ function App() {
         setAppConfig({ ...appConfig, playerWindowX: bounds.x, playerWindowY: bounds.y, playerWindowW: bounds.w, playerWindowH: bounds.h });
       }
     } else {
-      await openPlayerWindow({ x: appConfig.playerWindowX, y: appConfig.playerWindowY, w: appConfig.playerWindowW, h: appConfig.playerWindowH });
+      await openPlayerWindow(
+        { x: appConfig.playerWindowX, y: appConfig.playerWindowY, w: appConfig.playerWindowW, h: appConfig.playerWindowH },
+        INTERFACE_SCALE_FACTOR[appConfig.playerTextScale],
+      );
       setPlayerWindowOpen(true);
     }
   }
@@ -1328,6 +1332,24 @@ function App() {
     body.dataset.density = appConfig.density;
     body.dataset.reduceMotion = String(appConfig.reduceMotion);
   }, [appConfig.theme, appConfig.accent, appConfig.density, appConfig.reduceMotion]);
+
+  // Interface scale rides on the webview's own zoom rather than a CSS scale factor: font sizes
+  // across the app are in px, so a --text-scale token would mean touching every stylesheet, and
+  // zoom scales layout, icons and the canvas with the text the way a browser's Ctrl+= does.
+  useEffect(() => {
+    getCurrentWebview()
+      .setZoom(INTERFACE_SCALE_FACTOR[appConfig.interfaceScale])
+      .catch((err) => logWarn("Could not apply the interface scale", err));
+  }, [appConfig.interfaceScale]);
+
+  // The player webview can't read app config (listen-only capability), so its text scale is
+  // pushed to it on every change. A window that has only just opened can't receive a push yet, so
+  // it gets the current scale on its URL instead (see openPlayerWindow); this re-push on
+  // playerWindowOpen covers the other direction, where the main window reloaded while the player
+  // window stayed up.
+  useEffect(() => {
+    void pushPlayerTextScale(INTERFACE_SCALE_FACTOR[appConfig.playerTextScale]);
+  }, [appConfig.playerTextScale, playerWindowOpen]);
 
   if (!loaded) return null;
 

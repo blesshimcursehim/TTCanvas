@@ -4,7 +4,7 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { createPortal } from "react-dom";
+import { ModalDialog } from "@ttcanvas/widgets-builtin";
 import styles from "./KeyboardHelp.module.css";
 
 const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
@@ -19,6 +19,8 @@ const SHORTCUTS = [
   { key: `${mod}+⇧+F`, action: "Toggle fullscreen" },
   { key: `${mod}+G`,    action: "Toggle dot grid" },
   { key: "?",           action: "Show this overlay" },
+  { key: "Tab",          action: "Reach a widget's move/resize handles" },
+  { key: "Arrow keys",   action: "Move or resize the focused handle (Shift for a bigger step)" },
 ];
 
 interface Props {
@@ -26,12 +28,12 @@ interface Props {
 }
 
 export function KeyboardHelp({ onClose }: Props) {
-  return createPortal(
-    <div className={styles.overlay} onMouseDown={onClose}>
-      <div className={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
+  return (
+    <ModalDialog label="Keyboard shortcuts" onClose={onClose}>
+      <div className={styles.modal}>
         <div className={styles.header}>
           <span className={styles.title}>Keyboard Shortcuts</span>
-          <button className={styles.closeBtn} onClick={onClose}>×</button>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close keyboard shortcuts">×</button>
         </div>
         <table className={styles.table}>
           <tbody>
@@ -44,7 +46,6 @@ export function KeyboardHelp({ onClose }: Props) {
           </tbody>
         </table>
       </div>
-    </div>,
-    document.body,
+    </ModalDialog>
   );
 }

@@ -4,6 +4,7 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
+import { ModalDialog } from "./ModalDialog";
 import styles from "./ImportConflictDialog.module.css";
 
 export interface ConflictItem {
@@ -28,7 +29,9 @@ export function ImportConflictDialog({
 }: Props) {
   const plural = totalCount !== 1 ? "s" : "";
   return (
-    <div className={styles.overlay}>
+    // Opens from inside another modal, and the top layer stacks it above its launcher without a
+    // z-index. Escape cancels, but a stray click outside must not, since all three answers matter.
+    <ModalDialog label={title} onClose={onCancel} backdropClose={false}>
       <div className={styles.dialog}>
         <div className={styles.title}>{title}</div>
         <p className={styles.body}>
@@ -59,6 +62,6 @@ export function ImportConflictDialog({
           <button className={styles.replaceBtn} onClick={onReplace}>Replace</button>
         </div>
       </div>
-    </div>
+    </ModalDialog>
   );
 }

@@ -4,8 +4,8 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useState, useRef } from "react";
-import { createPortal } from "react-dom";
+import { useState, useRef, useId } from "react";
+import { ModalDialog } from "../shared/ModalDialog";
 import type { CalendarDef, MonthDef, IntercalaryPeriod } from "@ttcanvas/core";
 import { useVault } from "@ttcanvas/core";
 import { PRESETS } from "./presets";
@@ -52,6 +52,7 @@ export function CalendarSetup({ initial, initialYear, onConfirm, onCancel }: Pro
   const [importError, setImportError] = useState<string | null>(null);
   const [exportFlash, setExportFlash] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const fieldId = useId();
 
   function applyPreset(idx: number) {
     setSelectedPreset(idx);
@@ -206,12 +207,14 @@ export function CalendarSetup({ initial, initialYear, onConfirm, onCancel }: Pro
 
   const weekLen = parseInt(form.weekLength, 10) || 1;
 
-  return createPortal(
-    <div className={styles.overlay} onMouseDown={(e) => e.stopPropagation()}>
+  const heading = initial ? "Edit Calendar" : "Set Up Calendar";
+
+  return (
+    <ModalDialog label={heading} onClose={onCancel} backdropClose={false}>
       <div className={styles.modal}>
         <div className={styles.header}>
-          <span className={styles.title}>{initial ? "Edit Calendar" : "Set Up Calendar"}</span>
-          <button className={styles.closeBtn} onClick={onCancel}>×</button>
+          <span className={styles.title}>{heading}</span>
+          <button className={styles.closeBtn} onClick={onCancel} aria-label="Close calendar setup">×</button>
         </div>
 
         <div className={styles.body}>
@@ -275,17 +278,19 @@ export function CalendarSetup({ initial, initialYear, onConfirm, onCancel }: Pro
           <section className={styles.section}>
             <div className={styles.sectionLabel}>Basics</div>
             <div className={styles.row}>
-              <label className={styles.label}>Name</label>
+              <label className={styles.label} htmlFor={`${fieldId}-name`}>Name</label>
               <input
                 className={styles.input}
+                id={`${fieldId}-name`}
                 value={form.name}
                 onChange={(e) => { setSelectedPreset(null); setForm((f) => ({ ...f, name: e.target.value })); }}
               />
             </div>
             <div className={styles.row}>
-              <label className={styles.label}>Epoch label</label>
+              <label className={styles.label} htmlFor={`${fieldId}-epoch`}>Epoch label</label>
               <input
                 className={`${styles.input} ${styles.inputSm}`}
+                id={`${fieldId}-epoch`}
                 value={form.epochLabel}
                 placeholder="e.g. DR"
                 onChange={(e) => { setSelectedPreset(null); setForm((f) => ({ ...f, epochLabel: e.target.value })); }}
@@ -293,10 +298,11 @@ export function CalendarSetup({ initial, initialYear, onConfirm, onCancel }: Pro
             </div>
             {!initial && (
               <div className={styles.row}>
-                <label className={styles.label}>Starting year</label>
+                <label className={styles.label} htmlFor={`${fieldId}-year`}>Starting year</label>
                 <input
                   type="number"
                   className={`${styles.input} ${styles.inputXs}`}
+                  id={`${fieldId}-year`}
                   value={startYear}
                   min={1}
                   onChange={(e) => setStartYear(e.target.value)}
@@ -305,19 +311,21 @@ export function CalendarSetup({ initial, initialYear, onConfirm, onCancel }: Pro
               </div>
             )}
             <div className={styles.row}>
-              <label className={styles.label}>Week length</label>
+              <label className={styles.label} htmlFor={`${fieldId}-weeklen`}>Week length</label>
               <input
                 type="number"
                 className={`${styles.input} ${styles.inputXs}`}
+                id={`${fieldId}-weeklen`}
                 value={form.weekLength}
                 min={1} max={28}
                 onChange={(e) => setWeekLength(e.target.value)}
               />
             </div>
             <div className={styles.row}>
-              <label className={styles.label}>Starting weekday</label>
+              <label className={styles.label} htmlFor={`${fieldId}-weekday`}>Starting weekday</label>
               <select
                 className={`${styles.input} ${styles.inputSm}`}
+                id={`${fieldId}-weekday`}
                 value={form.startWeekday}
                 onChange={(e) => { setSelectedPreset(null); setForm((f) => ({ ...f, startWeekday: e.target.value })); }}
               >
@@ -425,7 +433,6 @@ export function CalendarSetup({ initial, initialYear, onConfirm, onCancel }: Pro
           </button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </ModalDialog>
   );
 }

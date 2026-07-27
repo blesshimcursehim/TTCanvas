@@ -8,7 +8,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useIT, useVault, pushCharacterScene, logError } from "@ttcanvas/core";
 import type { BestiaryState, BestiaryEntry, BestiaryFolder } from "./types";
 import { CreatureSheetModal } from "./CreatureSheetModal";
-import { setActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
+import { setActiveTokenDrag, clearActiveTokenDrag, placeTokenAtCenter } from "../shared/tokenDrag";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
 import { pullSingletonBundle } from "../shared/crossVaultPull";
@@ -577,6 +577,11 @@ function BestiaryCard({ entry, exportFlash, onSelect, onExport, onCast }: CardPr
     e.stopPropagation();
   }
 
+  // The keyboard equivalent of dragging the portrait onto the map - same data as handleDragStart.
+  function handlePlaceAtCenter() {
+    placeTokenAtCenter({ sourceId: entry.id, label: entry.name, color: FOE_COLOR, portraitPath: entry.portrait, kind: "enemy" });
+  }
+
   return (
     <div className={styles.cardWrap}>
       <button className={styles.card} onClick={onSelect}>
@@ -621,6 +626,17 @@ function BestiaryCard({ entry, exportFlash, onSelect, onExport, onCast }: CardPr
       >
         {exportFlash ? "✓" : "⬇"}
       </button>
+      <button
+        className={styles.cardMapBtn}
+        onClick={(e) => { e.stopPropagation(); handlePlaceAtCenter(); }}
+        title={`Place ${entry.name} at map center`}
+        aria-label={`Place ${entry.name} at map center`}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="10" r="4" />
+          <path d="M12 14v6M9 20h6" />
+        </svg>
+      </button>
     </div>
   );
 }
@@ -635,6 +651,11 @@ function FlatRow({ entry, exportFlash, onOpen, onExport, onCast }: FlatRowProps)
     e.dataTransfer.setData("text/plain", "ttcanvas-token");
     e.dataTransfer.effectAllowed = "copy";
     e.stopPropagation();
+  }
+
+  // The keyboard equivalent of dragging the portrait onto the map - same data as handleDragStart.
+  function handlePlaceAtCenter() {
+    placeTokenAtCenter({ sourceId: entry.id, label: entry.name, color: FOE_COLOR, portraitPath: entry.portrait, kind: "enemy" });
   }
 
   return (
@@ -684,6 +705,17 @@ function FlatRow({ entry, exportFlash, onOpen, onExport, onCast }: FlatRowProps)
         title={exportFlash ? "Saved ✓" : "Export as .creature.json"}
       >
         {exportFlash ? "✓" : "⬇"}
+      </button>
+      <button
+        className={styles.flatRowMap}
+        onClick={(e) => { e.stopPropagation(); handlePlaceAtCenter(); }}
+        title={`Place ${entry.name} at map center`}
+        aria-label={`Place ${entry.name} at map center`}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="10" r="4" />
+          <path d="M12 14v6M9 20h6" />
+        </svg>
       </button>
     </div>
   );

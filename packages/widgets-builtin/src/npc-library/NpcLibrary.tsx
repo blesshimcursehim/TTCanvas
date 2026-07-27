@@ -14,7 +14,7 @@ import {
   uniqueNpcFilename, mdFilenameToJson,
   makeBlankNpc, autoAccentColor, npcInitials,
 } from "./npcFormat";
-import { setActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
+import { setActiveTokenDrag, clearActiveTokenDrag, placeTokenAtCenter } from "../shared/tokenDrag";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { mimeForImageExt } from "../shared/mime";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
@@ -503,30 +503,47 @@ export function NpcLibrary({ state, onChange }: Props) {
             </div>
           )}
           {filteredNpcs.map((npc) => (
+            // The select control and the place-on-map control are siblings inside a plain
+            // wrapper. Nesting the second inside the first would be an invalid accessibility
+            // tree, and screen readers disagree about what to do with it.
             <div
               key={npc.id}
-              className={`${styles.listRow} ${npc.id === selectedId ? styles.listRowActive : ""}`}
-              role="button"
-              tabIndex={0}
-              onClick={() => selectNpc(npc)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") selectNpc(npc); }}
+              className={`${styles.listRowWrap} ${npc.id === selectedId ? styles.listRowActive : ""}`}
             >
-              <AvatarCircle
-                npc={npc}
-                size={36}
-                onDragStart={(e) => {
+              <button type="button" className={styles.listRow} onClick={() => selectNpc(npc)}>
+                <AvatarCircle
+                  npc={npc}
+                  size={36}
+                  onDragStart={(e) => {
+                    const color = npc.accentColor ?? autoAccentColor(npc.name || "?");
+                    setActiveTokenDrag({ sourceId: npc.id, label: npc.name, color, portraitPath: npc.portrait, kind: "npc" });
+                    e.dataTransfer.setData("text/plain", "ttcanvas-token");
+                    e.dataTransfer.effectAllowed = "copy";
+                  }}
+                  onDragEnd={clearActiveTokenDrag}
+                />
+                <div className={styles.listRowText}>
+                  <span className={styles.listName}>{npc.name}</span>
+                  <span className={styles.listMeta}>{[npc.race, npc.occupation].filter(Boolean).join(" · ")}</span>
+                </div>
+                <RelBadge rel={npc.relationship} />
+              </button>
+              {/* The keyboard equivalent of dragging the avatar onto the map. */}
+              <button
+                type="button"
+                className={styles.listMapBtn}
+                onClick={() => {
                   const color = npc.accentColor ?? autoAccentColor(npc.name || "?");
-                  setActiveTokenDrag({ sourceId: npc.id, label: npc.name, color, portraitPath: npc.portrait, kind: "npc" });
-                  e.dataTransfer.setData("text/plain", "ttcanvas-token");
-                  e.dataTransfer.effectAllowed = "copy";
+                  placeTokenAtCenter({ sourceId: npc.id, label: npc.name, color, portraitPath: npc.portrait, kind: "npc" });
                 }}
-                onDragEnd={clearActiveTokenDrag}
-              />
-              <div className={styles.listRowText}>
-                <span className={styles.listName}>{npc.name}</span>
-                <span className={styles.listMeta}>{[npc.race, npc.occupation].filter(Boolean).join(" · ")}</span>
-              </div>
-              <RelBadge rel={npc.relationship} />
+                title={`Place ${npc.name} at map center`}
+                aria-label={`Place ${npc.name} at map center`}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="10" r="4" />
+                  <path d="M12 14v6M9 20h6" />
+                </svg>
+              </button>
             </div>
           ))}
         </div>

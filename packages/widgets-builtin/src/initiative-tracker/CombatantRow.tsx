@@ -102,9 +102,15 @@ export function CombatantRow({
     >
       {/* Drag handle + kind pip, or a selection checkbox while grouping */}
       {selectMode ? (
-        <label className={styles.selectHandle} title="Select for grouping">
-          <input type="checkbox" checked={selected} onChange={onToggleSelect} />
-        </label>
+        <span className={styles.selectHandle}>
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            aria-label={`Select ${combatant.name} for grouping`}
+            title="Select for grouping"
+          />
+        </span>
       ) : (
         <div
           className={styles.dragHandle}

@@ -1,12 +1,4 @@
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 5000;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+/* The overlay div is gone - ModalDialog's <dialog> centres this and dims behind it. */
 
 .modal {
   background: var(--bg-2);
