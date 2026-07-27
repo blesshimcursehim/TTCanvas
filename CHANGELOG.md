@@ -248,6 +248,14 @@ All notable changes are documented here.
 
 ### Fixes
 
+- **Map tokens can now be renamed, and placing one no longer pops open a shape's editor by
+  mistake.** A plain token dropped on the map had no way to be named beyond an auto-generated
+  "Token 1", "Token 2", and no way to fix that afterwards. Double-click any token (a fresh one
+  auto-opens this the moment it's placed) to rename it in place. Separately, placing a token right
+  after drawing and selecting a shape (a ring, box, arrow or highlight) used to reopen that shape's
+  colour/stroke editor instead of showing anything about the new token - a leftover selection
+  bleeding across the tool switch. Fixed alongside the rename work.
+
 - **The monospace font now actually shows up everywhere it's used.** A missing `--font-mono` token
   meant stat blocks, dice notation and other mono-styled text across the Bestiary, NPC Library, Roll
   Tables, Encounter Builder and several other widgets silently fell back to the regular body font.

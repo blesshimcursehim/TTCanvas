@@ -4,7 +4,7 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type RefObject } from "react";
 import { useVault, useIT, useGazetteerLocations, logWarn, pushPlayerScene, pushMapPing, PING_LIFETIME_MS, drawFogCanvas, renderFogReveals, lastBrushPoint, fogModeOf } from "@ttcanvas/core";
 import type { FogReveal, MapToken, MapTokenKind, FogMode, BrushPoint, MapAnnotation, AnnotationColor } from "@ttcanvas/core";
 import type { MapDisplayState, MapScene, MarkupPreset } from "./types";
@@ -146,9 +146,16 @@ interface TokenPinProps {
   onDragStart: (e: React.MouseEvent, id: string) => void;
   onRemove: (id: string) => void;
   onResize: (id: string, size: number) => void;
+  renaming: boolean;
+  renameValue: string;
+  renameInputRef: RefObject<HTMLInputElement | null>;
+  onRenameChange: (value: string) => void;
+  onRenameCommit: () => void;
+  onRenameCancel: () => void;
+  onStartRename: (id: string, label: string) => void;
 }
 
-function TokenPin({ token, imgW, imgH, ghost, spotlight, onDragStart, onRemove, onResize }: TokenPinProps) {
+function TokenPin({ token, imgW, imgH, ghost, spotlight, onDragStart, onRemove, onResize, renaming, renameValue, renameInputRef, onRenameChange, onRenameCommit, onRenameCancel, onStartRename }: TokenPinProps) {
   const vault = useVault();
   const size = token.size ?? 1;
   const px = TOKEN_BASE_PX * size;
@@ -209,14 +216,35 @@ function TokenPin({ token, imgW, imgH, ghost, spotlight, onDragStart, onRemove, 
         height: px,
         background: portraitSrc ? "transparent" : token.color,
       }}
+      title={renaming ? undefined : `${token.label} · Double-click to rename`}
       onMouseDown={(e) => { e.stopPropagation(); onDragStart(e, token.id); }}
+      // stopPropagation: the viewport itself treats a double-click as "fit map to screen"
+      // (MapDisplay's own onDoubleClick), which a rename here shouldn't also trigger.
+      onDoubleClick={(e) => { e.stopPropagation(); onStartRename(token.id, token.label); }}
     >
       {portraitSrc && (
         <img src={portraitSrc} className={styles.tokenPortrait} alt={token.label} />
       )}
       {ghost && <span className={styles.tokenGhostTag}>GM</span>}
       {token.locationRef && <span className={styles.tokenLinkedTag} title="Linked to a Gazetteer place" />}
-      <span className={styles.tokenLabel}>{token.label}</span>
+      {renaming ? (
+        <input
+          ref={renameInputRef}
+          className={styles.tokenRenameInput}
+          value={renameValue}
+          aria-label={`Rename token "${token.label}"`}
+          onChange={(e) => onRenameChange(e.target.value)}
+          onBlur={onRenameCommit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onRenameCommit();
+            if (e.key === "Escape") onRenameCancel();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span className={styles.tokenLabel}>{token.label}</span>
+      )}
       <button
         className={styles.tokenRemove}
         onMouseDown={(e) => e.stopPropagation()}
@@ -309,6 +337,10 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState("");
+  // Inline token rename (double-click a pin, or straight after placing an empty one) - separate
+  // from the scene-tab rename above, which is keyed by scene id rather than token id.
+  const [renamingTokenId, setRenamingTokenId] = useState<string | null>(null);
+  const [tokenRenameVal, setTokenRenameVal] = useState("");
   const [pendingDrop, setPendingDrop] = useState<{
     draft: { sourceId?: string; label: string; color: string; portraitPath?: string; kind?: MapTokenKind };
     x: number;
@@ -320,6 +352,7 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
   // A located pin to pan/ping once its scene's map has actually finished loading.
   const [pendingJump, setPendingJump] = useState<{ sceneId: string; tokenId: string } | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const tokenRenameInputRef = useRef<HTMLInputElement>(null);
 
   const stateRef = useRef(state);
   useEffect(() => { stateRef.current = state; });
@@ -418,6 +451,14 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
     setSelectedAnnId((cur) => (cur === id ? null : cur));
   }, [setAnnotations]);
 
+  // useCallback (unlike the scene-rename equivalent below) because onMouseDown's own useCallback
+  // calls this directly and needs a stable reference for its dependency array.
+  const startTokenRename = useCallback((id: string, label: string) => {
+    setRenamingTokenId(id);
+    setTokenRenameVal(label);
+    setTimeout(() => tokenRenameInputRef.current?.select(), 0);
+  }, []);
+
   const setTokens = useCallback((updater: (tokens: MapToken[]) => MapToken[]) => {
     const s = stateRef.current;
     const scenes = s.scenes.map((sc) =>
@@ -425,6 +466,13 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
     );
     onChangeRef.current({ ...s, scenes });
   }, []);
+
+  function commitTokenRename() {
+    if (!renamingTokenId) return;
+    const label = tokenRenameVal.trim() || "Token";
+    setTokens((ts) => ts.map((t) => (t.id === renamingTokenId ? { ...t, label } : t)));
+    setRenamingTokenId(null);
+  }
 
   // Visibility toggles for a single item or a whole group (ids). value=true means
   // on-board / mirrored-to-players; we store the boolean explicitly.
@@ -766,6 +814,14 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
         );
         onChangeRef.current({ ...s, scenes });
         setActiveTool("pan");
+        // Placing a token switches the tool back to "pan", and the drawer opens for
+        // selectedAnnId whenever pan + a selection are both true - a shape selected before
+        // switching to the token tool would otherwise resurface its own editor here instead of
+        // anything about the token just placed. Clearing it, then opening the token's own inline
+        // rename, is what gives the new token the "name it right away" affordance a drawn shape
+        // already gets from auto-selecting itself on creation.
+        setSelectedAnnId(null);
+        startTokenRename(newToken.id, newToken.label);
         return;
       }
 
@@ -789,6 +845,8 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
         onChangeRef.current({ ...s, scenes });
         setActiveTool("pan");
         setPendingLocationPin(null);
+        // Same stale-selection guard as the plain-token case above.
+        setSelectedAnnId(null);
         return;
       }
 
@@ -800,7 +858,7 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
         return;
       }
     },
-    [browserOpen, activeTool, toNorm, fogMode, selectedAnnId, markupColor, markupStroke, pendingLocationPin],
+    [browserOpen, activeTool, toNorm, fogMode, selectedAnnId, markupColor, markupStroke, pendingLocationPin, startTokenRename],
   );
 
   const onMouseMove = useCallback(
@@ -1869,6 +1927,13 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
               onDragStart={startTokenDrag}
               onRemove={removeToken}
               onResize={resizeToken}
+              renaming={renamingTokenId === t.id}
+              renameValue={tokenRenameVal}
+              renameInputRef={tokenRenameInputRef}
+              onRenameChange={setTokenRenameVal}
+              onRenameCommit={commitTokenRename}
+              onRenameCancel={() => setRenamingTokenId(null)}
+              onStartRename={startTokenRename}
             />
           ))}
         </div>
