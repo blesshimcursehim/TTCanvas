@@ -1013,6 +1013,29 @@
   pointer-events: none;
 }
 
+.tokenRenameInput {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90px;
+  height: 18px;
+  padding: 0 4px;
+  background: var(--surface);
+  border: 1px solid var(--accent-line);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 10px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  text-align: center;
+  cursor: text;
+}
+
+.tokenRenameInput:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 .tokenRemove {
   position: absolute;
   top: -6px;
