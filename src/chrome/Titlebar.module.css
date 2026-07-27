@@ -88,12 +88,6 @@
   background: var(--surface);
 }
 
-.vaultOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 49;
-}
-
 .vaultDropdown {
   position: absolute;
   top: calc(100% + 6px);

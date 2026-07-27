@@ -112,7 +112,10 @@ export function SettingsMenu({
                     onChange={(e) => setRenameValue(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") commitRename();
-                      if (e.key === "Escape") cancelRename();
+                      // Cancel the rename, not the whole menu - stopPropagation keeps this from
+                      // also reaching the document-level Escape listener useDismissOnOutsideClick
+                      // now adds (see bugs.md, "chrome dropdowns don't close on Escape").
+                      if (e.key === "Escape") { e.stopPropagation(); cancelRename(); }
                     }}
                     onBlur={commitRename}
                   />
@@ -161,7 +164,8 @@ export function SettingsMenu({
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") commitNew();
-                  if (e.key === "Escape") cancelNew();
+                  // Same reasoning as the rename input above: cancel this row, not the menu.
+                  if (e.key === "Escape") { e.stopPropagation(); cancelNew(); }
                 }}
               />
               <button className={styles.confirmBtn} onClick={commitNew}>Add</button>
