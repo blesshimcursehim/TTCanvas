@@ -70,20 +70,6 @@ export function SessionTime({ state, clockFormat, onChange }: Props) {
 
   useDismissOnOutsideClick(wrapRef, menuOpen, () => setMenuOpen(false));
 
-  // The shared dismiss hook only covers pointer dismissal. Escape is handled here rather than
-  // folded into it because SettingsMenu, its other consumer, has its own inner Escape handlers
-  // for inline rename that a document-level listener would fight. See bugs.md.
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopPropagation();
-      setMenuOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [menuOpen]);
-
   const status = sessionStatus(state);
   const elapsed = elapsedMs(state, Date.now());
   const clockText = wallClock.format(new Date());

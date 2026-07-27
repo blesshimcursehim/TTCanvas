@@ -4,11 +4,12 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { SessionTimerState } from "@ttcanvas/core";
 import type { AppClockFormat } from "../appConfig";
 import { Icon } from "../icons/Icon";
 import { SessionTime } from "./SessionTime";
+import { useDismissOnOutsideClick } from "../hooks/useDismissOnOutsideClick";
 import { version } from "../../package.json";
 import styles from "./Titlebar.module.css";
 
@@ -32,6 +33,8 @@ interface Props {
 
 export function Titlebar({ vaultPath, recentVaults, playerWindowOpen, playerFullscreen, sessionTimer, clockFormat, onSessionTimerChange, onLayoutsClick, onOpenVault, onResumeVault, onPlayerWindowToggle, onClearPlayerScreen, onPlayerFullscreenToggle, onSettingsClick, onSearchClick }: Props) {
   const [vaultMenuOpen, setVaultMenuOpen] = useState(false);
+  const crumbRef = useRef<HTMLDivElement>(null);
+  useDismissOnOutsideClick(crumbRef, vaultMenuOpen, () => setVaultMenuOpen(false));
 
   const vaultName = vaultPath.split("/").filter(Boolean).pop() ?? vaultPath;
 
@@ -53,7 +56,7 @@ export function Titlebar({ vaultPath, recentVaults, playerWindowOpen, playerFull
       </div>
 
       {/* Vault crumb (centred) */}
-      <div className={styles.crumbWrap}>
+      <div className={styles.crumbWrap} ref={crumbRef}>
         <button
           className={styles.crumb}
           onClick={() => setVaultMenuOpen((o) => !o)}
@@ -65,41 +68,35 @@ export function Titlebar({ vaultPath, recentVaults, playerWindowOpen, playerFull
         </button>
 
         {vaultMenuOpen && (
-          <>
-            <div
-              className={styles.vaultOverlay}
-              onClick={() => setVaultMenuOpen(false)}
-            />
-            <div className={styles.vaultDropdown}>
-              {recentVaults.filter((p) => p !== vaultPath).length > 0 && (
-                <>
-                  <div className={styles.vaultDropdownLabel}>Recent vaults</div>
-                  {recentVaults
-                    .filter((p) => p !== vaultPath)
-                    .map((p) => {
-                      const name = p.split("/").filter(Boolean).pop() ?? p;
-                      return (
-                        <button
-                          key={p}
-                          className={styles.vaultItem}
-                          title={p}
-                          onClick={() => { onResumeVault(p); setVaultMenuOpen(false); }}
-                        >
-                          {name}
-                        </button>
-                      );
-                    })}
-                  <div className={styles.vaultDivider} />
-                </>
-              )}
-              <button
-                className={styles.vaultNewBtn}
-                onClick={() => { onOpenVault(); setVaultMenuOpen(false); }}
-              >
-                Open new vault…
-              </button>
-            </div>
-          </>
+          <div className={styles.vaultDropdown}>
+            {recentVaults.filter((p) => p !== vaultPath).length > 0 && (
+              <>
+                <div className={styles.vaultDropdownLabel}>Recent vaults</div>
+                {recentVaults
+                  .filter((p) => p !== vaultPath)
+                  .map((p) => {
+                    const name = p.split("/").filter(Boolean).pop() ?? p;
+                    return (
+                      <button
+                        key={p}
+                        className={styles.vaultItem}
+                        title={p}
+                        onClick={() => { onResumeVault(p); setVaultMenuOpen(false); }}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
+                <div className={styles.vaultDivider} />
+              </>
+            )}
+            <button
+              className={styles.vaultNewBtn}
+              onClick={() => { onOpenVault(); setVaultMenuOpen(false); }}
+            >
+              Open new vault…
+            </button>
+          </div>
         )}
       </div>
 
