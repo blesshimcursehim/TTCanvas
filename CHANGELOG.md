@@ -248,6 +248,11 @@ All notable changes are documented here.
 
 ### Fixes
 
+- **The monospace font now actually shows up everywhere it's used.** A missing `--font-mono` token
+  meant stat blocks, dice notation and other mono-styled text across the Bestiary, NPC Library, Roll
+  Tables, Encounter Builder and several other widgets silently fell back to the regular body font.
+  Nothing to configure, it just renders correctly now.
+
 - **Bestiary's "Add to Initiative" now brings the tracker into view.** Adding a creature straight from
   the Bestiary dropped it into the Initiative Tracker without surfacing the widget, so it looked like
   nothing had happened if the tracker was hidden or buried. It now reveals and raises the tracker, the
