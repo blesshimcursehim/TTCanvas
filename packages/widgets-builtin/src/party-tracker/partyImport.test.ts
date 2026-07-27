@@ -69,6 +69,66 @@ describe("normalizeMember", () => {
     expect(norm?.customFields).toEqual([{ label: "Bond", value: "The party" }]);
     expect(norm?.hp).toBe(30);
   });
+
+  it("drops nested sheet fields the sheet .map()s/.includes()s over when they aren't arrays", () => {
+    const norm = normalizeMember({
+      id: "1",
+      name: "Aria",
+      equipment: "bad", // sheet does (equipment ?? []).map(...) - a string would throw
+      savingThrows: "bad", // sheet does savingThrows.map(...) once .length is truthy
+      spellcasting: { ability: "int", spells: "bad" }, // (spells ?? []).map(...)
+      features: "bad",
+      traits: "bad",
+      reactions: "bad",
+    });
+    expect(norm?.equipment).toBeUndefined();
+    expect(norm?.savingThrows).toBeUndefined();
+    expect(norm?.spellcasting?.spells).toBeUndefined();
+    expect(norm?.features).toBeUndefined();
+    expect(norm?.traits).toBeUndefined();
+    expect(norm?.reactions).toBeUndefined();
+  });
+
+  it("filters array elements of the wrong shape instead of keeping them raw", () => {
+    const norm = normalizeMember({
+      id: "1",
+      name: "Aria",
+      equipment: ["Sword", 5, null, "Shield"],
+      savingThrows: ["str", 42, "dex"],
+      features: [{ name: "Rage", description: "..." }, { name: "bad" }, "garbage"],
+    });
+    expect(norm?.equipment).toEqual(["Sword", "Shield"]);
+    expect(norm?.savingThrows).toEqual(["str", "dex"]);
+    expect(norm?.features).toEqual([{ name: "Rage", description: "..." }]);
+  });
+
+  it("rebuilds a malformed abilityScores/currency/skills object instead of passing it through", () => {
+    const norm = normalizeMember({
+      id: "1",
+      name: "Aria",
+      abilityScores: { str: "bad", dex: 14 },
+      currency: "bad",
+      skills: { Stealth: 3, Perception: "bad" },
+    });
+    expect(norm?.abilityScores).toEqual({ str: 10, dex: 14, con: 10, int: 10, wis: 10, cha: 10 });
+    expect(norm?.currency).toEqual({ cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 });
+    expect(norm?.skills).toEqual({ Stealth: 3 });
+  });
+
+  it("keeps well-formed nested sheet fields intact", () => {
+    const norm = normalizeMember({
+      id: "1",
+      name: "Aria",
+      equipment: ["Sword", "Shield"],
+      savingThrows: ["str", "con"],
+      spellcasting: { ability: "wis", saveDC: 14, spells: [{ level: 1, name: "Bless" }] },
+      currency: { cp: 1, sp: 2, ep: 0, gp: 30, pp: 0 },
+    });
+    expect(norm?.equipment).toEqual(["Sword", "Shield"]);
+    expect(norm?.savingThrows).toEqual(["str", "con"]);
+    expect(norm?.spellcasting).toEqual({ ability: "wis", saveDC: 14, spells: [{ level: 1, name: "Bless" }] });
+    expect(norm?.currency).toEqual({ cp: 1, sp: 2, ep: 0, gp: 30, pp: 0 });
+  });
 });
 
 describe("validatePartyBundle", () => {
