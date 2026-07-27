@@ -399,7 +399,11 @@
 }
 
 .row:hover .mapBtn,
-.row:hover .removeBtn {
+.row:hover .removeBtn,
+.mapBtn:focus-visible,
+.removeBtn:focus-visible {
+  /* :focus-visible alongside :hover, or a keyboard user tabbing here without also hovering the
+     row with a mouse would land on an invisible (opacity: 0) button. */
   opacity: 1;
 }
 

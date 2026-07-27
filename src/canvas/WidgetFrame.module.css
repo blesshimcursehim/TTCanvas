@@ -87,13 +87,21 @@
   grid-template-rows: repeat(2, 4px);
   gap: 2.5px;
   padding: 2px 4px;
+  /* Reset the <button> chrome - visually this is still just the dot grid. */
+  border: none;
+  background: none;
+  cursor: grab;
   opacity: 0;
   transition: opacity 0.15s;
 }
 
-.header:hover .grip {
+.header:hover .grip,
+.grip:focus-visible {
   opacity: 1;
 }
+/* The ring itself comes from the app-wide :focus-visible rule in App.css - nothing here sets
+   outline: none, so nothing extra is needed to show it, only to make the (normally hover-only)
+   dots visible so the ring has something to sit around. */
 
 .gripDot {
   width: 3px;
@@ -198,6 +206,10 @@
   right: 0;
   width: 18px;
   height: 18px;
+  /* Reset the <button> chrome - visually this is still just the dot corner. */
+  padding: 0;
+  border: none;
+  background-color: transparent;
   cursor: se-resize;
   background-image: radial-gradient(circle, var(--ink-3) 1.5px, transparent 1.5px);
   background-size: 5px 5px;
@@ -206,7 +218,8 @@
   transition: opacity 0.15s;
 }
 
-.resizeHandle:hover {
+.resizeHandle:hover,
+.resizeHandle:focus-visible {
   opacity: 0.8;
 }
 

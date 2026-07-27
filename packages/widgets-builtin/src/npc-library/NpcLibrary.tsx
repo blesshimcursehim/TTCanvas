@@ -14,7 +14,7 @@ import {
   uniqueNpcFilename, mdFilenameToJson,
   makeBlankNpc, autoAccentColor, npcInitials,
 } from "./npcFormat";
-import { setActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
+import { setActiveTokenDrag, clearActiveTokenDrag, placeTokenAtCenter } from "../shared/tokenDrag";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { mimeForImageExt } from "../shared/mime";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
@@ -527,6 +527,25 @@ export function NpcLibrary({ state, onChange }: Props) {
                 <span className={styles.listMeta}>{[npc.race, npc.occupation].filter(Boolean).join(" · ")}</span>
               </div>
               <RelBadge rel={npc.relationship} />
+              {/* The keyboard equivalent of dragging the avatar onto the map. Nested inside a
+                  role="button" row, so both handlers stop propagation - otherwise activating this
+                  would also fire the row's own select-this-NPC behaviour. */}
+              <button
+                className={styles.listMapBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const color = npc.accentColor ?? autoAccentColor(npc.name || "?");
+                  placeTokenAtCenter({ sourceId: npc.id, label: npc.name, color, portraitPath: npc.portrait, kind: "npc" });
+                }}
+                onKeyDown={(e) => e.stopPropagation()}
+                title={`Place ${npc.name} at map center`}
+                aria-label={`Place ${npc.name} at map center`}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="10" r="4" />
+                  <path d="M12 14v6M9 20h6" />
+                </svg>
+              </button>
             </div>
           ))}
         </div>

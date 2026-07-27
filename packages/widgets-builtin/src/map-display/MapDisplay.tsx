@@ -8,7 +8,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useVault, useIT, useGazetteerLocations, logWarn, pushPlayerScene, pushMapPing, PING_LIFETIME_MS, drawFogCanvas, renderFogReveals, lastBrushPoint, fogModeOf } from "@ttcanvas/core";
 import type { FogReveal, MapToken, MapTokenKind, FogMode, BrushPoint, MapAnnotation, AnnotationColor } from "@ttcanvas/core";
 import type { MapDisplayState, MapScene, MarkupPreset } from "./types";
-import { getActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
+import { getActiveTokenDrag, clearActiveTokenDrag, type TokenDragData } from "../shared/tokenDrag";
 import { mimeForImageExt } from "../shared/mime";
 import { fitTransform, measureDistance, panToPoint } from "./utils";
 import { AnnotationLayer } from "./AnnotationLayer";
@@ -1139,9 +1139,7 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
 
   useEffect(() => {
     function handler(e: Event) {
-      const { sourceId, label, color, portraitPath, kind } = (
-        e as CustomEvent<{ sourceId: string; label: string; color: string; portraitPath?: string; kind?: MapTokenKind }>
-      ).detail;
+      const { sourceId, label, color, portraitPath, kind } = (e as CustomEvent<TokenDragData>).detail;
       addOrMoveToken({ sourceId, label, color, portraitPath, kind }, 0.5, 0.5);
     }
     window.addEventListener("ttcanvas:place-token", handler);

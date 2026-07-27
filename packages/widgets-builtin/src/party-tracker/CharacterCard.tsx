@@ -9,7 +9,7 @@ import type { PartyMember } from "./types";
 import { useVault, pushCharacterScene } from "@ttcanvas/core";
 import { currencyOf, withCurrency } from "./currency";
 import { CropModal } from "./CropModal";
-import { setActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
+import { setActiveTokenDrag, clearActiveTokenDrag, placeTokenAtCenter } from "../shared/tokenDrag";
 import { mimeForImageExt } from "../shared/mime";
 import styles from "./CharacterCard.module.css";
 
@@ -218,6 +218,11 @@ export function CharacterCard({ member, onChange, onOpenSheet }: Props) {
     e.dataTransfer.effectAllowed = "copy";
   }
 
+  // The keyboard equivalent of dragging the avatar onto the map - same data as handleDragStart.
+  function handlePlaceAtCenter() {
+    placeTokenAtCenter({ sourceId: member.id, label: member.name, color, portraitPath: member.portraitPath ?? undefined, kind: "player" });
+  }
+
   const showDeathSaves = member.hp === 0;
   const customFields = member.customFields ?? [];
 
@@ -277,6 +282,17 @@ export function CharacterCard({ member, onChange, onOpenSheet }: Props) {
             title="Open full character sheet"
           >↗</button>
         )}
+        <button
+          className={styles.mapBtn}
+          onClick={handlePlaceAtCenter}
+          title={`Place ${member.name} at map center`}
+          aria-label={`Place ${member.name} at map center`}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="10" r="4" />
+            <path d="M12 14v6M9 20h6" />
+          </svg>
+        </button>
         <div className={styles.acGroup}>
           <svg className={styles.shieldIcon} width="13" height="15" viewBox="0 0 13 15" fill="none">
             <path

@@ -19,6 +19,8 @@ const SHORTCUTS = [
   { key: `${mod}+⇧+F`, action: "Toggle fullscreen" },
   { key: `${mod}+G`,    action: "Toggle dot grid" },
   { key: "?",           action: "Show this overlay" },
+  { key: "Tab",          action: "Reach a widget's move/resize handles" },
+  { key: "Arrow keys",   action: "Move or resize the focused handle (Shift for a bigger step)" },
 ];
 
 interface Props {

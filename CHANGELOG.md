@@ -6,6 +6,14 @@ All notable changes are documented here.
 
 ### Features
 
+- **Move and resize widgets from the keyboard.** Every widget's drag handle and resize corner are now
+  real, Tab-reachable controls: Tab to one, arrow keys move or resize it, Shift for a bigger step.
+  Tabbing to a handle also pans the canvas to bring that widget into view, since panning here is a
+  transform rather than a scrollbar the browser can scroll-into-view on its own. Undo (Ctrl/Cmd+Z)
+  works the same as it does after a mouse drag. Party Tracker, Bestiary and NPC Library also gained a
+  "place at map center" button next to each portrait - the same one-click placement Initiative Tracker
+  already had - so getting a character or creature onto the map no longer requires a drag.
+
 - **Inventory.** A new widget holding one ledger of everything the party owns. Each item carries a
   kind, rarity, value, weight and a Markdown description, and quantities are tracked per holder, so a
   stack of rations split between three characters is still one row rather than three. Items you assign

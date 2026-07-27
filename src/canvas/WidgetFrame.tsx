@@ -4,7 +4,7 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useCallback, useId, useState, type ReactNode, Component } from "react";
+import { useCallback, useId, useRef, useState, type ReactNode, Component } from "react";
 import { WidgetChromeContext, logError } from "@ttcanvas/core";
 import { useCanvasTransform } from "./CanvasContext";
 import { Icon } from "../icons/Icon";
@@ -12,6 +12,24 @@ import { renderMarkdown } from "@ttcanvas/widgets-builtin";
 import styles from "./WidgetFrame.module.css";
 
 type IconName = Parameters<typeof Icon>[0]["name"];
+
+// Keyboard move/resize step, in the same world units the mouse-drag math already works in (see
+// onHeaderMouseDown/onResizeMouseDown below) - unlike the mouse path there's no screen-px delta to
+// convert, so these are just picked to feel like a small nudge vs. a deliberate jump.
+const MOVE_STEP = 8;
+const MOVE_STEP_LARGE = 40;
+const RESIZE_STEP = 8;
+const RESIZE_STEP_LARGE = 40;
+
+function arrowDelta(key: string): { dx: number; dy: number } | null {
+  switch (key) {
+    case "ArrowUp":    return { dx: 0, dy: -1 };
+    case "ArrowDown":  return { dx: 0, dy: 1 };
+    case "ArrowLeft":  return { dx: -1, dy: 0 };
+    case "ArrowRight": return { dx: 1, dy: 0 };
+    default:           return null;
+  }
+}
 
 interface Props {
   title: string;
@@ -156,6 +174,62 @@ export function WidgetFrame({
     [x, y, selected, onMove, onGroupMove, onSelect, onShiftClick, transformRef],
   );
 
+  // Landing keyboard focus on the move or resize handle (Tab, possibly from far outside the
+  // viewport since the canvas pans via a CSS transform rather than native scroll, so the browser's
+  // own scroll-into-view on focus can't help) re-centres the canvas on this widget - reusing the
+  // same "ttcanvas:focus-widget" event Canvas.tsx already listens for. Deliberately does not bring
+  // the widget to front: arriving via Tab should just make it visible, not reorder the z-stack on
+  // every widget you pass through - z-order only changes once you actually move/resize it, or click.
+  const focusWidgetOnCanvas = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("ttcanvas:focus-widget", { detail: { x, y, w: width, h: height } }));
+  }, [x, y, width, height]);
+
+  // Tracks whether this keyboard-move session has already promoted the widget, so repeated arrow
+  // presses while the handle stays focused don't call onSelect again - mirrors onHeaderMouseDown's
+  // once-per-drag onSelect() at mousedown.
+  const moveKeyboardPromotedRef = useRef(false);
+  const onGripFocus = useCallback(() => {
+    moveKeyboardPromotedRef.current = false;
+    focusWidgetOnCanvas();
+  }, [focusWidgetOnCanvas]);
+  const onGripKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const delta = arrowDelta(e.key);
+      if (!delta) return;
+      e.preventDefault();
+      const step = e.shiftKey ? MOVE_STEP_LARGE : MOVE_STEP;
+      const dx = delta.dx * step;
+      const dy = delta.dy * step;
+      if (!moveKeyboardPromotedRef.current) {
+        moveKeyboardPromotedRef.current = true;
+        if (!selected) onSelect?.();
+      }
+      if (selected && onGroupMove) onGroupMove(dx, dy);
+      else onMove(x + dx, y + dy);
+    },
+    [selected, onSelect, onGroupMove, onMove, x, y],
+  );
+
+  const resizeKeyboardPromotedRef = useRef(false);
+  const onResizeHandleFocus = useCallback(() => {
+    resizeKeyboardPromotedRef.current = false;
+    focusWidgetOnCanvas();
+  }, [focusWidgetOnCanvas]);
+  const onResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const delta = arrowDelta(e.key);
+      if (!delta) return;
+      e.preventDefault();
+      const step = e.shiftKey ? RESIZE_STEP_LARGE : RESIZE_STEP;
+      if (!resizeKeyboardPromotedRef.current) {
+        resizeKeyboardPromotedRef.current = true;
+        onFocus?.();
+      }
+      onResize(Math.max(minWidth, width + delta.dx * step), Math.max(minHeight, height + delta.dy * step));
+    },
+    [width, height, minWidth, minHeight, onResize, onFocus],
+  );
+
   const onResizeMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -219,11 +293,20 @@ export function WidgetFrame({
           )}
           {/* Widgets portal a settings cog into this slot via WidgetChromeContext. */}
           <span className={styles.headSlot} ref={setHeaderSlot} />
-          <span className={styles.grip} aria-hidden="true">
+          <button
+            type="button"
+            className={styles.grip}
+            aria-label={`Move ${title} widget`}
+            title="Move (arrow keys, Shift for a bigger step)"
+            onFocus={onGripFocus}
+            onKeyDown={onGripKeyDown}
+            // No onMouseDown guard here, unlike the other header buttons: a mousedown on the grip
+            // should bubble up and start the header's drag, since this button is the drag handle.
+          >
             {Array.from({ length: 6 }).map((_, i) => (
-              <span key={i} className={styles.gripDot} />
+              <span key={i} className={styles.gripDot} aria-hidden="true" />
             ))}
-          </span>
+          </button>
           <button
             className={`${styles.headBtn} ${styles.headBtnDanger}`}
             onClick={onClose}
@@ -247,7 +330,15 @@ export function WidgetFrame({
           <WidgetErrorBoundary title={title}>{children}</WidgetErrorBoundary>
         </WidgetChromeContext.Provider>
       </div>
-      <div className={styles.resizeHandle} onMouseDown={onResizeMouseDown} />
+      <button
+        type="button"
+        className={styles.resizeHandle}
+        aria-label={`Resize ${title} widget`}
+        title="Resize (arrow keys, Shift for a bigger step)"
+        onMouseDown={onResizeMouseDown}
+        onFocus={onResizeHandleFocus}
+        onKeyDown={onResizeKeyDown}
+      />
     </div>
   );
 }

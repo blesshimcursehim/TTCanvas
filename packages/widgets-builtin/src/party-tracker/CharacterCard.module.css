@@ -126,6 +126,22 @@
 }
 .sheetBtn:hover { background: var(--surface-2); color: var(--accent); border-color: var(--accent); }
 
+.mapBtn {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mapBtn:hover { background: var(--surface-2); color: var(--accent); border-color: var(--accent); }
+
 .acGroup {
   display: flex;
   align-items: center;
