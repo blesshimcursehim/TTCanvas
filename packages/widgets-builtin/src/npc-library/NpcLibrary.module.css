@@ -68,13 +68,19 @@
 
 .emptyList { padding: 20px 10px; color: var(--ink-4); font-size: 12px; text-align: center; }
 
-.listRow {
+/* The wrapper carries the row's chrome (padding, rule, hover, active marker) so that the select
+   button and the place-on-map button can sit inside it as siblings. */
+.listRowWrap {
   display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 6px 8px; background: transparent; border: none;
-  border-bottom: 1px solid var(--line-soft); text-align: left; cursor: pointer;
+  padding: 6px 8px; border-bottom: 1px solid var(--line-soft);
   position: relative;
 }
-.listRow:hover { background: var(--surface); }
+.listRowWrap:hover { background: var(--surface); }
+.listRow {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+  padding: 0; background: transparent; border: none;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
 .listRowActive {
   background: var(--bg-2);
 }
@@ -139,7 +145,7 @@
   color: var(--ink-4); cursor: pointer; padding: 0; flex-shrink: 0;
   opacity: 0; transition: opacity 0.1s, background 0.1s, color 0.1s, border-color 0.1s;
 }
-.listRow:hover .listMapBtn,
+.listRowWrap:hover .listMapBtn,
 .listMapBtn:focus-visible {
   opacity: 1;
 }

@@ -6,6 +6,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { StrictMode } from "react";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { ModalDialog } from "./ModalDialog";
 
@@ -70,5 +71,23 @@ describe("ModalDialog", () => {
     const { onClose, view } = renderDialog();
     view.unmount();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("still reports a close after StrictMode's double-mount", () => {
+    // The app renders under StrictMode, so in dev the effect runs setup/cleanup/setup. The
+    // cleanup marks the component as unmounting, and if that mark survives into the second
+    // setup every later dismissal is swallowed and the dialog stays on screen.
+    const onClose = vi.fn();
+    render(
+      <StrictMode>
+        <ModalDialog label="Test dialog" onClose={onClose}>
+          <p>Body</p>
+        </ModalDialog>
+      </StrictMode>,
+    );
+    const dialog = document.querySelector("dialog");
+    if (!dialog) throw new Error("no <dialog> rendered");
+    fireEvent.mouseDown(dialog);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

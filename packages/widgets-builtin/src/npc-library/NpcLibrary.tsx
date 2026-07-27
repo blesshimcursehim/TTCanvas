@@ -503,41 +503,39 @@ export function NpcLibrary({ state, onChange }: Props) {
             </div>
           )}
           {filteredNpcs.map((npc) => (
+            // The select control and the place-on-map control are siblings inside a plain
+            // wrapper. Nesting the second inside the first would be an invalid accessibility
+            // tree, and screen readers disagree about what to do with it.
             <div
               key={npc.id}
-              className={`${styles.listRow} ${npc.id === selectedId ? styles.listRowActive : ""}`}
-              role="button"
-              tabIndex={0}
-              onClick={() => selectNpc(npc)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") selectNpc(npc); }}
+              className={`${styles.listRowWrap} ${npc.id === selectedId ? styles.listRowActive : ""}`}
             >
-              <AvatarCircle
-                npc={npc}
-                size={36}
-                onDragStart={(e) => {
-                  const color = npc.accentColor ?? autoAccentColor(npc.name || "?");
-                  setActiveTokenDrag({ sourceId: npc.id, label: npc.name, color, portraitPath: npc.portrait, kind: "npc" });
-                  e.dataTransfer.setData("text/plain", "ttcanvas-token");
-                  e.dataTransfer.effectAllowed = "copy";
-                }}
-                onDragEnd={clearActiveTokenDrag}
-              />
-              <div className={styles.listRowText}>
-                <span className={styles.listName}>{npc.name}</span>
-                <span className={styles.listMeta}>{[npc.race, npc.occupation].filter(Boolean).join(" · ")}</span>
-              </div>
-              <RelBadge rel={npc.relationship} />
-              {/* The keyboard equivalent of dragging the avatar onto the map. Nested inside a
-                  role="button" row, so both handlers stop propagation - otherwise activating this
-                  would also fire the row's own select-this-NPC behaviour. */}
+              <button type="button" className={styles.listRow} onClick={() => selectNpc(npc)}>
+                <AvatarCircle
+                  npc={npc}
+                  size={36}
+                  onDragStart={(e) => {
+                    const color = npc.accentColor ?? autoAccentColor(npc.name || "?");
+                    setActiveTokenDrag({ sourceId: npc.id, label: npc.name, color, portraitPath: npc.portrait, kind: "npc" });
+                    e.dataTransfer.setData("text/plain", "ttcanvas-token");
+                    e.dataTransfer.effectAllowed = "copy";
+                  }}
+                  onDragEnd={clearActiveTokenDrag}
+                />
+                <div className={styles.listRowText}>
+                  <span className={styles.listName}>{npc.name}</span>
+                  <span className={styles.listMeta}>{[npc.race, npc.occupation].filter(Boolean).join(" · ")}</span>
+                </div>
+                <RelBadge rel={npc.relationship} />
+              </button>
+              {/* The keyboard equivalent of dragging the avatar onto the map. */}
               <button
+                type="button"
                 className={styles.listMapBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={() => {
                   const color = npc.accentColor ?? autoAccentColor(npc.name || "?");
                   placeTokenAtCenter({ sourceId: npc.id, label: npc.name, color, portraitPath: npc.portrait, kind: "npc" });
                 }}
-                onKeyDown={(e) => e.stopPropagation()}
                 title={`Place ${npc.name} at map center`}
                 aria-label={`Place ${npc.name} at map center`}
               >

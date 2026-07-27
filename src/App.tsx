@@ -357,7 +357,10 @@ function App() {
         setAppConfig({ ...appConfig, playerWindowX: bounds.x, playerWindowY: bounds.y, playerWindowW: bounds.w, playerWindowH: bounds.h });
       }
     } else {
-      await openPlayerWindow({ x: appConfig.playerWindowX, y: appConfig.playerWindowY, w: appConfig.playerWindowW, h: appConfig.playerWindowH });
+      await openPlayerWindow(
+        { x: appConfig.playerWindowX, y: appConfig.playerWindowY, w: appConfig.playerWindowW, h: appConfig.playerWindowH },
+        INTERFACE_SCALE_FACTOR[appConfig.playerTextScale],
+      );
       setPlayerWindowOpen(true);
     }
   }
@@ -1340,8 +1343,10 @@ function App() {
   }, [appConfig.interfaceScale]);
 
   // The player webview can't read app config (listen-only capability), so its text scale is
-  // pushed to it. Re-pushed on every change and whenever the player window opens, since a window
-  // opened after the last change would otherwise still be at 1.
+  // pushed to it on every change. A window that has only just opened can't receive a push yet, so
+  // it gets the current scale on its URL instead (see openPlayerWindow); this re-push on
+  // playerWindowOpen covers the other direction, where the main window reloaded while the player
+  // window stayed up.
   useEffect(() => {
     void pushPlayerTextScale(INTERFACE_SCALE_FACTOR[appConfig.playerTextScale]);
   }, [appConfig.playerTextScale, playerWindowOpen]);

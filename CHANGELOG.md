@@ -157,9 +157,6 @@ All notable changes are documented here.
   until you set a portrait (or shows straight away if that portrait file already exists in the target
   vault). The Bestiary also gained an "Export all" for the whole library, alongside its existing
   per-creature and per-folder exports.
-
-### Features
-
 - **Interface size, and a separate size for the player window.** Appearance had no way to make the
   type bigger. Density only ever changed spacing, so a GM reading a dense screen at arm's length was
   stuck with 12px text. There are now two controls. **Interface size** (Normal, Large, Larger) scales

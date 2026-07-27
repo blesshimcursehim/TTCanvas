@@ -288,6 +288,14 @@ export function PlayerWindow() {
     // Pushed by the GM window, since this webview's capability is listen-only and can't read the
     // app config itself. Straight onto the root as a CSS variable - every font-size in
     // PlayerWindow.css multiplies by it, and falls back to 1 until something arrives.
+    //
+    // The scale that was set when this window opened comes in on the URL instead, because a push
+    // sent before the listener below exists is dropped - see openPlayerWindow. Number() turns both
+    // a missing param and a malformed one into NaN or 0, which the guard rejects.
+    const atOpen = Number(new URLSearchParams(window.location.search).get("textScale"));
+    if (Number.isFinite(atOpen) && atOpen > 0) {
+      document.documentElement.style.setProperty("--player-text-scale", String(atOpen));
+    }
     const unlisten = listen<number>("text-scale", (event) => {
       document.documentElement.style.setProperty("--player-text-scale", String(event.payload));
     });

@@ -43,6 +43,10 @@ export function ModalDialog({
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
+    // Cleared on every setup, not just the first: StrictMode runs setup/cleanup/setup in dev, and
+    // the cleanup in between sets this. Leaving it set would make the remounted dialog ignore
+    // every later Escape and backdrop click.
+    unmounting.current = false;
     // `cancel` and `close` don't bubble, and React doesn't deliver them through its synthetic
     // system here, so they go on the element itself.
     const onCancel = (e: Event) => { if (!latest.current.dismissible) e.preventDefault(); };

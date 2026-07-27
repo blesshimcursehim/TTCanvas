@@ -38,6 +38,9 @@ export default tseslint.config(
       // set found 113 violations on the day it went in; 14 were real and were fixed, and the four
       // rules below account for the other 99. They are off rather than warn because a warning
       // nobody can action is just noise - what they are really reporting is tracked as work.
+      // The plugin's declared peer range stops at ESLint 9 and this repo is on 10. It runs fine
+      // (the flat-config API it uses is unchanged), so the mismatch is allowed deliberately via
+      // pnpm.peerDependencyRules in package.json rather than silently ignored.
       ...jsxA11y.flatConfigs.recommended.rules,
       // A pannable canvas of draggable widgets: map surfaces, drag handles, widget frames and
       // clickable rows are pointer-first by design, and no role fits them. Giving this app
