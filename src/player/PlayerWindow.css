@@ -26,7 +26,7 @@ body,
 
 .wordmark {
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-  font-size: 13px;
+  font-size: calc(13px * var(--player-text-scale, 1));
   font-weight: 600;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -110,7 +110,7 @@ body,
   left: 50%;
   transform: translateX(-50%);
   white-space: nowrap;
-  font-size: 11px;
+  font-size: calc(11px * var(--player-text-scale, 1));
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
   color: rgba(255, 255, 255, 0.9);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
@@ -163,7 +163,7 @@ body,
 
 .textRevealTitle {
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-  font-size: 13px;
+  font-size: calc(13px * var(--player-text-scale, 1));
   font-weight: 600;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -173,7 +173,7 @@ body,
 
 .textRevealBody {
   font-family: "EB Garamond", "Garamond", "Georgia", serif;
-  font-size: clamp(22px, 4vh, 38px);
+  font-size: calc(clamp(22px, 4vh, 38px) * var(--player-text-scale, 1));
   line-height: 1.4;
   color: #e8e0d0;
   white-space: pre-wrap;
@@ -216,7 +216,7 @@ body,
 
 .locationEyebrow {
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-  font-size: 13px;
+  font-size: calc(13px * var(--player-text-scale, 1));
   font-weight: 600;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -226,7 +226,7 @@ body,
 
 .locationName {
   font-family: "EB Garamond", "Garamond", "Georgia", serif;
-  font-size: clamp(30px, 5vh, 48px);
+  font-size: calc(clamp(30px, 5vh, 48px) * var(--player-text-scale, 1));
   line-height: 1.1;
   color: #f0e7d5;
 }
@@ -234,7 +234,7 @@ body,
 .locationBlurb {
   font-family: "EB Garamond", "Garamond", "Georgia", serif;
   font-style: italic;
-  font-size: clamp(18px, 2.6vh, 26px);
+  font-size: calc(clamp(18px, 2.6vh, 26px) * var(--player-text-scale, 1));
   line-height: 1.5;
   color: #cfc4ae;
   margin-top: 16px;
@@ -268,7 +268,7 @@ body,
 
 .clockOverlayName {
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-  font-size: 13px;
+  font-size: calc(13px * var(--player-text-scale, 1));
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
   max-width: 160px;
@@ -279,7 +279,7 @@ body,
 
 .clockOverlayCount {
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-  font-size: 11px;
+  font-size: calc(11px * var(--player-text-scale, 1));
   color: rgba(255, 255, 255, 0.5);
 }
 
@@ -306,7 +306,7 @@ body,
 
 .diceOverlayLabel {
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-  font-size: 12px;
+  font-size: calc(12px * var(--player-text-scale, 1));
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -319,7 +319,7 @@ body,
 
 .diceOverlayTotal {
   font-family: "EB Garamond", "Garamond", "Georgia", serif;
-  font-size: 52px;
+  font-size: calc(52px * var(--player-text-scale, 1));
   font-weight: 600;
   line-height: 1.05;
   color: #e8e0d0;
@@ -331,13 +331,13 @@ body,
 
 .diceOverlayBreakdown {
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-  font-size: 12px;
+  font-size: calc(12px * var(--player-text-scale, 1));
   color: rgba(255, 255, 255, 0.5);
 }
 
 .diceOverlayFlag {
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-  font-size: 11px;
+  font-size: calc(11px * var(--player-text-scale, 1));
   font-weight: 700;
   letter-spacing: 0.18em;
   margin-top: 2px;
@@ -441,20 +441,20 @@ body,
 
 .charName {
   font-family: "EB Garamond", "Garamond", "Georgia", serif;
-  font-size: clamp(32px, 4vw, 60px);
+  font-size: calc(clamp(32px, 4vw, 60px) * var(--player-text-scale, 1));
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: 0.01em;
 }
 
 .centredName {
-  font-size: clamp(28px, 5vw, 56px);
+  font-size: calc(clamp(28px, 5vw, 56px) * var(--player-text-scale, 1));
   text-align: center;
 }
 
 .charSubtitle {
   font-family: "EB Garamond", "Garamond", "Georgia", serif;
-  font-size: clamp(14px, 1.6vw, 22px);
+  font-size: calc(clamp(14px, 1.6vw, 22px) * var(--player-text-scale, 1));
   font-style: italic;
   color: rgba(232, 224, 208, 0.55);
   letter-spacing: 0.02em;
@@ -473,7 +473,7 @@ body,
 
 .charTag {
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-  font-size: 11px;
+  font-size: calc(11px * var(--player-text-scale, 1));
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -485,7 +485,7 @@ body,
 .charDate {
   margin-top: 20px;
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-  font-size: 11px;
+  font-size: calc(11px * var(--player-text-scale, 1));
   font-weight: 600;
   letter-spacing: 0.05em;
   color: rgba(255, 255, 255, 0.4);
@@ -513,7 +513,7 @@ body,
   align-items: center;
   justify-content: center;
   font-family: "EB Garamond", "Garamond", "Georgia", serif;
-  font-size: 80px;
+  font-size: calc(80px * var(--player-text-scale, 1));
   font-weight: 600;
   color: rgba(0, 0, 0, 0.5);
 }
@@ -524,7 +524,7 @@ body,
   position: fixed;
   bottom: 20px;
   left: 24px;
-  font-size: 11px;
+  font-size: calc(11px * var(--player-text-scale, 1));
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -555,7 +555,7 @@ body,
 }
 
 .itRound {
-  font-size: 10px;
+  font-size: calc(10px * var(--player-text-scale, 1));
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -580,7 +580,7 @@ body,
   padding: 5px 8px;
   border-radius: 5px;
   font-family: "EB Garamond", "Garamond", "Georgia", serif;
-  font-size: 16px;
+  font-size: calc(16px * var(--player-text-scale, 1));
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -613,7 +613,7 @@ body,
 
 .itTag {
   font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-  font-size: 8px;
+  font-size: calc(8px * var(--player-text-scale, 1));
   font-weight: 700;
   letter-spacing: 0.08em;
   padding: 2px 5px;

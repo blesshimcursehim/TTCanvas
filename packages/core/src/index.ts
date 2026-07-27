@@ -38,7 +38,7 @@ export type {
 export { JUMP_UNIT_MINUTES, jumpMinutes, DEFAULT_JUMPS, MAX_JUMP_AMOUNT } from "./calendarTypes";
 export { ollamaCheck, ollamaListModels, ollamaGenerate, openaiListModels, openaiGenerate } from "./ollama";
 export type { OllamaChunk } from "./ollama";
-export { pushPlayerScene, pushCharacterScene, pushTextScene, pushHandoutScene, pushLocationScene, pushDateOverlay, pushInitiativeOverlay, pushMapPing, PING_LIFETIME_MS, pushClockOverlay, pushDiceOverlay } from "./playerScene";
+export { pushPlayerScene, pushCharacterScene, pushTextScene, pushHandoutScene, pushLocationScene, pushDateOverlay, pushInitiativeOverlay, pushMapPing, PING_LIFETIME_MS, pushClockOverlay, pushDiceOverlay, pushPlayerTextScale } from "./playerScene";
 export type { MapPing, ClockOverlay, DiceOverlay } from "./playerScene";
 export { GameTimeContext, useGameTime } from "./GameTimeContext";
 export type { GameTimeContextValue } from "./GameTimeContext";

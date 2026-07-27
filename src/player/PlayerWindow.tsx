@@ -285,6 +285,16 @@ export function PlayerWindow() {
   }, []);
 
   useEffect(() => {
+    // Pushed by the GM window, since this webview's capability is listen-only and can't read the
+    // app config itself. Straight onto the root as a CSS variable - every font-size in
+    // PlayerWindow.css multiplies by it, and falls back to 1 until something arrives.
+    const unlisten = listen<number>("text-scale", (event) => {
+      document.documentElement.style.setProperty("--player-text-scale", String(event.payload));
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, []);
+
+  useEffect(() => {
     const unlisten = listen<string | null>("date-update", (event) => {
       setInWorldDate(event.payload);
     });

@@ -48,9 +48,28 @@ export function ConditionPicker({ active, anchorRect, onChange, onClose, extraCo
     function handler(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     }
+    // Escape is the keyboard equivalent of clicking away, and without it the only way out of the
+    // picker is the mouse. stopPropagation keeps it from also reaching the canvas's clear-selection.
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onClose();
+    }
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [onClose]);
+
+  // Move focus into the picker on open, and hand it back to whatever opened it on close, so a
+  // keyboard user can actually reach the chips rather than tabbing from the top of the document.
+  useEffect(() => {
+    const opener = document.activeElement;
+    ref.current?.querySelector("button")?.focus();
+    return () => { if (opener instanceof HTMLElement) opener.focus(); };
+  }, []);
 
   function toggle(id: string) {
     onChange(
@@ -81,6 +100,9 @@ export function ConditionPicker({ active, anchorRect, onChange, onClose, extraCo
         transform: flipUp ? "translateY(-100%)" : undefined,
       }}
       onMouseDown={(e) => e.stopPropagation()}
+      // Not a dialog: it is an anchored group of toggles, dismissed by clicking away or Escape.
+      role="group"
+      aria-label="Conditions"
     >
       <div className={styles.chips}>
         {CONDITIONS.map((c) => {
@@ -91,6 +113,12 @@ export function ConditionPicker({ active, anchorRect, onChange, onClose, extraCo
               key={c.id}
               className={`${styles.chip} ${isActive ? (isConc ? styles.chipConcActive : styles.chipActive) : ""}`}
               onClick={() => toggle(c.id)}
+              // The chips are abbreviated to fit ("Fright", "KO"), so the full condition is the
+              // accessible name and the tooltip. aria-pressed is what makes them read as toggles
+              // rather than as buttons that do something new each press.
+              aria-pressed={isActive}
+              aria-label={c.id}
+              title={c.id}
             >
               {c.short}
             </button>
@@ -102,6 +130,9 @@ export function ConditionPicker({ active, anchorRect, onChange, onClose, extraCo
             className={`${styles.chip} ${styles.chipCustom} ${active.includes(c.name) ? styles.chipActive : ""}`}
             style={active.includes(c.name) && c.color ? { background: c.color, borderColor: c.color } : c.color ? { borderColor: c.color, color: c.color } : undefined}
             onClick={() => toggle(c.name)}
+            aria-pressed={active.includes(c.name)}
+            aria-label={c.name}
+            title={c.name}
           >
             {c.name.slice(0, 6)}
           </button>
@@ -117,6 +148,8 @@ export function ConditionPicker({ active, anchorRect, onChange, onClose, extraCo
               key={n}
               className={`${styles.exhBtn} ${active.includes(id) ? styles.exhActive : ""}`}
               onClick={() => toggleExhausted(n)}
+              aria-pressed={active.includes(id)}
+              aria-label={`Exhaustion level ${n}`}
             >
               {n}
             </button>

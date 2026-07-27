@@ -421,7 +421,7 @@ export function Gazetteer({ state, onChange }: Props) {
             {/* Establishing image + cast */}
             <div className={styles.estab}>
               {displayLoc.imagePath && images[displayLoc.imagePath]
-                ? <img className={styles.estabImg} src={images[displayLoc.imagePath]} alt={`${displayLoc.name} establishing image`} />
+                ? <img className={styles.estabImg} src={images[displayLoc.imagePath]} alt={`Establishing shot of ${displayLoc.name}`} />
                 : <button className={styles.estabEmpty} onClick={handleImagePick}>+ Establishing image</button>}
               {displayLoc.imagePath && (
                 <div className={styles.estabActions}>

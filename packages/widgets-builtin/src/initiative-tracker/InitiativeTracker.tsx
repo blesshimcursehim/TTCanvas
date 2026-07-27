@@ -283,8 +283,20 @@ export function InitiativeTracker({ state, onChange }: Props) {
     );
   };
 
+  // Whose turn it is, for the live region below. The turn order is a mix of single combatants and
+  // combined groups, so the label follows the same rule as the player overlay's.
+  const currentEntry = ordered.find((e) => e.id === state.currentId);
+  const currentName = currentEntry
+    ? (currentEntry.kind === "group" ? currentEntry.group.label : currentEntry.combatant.name)
+    : null;
+
   return (
     <div className={styles.root}>
+      {/* Whose turn it is is conveyed only by a highlighted row, which a screen reader can't see.
+          Same live region the player window already carries, so both surfaces announce a turn. */}
+      <span className={styles.visuallyHidden} aria-live="polite">
+        {currentName ? `Current turn: ${currentName}, round ${state.round}` : ""}
+      </span>
       {/* Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.roundGroup}>

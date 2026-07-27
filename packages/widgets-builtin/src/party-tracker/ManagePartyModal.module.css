@@ -419,3 +419,11 @@
   margin-top: 2px;
 }
 .addFieldBtn:hover { background: var(--surface); color: var(--ink); border-color: var(--line); }
+
+/* These suppress the browser's outline but put nothing back, so keyboard focus was invisible on
+   them. The app-wide :focus-visible ring in App.css ties with them on specificity and loses on
+   source order, hence the explicit rule. */
+.nameInput:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

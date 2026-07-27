@@ -427,3 +427,17 @@
 .bottomBtn + .bottomBtn {
   border-left: 1px solid var(--line-soft);
 }
+
+/* Off-screen but still read aloud: the live region announcing whose turn it is. Same recipe as
+   PlayerWindow.css's .visuallyHidden. display:none or visibility:hidden would silence it. */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

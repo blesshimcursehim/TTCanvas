@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
+import { ModalDialog } from "../shared/ModalDialog";
 import { useVault, useAI, useLinkSources, logWarn, logError, ollamaCheck, ollamaListModels, ollamaGenerate, openaiGenerate } from "@ttcanvas/core";
 import type { SessionNotesState } from "./types";
 import { renderMarkdown } from "../shared/markdownRenderer";
@@ -495,9 +495,9 @@ export function SessionNotes({ state, onChange }: Props) {
         </div>
       </div>
 
-      {graphOpen && createPortal(
-        <div className={styles.graphScrim} onClick={() => setGraphOpen(false)}>
-          <div className={styles.graphWrap} onClick={(e) => e.stopPropagation()}>
+      {graphOpen && (
+        <ModalDialog label="Vault links" onClose={() => setGraphOpen(false)}>
+          <div className={styles.graphWrap}>
             <div className={styles.graphBar}>
               <span className={styles.graphTitle}>Vault links</span>
               <span className={styles.graphMeta}>{graph.nodes.length} nodes · {graph.edges.length} links</span>
@@ -530,8 +530,7 @@ export function SessionNotes({ state, onChange }: Props) {
               )}
             </div>
           </div>
-        </div>,
-        document.body,
+        </ModalDialog>
       )}
     </div>
   );

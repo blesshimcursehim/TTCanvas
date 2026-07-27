@@ -15,6 +15,7 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 import globals from "globals";
 
 export default tseslint.config(
@@ -28,8 +29,26 @@ export default tseslint.config(
     },
     plugins: {
       "react-hooks": reactHooks,
+      "jsx-a11y": jsxA11y,
     },
     rules: {
+      // Added with the accessibility audit (roadmap-deferred item 57). This is a deliberate
+      // widening of the narrow policy above: these rules catch real defects a screen-reader or
+      // keyboard user hits, which neither tsc nor a human reviewer reliably sees. The recommended
+      // set found 113 violations on the day it went in; 14 were real and were fixed, and the four
+      // rules below account for the other 99. They are off rather than warn because a warning
+      // nobody can action is just noise - what they are really reporting is tracked as work.
+      ...jsxA11y.flatConfigs.recommended.rules,
+      // A pannable canvas of draggable widgets: map surfaces, drag handles, widget frames and
+      // clickable rows are pointer-first by design, and no role fits them. Giving this app
+      // keyboard equivalents is a feature, not a lint fix - see roadmap-deferred item 57.
+      "jsx-a11y/no-static-element-interactions": "off",
+      "jsx-a11y/click-events-have-key-events": "off",
+      "jsx-a11y/no-noninteractive-element-interactions": "off",
+      // autoFocus is used inside modals, which are now native <dialog>s that move focus on open
+      // anyway. The rule can't tell that case from a page-load focus steal, which is what it's
+      // actually guarding against.
+      "jsx-a11y/no-autofocus": "off",
       // Only the two classic hooks-correctness rules - eslint-plugin-react-hooks's
       // "recommended" preset also bundles ~14 newer React Compiler-oriented rules
       // (set-state-in-effect, purity, immutability, ...) that encode architectural
