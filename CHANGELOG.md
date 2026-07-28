@@ -248,6 +248,11 @@ All notable changes are documented here.
 
 ### Fixes
 
+- **A failed NPC library scan now tells you, instead of just looking empty.** If the vault couldn't
+  be read (a permissions problem, a missing folder), the NPC list silently showed nothing, with no
+  hint that anything had gone wrong rather than there being no NPCs. It now shows an error toast as
+  well.
+
 - **`[[wikilinks]]` now work in an NPC's Last Seen and custom fields.** Those short fields printed
   the raw `[[place:...]]` bracket text with no link at all, while the exact same syntax in Notes
   resolved and opened fine - so a link typed into Last Seen looked broken right next to a working

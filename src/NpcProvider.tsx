@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
-import { NpcContext, useVault, logWarn, logError, type NpcRef, type NpcContextValue } from "@ttcanvas/core";
+import { NpcContext, useVault, useToast, logWarn, logError, type NpcRef, type NpcContextValue } from "@ttcanvas/core";
 import { parseNpcJson, npcMetaValue, type ParsedNpc } from "@ttcanvas/widgets-builtin";
 
 /**
@@ -42,6 +42,7 @@ function toNpcRef(npc: ParsedNpc): NpcRef {
 
 export function NpcProvider({ children }: { children: ReactNode }) {
   const vault = useVault();
+  const { showToast } = useToast();
   const [npcs, setNpcs] = useState<NpcRef[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -85,10 +86,13 @@ export function NpcProvider({ children }: { children: ReactNode }) {
           );
         }
       } catch (err) {
-        // A whole-scan failure (the listing itself) leaves the library looking empty; log it so the
-        // cause is visible rather than silently swallowed. Surfacing it to the GM is filed in bugs.md.
+        // A whole-scan failure (the listing itself) leaves the library looking empty - log it and
+        // toast it, so a GM doesn't read "no NPCs" as "I haven't made any yet".
         logError("NpcProvider: failed to scan the NPC library", err);
-        if (!cancelled) setNpcs([]);
+        if (!cancelled) {
+          setNpcs([]);
+          showToast("Couldn't read the NPC library - it may show fewer NPCs than you have.", "error");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -97,7 +101,7 @@ export function NpcProvider({ children }: { children: ReactNode }) {
     // Depends on the individual methods rather than `vault`: VaultProvider builds a fresh context
     // value every render, so depending on the object itself would re-scan the whole library on
     // every render - the bug the old per-widget scans had. Same idiom as Session Notes' loadList.
-  }, [vaultPath, vaultVersion, listFiles, readFile]);
+  }, [vaultPath, vaultVersion, listFiles, readFile, showToast]);
 
   const value = useMemo<NpcContextValue>(() => ({ npcs, loading }), [npcs, loading]);
 
