@@ -248,6 +248,13 @@ All notable changes are documented here.
 
 ### Fixes
 
+- **Stray middle-click paste on Linux (X11) is fixed properly this time.** The earlier fix guarded
+  against a paste landing shortly after a middle-click *press*, but WebKitGTK actually performs the
+  primary-selection paste on *release* - so panning the canvas (the middle button's job here) for
+  more than a fraction of a second, which is normal, let it through into whatever field the cursor
+  ended up over. The guard now also re-arms on release, closing the gap regardless of how long the
+  drag lasted.
+
 - **A failed NPC library scan now tells you, instead of just looking empty.** If the vault couldn't
   be read (a permissions problem, a missing folder), the NPC list silently showed nothing, with no
   hint that anything had gone wrong rather than there being no NPCs. It now shows an error toast as
