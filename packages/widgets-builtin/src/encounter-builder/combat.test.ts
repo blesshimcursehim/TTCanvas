@@ -309,6 +309,33 @@ describe("buildCombatants", () => {
     expect(combatants[0].sourceId).toBe("npcs/vex.json");
   });
 
+  // ── templateId: a non-exclusive link back to the Bestiary entry, orthogonal to sourceId ──
+
+  it("sets templateId on every copy of a bestiary stack, all sharing the same entry id", () => {
+    const e = encounter([bestiaryMember("g", "Goblin", 3)]);
+    const { combatants } = buildCombatants(e, sources({ bestiary: [creature("g", "Goblin")] }), opts);
+    expect(combatants.every((c) => c.templateId === "g")).toBe(true);
+  });
+
+  it("sets templateId on a solo bestiary foe too, unlike sourceId which stays unset at count 1", () => {
+    const e = encounter([bestiaryMember("b", "Bugbear", 1)]);
+    const { combatants } = buildCombatants(e, sources({ bestiary: [creature("b", "Bugbear")] }), opts);
+    expect(combatants[0].templateId).toBe("b");
+    expect(combatants[0].sourceId).toBeUndefined();
+  });
+
+  it("leaves templateId unset on a party member", () => {
+    const e = encounter([partyMember("p1", "Aria")]);
+    const { combatants } = buildCombatants(e, sources({ party: [pc("p1", "Aria")] }), opts);
+    expect(combatants[0].templateId).toBeUndefined();
+  });
+
+  it("leaves templateId unset on an NPC", () => {
+    const e = encounter([npcMember("npcs/vex.json", "Vex")]);
+    const { combatants } = buildCombatants(e, sources({ npcs: [npc("npcs/vex.json", "Vex")] }), opts);
+    expect(combatants[0].templateId).toBeUndefined();
+  });
+
   // ── Inclusion ─────────────────────────────────────────────
 
   it("skips an excluded member without counting it as missing", () => {

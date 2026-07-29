@@ -6,6 +6,11 @@ All notable changes are documented here.
 
 ### Features
 
+- **Repeated creatures in the Initiative Tracker link back to their Bestiary entry.** Add "Goblin" to
+  a fight three times and each one is its own combatant, as it should be for map placement - but
+  there was no way to tell they'd all come from the same creature. A small book icon now appears on
+  any foe added from the Bestiary; clicking it opens that entry directly.
+
 - **Move and resize widgets from the keyboard.** Every widget's drag handle and resize corner are now
   real, Tab-reachable controls: Tab to one, arrow keys move or resize it, Shift for a bigger step.
   Tabbing to a handle also pans the canvas to bring that widget into view, since panning here is a

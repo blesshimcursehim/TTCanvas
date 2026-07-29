@@ -297,7 +297,13 @@ export function Bestiary({ state, onChange }: Props) {
     // creature. Leaving it unset lets CombatantRow fall back to the combatant's own unique id, so
     // adding "Goblin" twice yields two independently map-linkable combatants instead of one shared
     // identity (which broke map-token dedup and the initiative spotlight for repeated creatures).
-    itCtx.addCombatant({ name: entry.name, initiative: 0, hp: entry.hp, maxHp: entry.hp, ac: entry.ac, kind: "foe", portraitPath: entry.portrait });
+    // templateId *does* carry entry.id, deliberately - it's a non-exclusive link back to this
+    // Bestiary entry (every repeated instance shares it), not an individual identity, so it doesn't
+    // reintroduce the dedup/spotlight bug sourceId had.
+    itCtx.addCombatant({
+      name: entry.name, initiative: 0, hp: entry.hp, maxHp: entry.hp, ac: entry.ac, kind: "foe",
+      portraitPath: entry.portrait, templateId: entry.id,
+    });
   }
 
   // ── Folder ops ────────────────────────────────────────

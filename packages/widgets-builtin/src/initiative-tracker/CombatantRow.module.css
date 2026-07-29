@@ -249,7 +249,8 @@
   color: oklch(0.68 0.19 290);
 }
 
-.addCondBtn {
+.addCondBtn,
+.templateBtn {
   width: 16px;
   height: 16px;
   display: flex;
@@ -266,11 +267,13 @@
   flex-shrink: 0;
 }
 
-.row:hover .addCondBtn {
+.row:hover .addCondBtn,
+.row:hover .templateBtn {
   opacity: 1;
 }
 
-.addCondBtn:hover {
+.addCondBtn:hover,
+.templateBtn:hover {
   background: var(--surface-2);
   color: var(--ink);
 }
