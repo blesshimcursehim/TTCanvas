@@ -73,6 +73,30 @@ describe("Canvas keyboard panning", () => {
 
     expect(view.transform.x).toBe(0);
   });
+
+  // The mousedown handler calls preventDefault(), which also suppresses the browser's own
+  // focus-on-mousedown - so without an explicit focus() a click left the canvas unfocused and
+  // arrow keys silently did nothing, which reads as broken rather than as "press Tab first".
+  it("a click on the empty canvas focuses it, so arrow keys pan straight after", () => {
+    const view = renderCanvas();
+    const canvas = screen.getByLabelText("Canvas");
+
+    fireEvent.mouseDown(canvas, { button: 0 });
+    expect(document.activeElement).toBe(canvas);
+
+    fireEvent.keyDown(canvas, { key: "ArrowRight" });
+    expect(view.transform.x).toBeLessThan(0);
+  });
+
+  it("a click on a widget does not steal focus to the canvas", () => {
+    renderCanvas();
+    const input = screen.getByLabelText("Widget text field");
+    input.focus();
+
+    fireEvent.mouseDown(input, { button: 0 });
+
+    expect(document.activeElement).toBe(input);
+  });
 });
 
 describe("Canvas wheel panning", () => {

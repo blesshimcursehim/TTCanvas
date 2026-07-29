@@ -6,8 +6,9 @@ All notable changes are documented here.
 
 ### Features
 
-- **The canvas itself is now keyboard-reachable, and pans with the arrow keys.** Tab to it (Shift for
-  a bigger step) - the same convention widget move/resize already used. Its rail in the sidebar also
+- **The canvas itself is now keyboard-reachable, and pans with the arrow keys.** Tab to it, or just
+  click an empty part of it (Shift for a bigger step) - the same convention widget move/resize
+  already used. Its rail in the sidebar also
   gained keyboard reordering, which had silently gone missing from an otherwise-unrelated change.
   Initiative Tracker's condition picker is quicker to use from the keyboard too: arrow keys now step
   between the condition chips instead of needing a Tab press for each one.
