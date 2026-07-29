@@ -268,7 +268,12 @@
 }
 
 .row:hover .addCondBtn,
-.row:hover .templateBtn {
+.row:hover .templateBtn,
+.addCondBtn:focus-visible,
+.templateBtn:focus-visible {
+  /* :focus-visible alongside :hover, for the same reason .mapBtn/.removeBtn below do it: a keyboard
+     user tabbing here without also hovering the row with a mouse would land on an invisible
+     (opacity: 0) button. */
   opacity: 1;
 }
 

@@ -7,6 +7,17 @@
   user-select: none;
 }
 
+/* The canvas fills its whole area (inset: 0), so the app-wide ring's +1px outline-offset would draw
+   entirely outside it - hidden behind the titlebar and sidebar on two edges, past the viewport on the
+   other two. A negative offset pulls the same ring inside the element's own bounds instead, which is
+   the one place it's actually visible here. Same tokens, so it still matches every other focus ring. */
+.container:focus-visible {
+  outline: var(--focus-ring);
+  /* -2px, not the token's +1px: an outline grows outward from its offset, so the inset has to be at
+     least the ring's own 2px width for the whole thing to land inside the element. */
+  outline-offset: -2px;
+}
+
 .container.panning {
   cursor: grabbing;
 }

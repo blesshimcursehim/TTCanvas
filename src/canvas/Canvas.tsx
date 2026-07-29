@@ -288,6 +288,11 @@ export function Canvas({
         className={containerClass}
         onMouseDown={onMouseDown}
         onKeyDown={onKeyDown}
+        // Deliberately focusable so arrow keys can pan it, but there is no ARIA role for "pannable
+        // 2D surface" to make it interactive in the rule's eyes. Suppressed here rather than
+        // repo-wide (unlike the static-element-interaction family in eslint.config.js, which fires
+        // in ~99 places) so an accidental non-interactive tab stop anywhere else still gets caught.
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
         aria-label="Canvas"
         title="Pan with arrow keys (Shift for a bigger step)"
