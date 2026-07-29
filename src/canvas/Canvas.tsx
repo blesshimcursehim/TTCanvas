@@ -210,6 +210,14 @@ export function Canvas({
         transform.current.x = cursorX - r * (cursorX - transform.current.x);
         transform.current.y = cursorY - r * (cursorY - transform.current.y);
         transform.current.scale = newScale;
+      } else if (e.shiftKey) {
+        // Shift+scroll swaps the axis: a plain mouse wheel and a two-finger vertical trackpad swipe
+        // both reliably produce deltaY and nothing on deltaX, and some Linux/libinput touchpad setups
+        // never report a horizontal two-finger swipe as deltaX either - not something fixable by
+        // reading the wheel event differently, since the driver just never sends it. Shift+scroll is
+        // the standard desktop-app fallback for horizontal panning that works off deltaY regardless.
+        transform.current.x -= e.deltaY;
+        transform.current.y -= e.deltaX;
       } else {
         // Two-finger scroll (trackpad) or plain wheel (mouse) → pan
         transform.current.x -= e.deltaX;

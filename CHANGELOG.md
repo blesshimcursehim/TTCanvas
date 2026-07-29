@@ -12,6 +12,11 @@ All notable changes are documented here.
   Initiative Tracker's condition picker is quicker to use from the keyboard too: arrow keys now step
   between the condition chips instead of needing a Tab press for each one.
 
+- **Shift+scroll pans the canvas sideways.** Some trackpads never produce a horizontal delta for a
+  two-finger left/right swipe, which made side-to-side panning impossible without the mouse. Holding
+  Shift while scrolling (a trackpad's two-finger swipe or a plain wheel) now pans horizontally instead,
+  the usual fallback other desktop apps use for the same limitation.
+
 - **Repeated creatures in the Initiative Tracker link back to their Bestiary entry.** Add "Goblin" to
   a fight three times and each one is its own combatant, as it should be for map placement - but
   there was no way to tell they'd all come from the same creature. A small book icon now appears on

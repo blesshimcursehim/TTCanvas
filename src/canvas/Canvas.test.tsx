@@ -74,3 +74,21 @@ describe("Canvas keyboard panning", () => {
     expect(view.transform.x).toBe(0);
   });
 });
+
+describe("Canvas wheel panning", () => {
+  it("pans on the wheel's own axes by default", () => {
+    const view = renderCanvas();
+    fireEvent.wheel(screen.getByLabelText("Canvas"), { deltaX: 30, deltaY: 10 });
+    expect(view.transform.x).toBe(-30);
+    expect(view.transform.y).toBe(-10);
+  });
+
+  it("Shift+scroll swaps the axis, panning horizontally from a vertical-only scroll", () => {
+    const view = renderCanvas();
+    // Some trackpad/driver combinations never produce a horizontal deltaX for a two-finger side
+    // swipe - Shift+scroll is the fallback, and it must work from deltaY alone (deltaX: 0).
+    fireEvent.wheel(screen.getByLabelText("Canvas"), { deltaX: 0, deltaY: 50, shiftKey: true });
+    expect(view.transform.x).toBe(-50);
+    expect(view.transform.y).toBe(0);
+  });
+});
