@@ -253,6 +253,12 @@ All notable changes are documented here.
 
 ### Fixes
 
+- **Modals no longer close themselves the instant they open.** Preferences, the end-of-combat review,
+  creature sheets and full character sheets would all appear and then vanish about a second later,
+  untouched, leaving no way to use them. A dialog reports its own closing through an event that the
+  browser delivers a moment after the fact, and one left over from setting the dialog up was being
+  read as though you had dismissed it. Map Display's expanded view was never affected.
+
 - **Stray middle-click paste on Linux (X11) is fixed properly this time.** The earlier fix guarded
   against a paste landing shortly after a middle-click *press*, but WebKitGTK actually performs the
   primary-selection paste on *release* - so panning the canvas (the middle button's job here) for

@@ -36,11 +36,17 @@ if (typeof HTMLCanvasElement !== "undefined") {
 // by every ModalDialog) - the `open` property is already implemented and reflects the attribute,
 // so toggling it is enough. close() also fires the `close` event, since that is the single exit
 // path ModalDialog listens on.
+//
+// That event is *queued as a task* rather than dispatched synchronously, matching the HTML spec
+// ("queue an element task ... to fire an event named close at subject"). The difference is
+// load-bearing, not pedantry: a synchronous close event hid a real bug for a full release, where a
+// StrictMode remount's cleanup queued a close that landed on the *next* setup's listener and
+// dismissed the freshly reopened dialog. Tests must await the event (see ModalDialog.test.tsx).
 if (typeof HTMLDialogElement !== "undefined") {
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   HTMLDialogElement.prototype.close = function () {
     if (!this.open) return;
     this.open = false;
-    this.dispatchEvent(new Event("close"));
+    setTimeout(() => this.dispatchEvent(new Event("close")), 0);
   };
 }

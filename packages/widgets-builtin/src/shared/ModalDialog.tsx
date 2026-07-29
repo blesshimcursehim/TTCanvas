@@ -50,7 +50,15 @@ export function ModalDialog({
     // `cancel` and `close` don't bubble, and React doesn't deliver them through its synthetic
     // system here, so they go on the element itself.
     const onCancel = (e: Event) => { if (!latest.current.dismissible) e.preventDefault(); };
-    const onNativeClose = () => { if (!unmounting.current) latest.current.onClose(); };
+    // `close()` *queues* the close event rather than firing it synchronously, so an event can
+    // outlive the setup that caused it: StrictMode's cleanup closes the dialog, then the next setup
+    // reopens it, and the queued event lands here with `unmounting` already reset to false. The
+    // element's own state settles it - a stale event arrives after showModal() has reopened the
+    // dialog, while a real dismissal arrives with it closed. Without this, every modal in the app
+    // dismissed itself within a second of opening in dev.
+    const onNativeClose = () => {
+      if (!unmounting.current && !dialog.open) latest.current.onClose();
+    };
     dialog.addEventListener("cancel", onCancel);
     dialog.addEventListener("close", onNativeClose);
     dialog.showModal();
