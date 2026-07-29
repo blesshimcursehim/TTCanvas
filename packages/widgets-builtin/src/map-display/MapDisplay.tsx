@@ -136,6 +136,22 @@ const TOKEN_SIZE_MIN = 0.5;
 const TOKEN_SIZE_MAX = 6;
 // Movement under this many pixels between a token's mousedown and mouseup counts as a click, not a drag.
 const TOKEN_CLICK_TOL_PX = 4;
+// Keyboard nudge step, in screen px equivalent - matches WidgetFrame's own move step (8 / 40 with
+// Shift) so the two keyboard-move affordances in the app feel the same. Converted to a normalized
+// x/y fraction the same way the mouse-drag path already does (deltaPx / (imgSize * scale)), so the
+// nudge covers the same screen distance regardless of zoom instead of a fixed fraction of the image.
+const TOKEN_NUDGE_STEP_PX = 8;
+const TOKEN_NUDGE_STEP_LARGE_PX = 40;
+
+function arrowKeyDelta(key: string): { dx: number; dy: number } | null {
+  switch (key) {
+    case "ArrowUp": return { dx: 0, dy: -1 };
+    case "ArrowDown": return { dx: 0, dy: 1 };
+    case "ArrowLeft": return { dx: -1, dy: 0 };
+    case "ArrowRight": return { dx: 1, dy: 0 };
+    default: return null;
+  }
+}
 
 interface TokenPinProps {
   token: MapToken;
@@ -143,7 +159,9 @@ interface TokenPinProps {
   imgH: number;
   ghost?: boolean; // on the board but hidden from players - GM-only "ghost" look
   spotlight?: boolean; // this token's combatant currently has the initiative turn
+  selected?: boolean; // keyboard-selected: arrow keys nudge it, +/- resizes it, Delete removes it
   onDragStart: (e: React.MouseEvent, id: string) => void;
+  onSelect: (id: string) => void;
   onRemove: (id: string) => void;
   onResize: (id: string, size: number) => void;
   renaming: boolean;
@@ -155,7 +173,7 @@ interface TokenPinProps {
   onStartRename: (id: string, label: string) => void;
 }
 
-function TokenPin({ token, imgW, imgH, ghost, spotlight, onDragStart, onRemove, onResize, renaming, renameValue, renameInputRef, onRenameChange, onRenameCommit, onRenameCancel, onStartRename }: TokenPinProps) {
+function TokenPin({ token, imgW, imgH, ghost, spotlight, selected, onDragStart, onSelect, onRemove, onResize, renaming, renameValue, renameInputRef, onRenameChange, onRenameCommit, onRenameCancel, onStartRename }: TokenPinProps) {
   const vault = useVault();
   const size = token.size ?? 1;
   const px = TOKEN_BASE_PX * size;
@@ -208,7 +226,7 @@ function TokenPin({ token, imgW, imgH, ghost, spotlight, onDragStart, onRemove, 
   return (
     <div
       ref={divRef}
-      className={`${styles.token} ${ghost ? styles.tokenGhost : ""} ${spotlight ? styles.tokenSpotlight : ""}`}
+      className={`${styles.token} ${ghost ? styles.tokenGhost : ""} ${spotlight ? styles.tokenSpotlight : ""} ${selected ? styles.tokenSelected : ""}`}
       style={{
         left: token.x * imgW,
         top: token.y * imgH,
@@ -217,6 +235,11 @@ function TokenPin({ token, imgW, imgH, ghost, spotlight, onDragStart, onRemove, 
         background: portraitSrc ? "transparent" : token.color,
       }}
       title={renaming ? undefined : `${token.label} · Double-click to rename`}
+      role="button"
+      tabIndex={0}
+      aria-label={`${token.label} token - arrow keys to move, +/- to resize, Delete to remove`}
+      aria-pressed={selected}
+      onFocus={() => onSelect(token.id)}
       onMouseDown={(e) => { e.stopPropagation(); onDragStart(e, token.id); }}
       // stopPropagation: the viewport itself treats a double-click as "fit map to screen"
       // (MapDisplay's own onDoubleClick), which a rename here shouldn't also trigger.
@@ -318,6 +341,9 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
   const [drawerCollapsed, setDrawerCollapsed] = useState(false);
   // Markup (annotations) - selection + the style applied to newly drawn shapes.
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
+  // Selected token - mirrors selectedAnnId (click/Tab to select, Escape/Delete act on it), kept
+  // mutually exclusive with it so only one keydown effect is ever "armed" at a time.
+  const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
   const [markupColor, setMarkupColor] = useState<AnnotationColor>("amber");
   const [markupStroke, setMarkupStroke] = useState<1 | 2 | 3>(2);
   const [liveAnn, setLiveAnn] = useState<MapAnnotation | null>(null);
@@ -766,12 +792,14 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
           if (hitId) {
             const orig = anns.find((a) => a.id === hitId)!;
             setSelectedAnnId(hitId);
+            setSelectedTokenId(null);
             annMoveRef.current = { id: hitId, startNX: norm.nx, startNY: norm.ny, orig };
             return;
           }
         }
         // 3. Empty space: deselect and pan the map.
         setSelectedAnnId(null);
+        setSelectedTokenId(null);
         dragRef.current = { x: e.clientX, y: e.clientY, panX: sc.panX, panY: sc.panY };
         return;
       }
@@ -821,6 +849,7 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
         // rename, is what gives the new token the "name it right away" affordance a drawn shape
         // already gets from auto-selecting itself on creation.
         setSelectedAnnId(null);
+        setSelectedTokenId(null);
         startTokenRename(newToken.id, newToken.label);
         return;
       }
@@ -847,6 +876,7 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
         setPendingLocationPin(null);
         // Same stale-selection guard as the plain-token case above.
         setSelectedAnnId(null);
+        setSelectedTokenId(null);
         return;
       }
 
@@ -988,10 +1018,14 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
       const tokenDrag = tokenDragRef.current;
       tokenDragRef.current = null;
 
-      // A token mousedown+mouseup with negligible movement is a click, not a drag: if it landed on
-      // a Gazetteer-linked pin, jump back to that place. Gated to the pan tool so a GM mid fog-brush
-      // /measure/markup who happens to click a pin isn't yanked into another widget unexpectedly.
+      // A token mousedown+mouseup, click or drag, selects it - arms the keydown effect below for
+      // nudge/resize/delete, mirroring selectedAnnId. Negligible movement additionally counts as a
+      // click rather than a drag: if it landed on a Gazetteer-linked pin, jump back to that place.
+      // Gated to the pan tool so a GM mid fog-brush/measure/markup who happens to click a pin isn't
+      // yanked into another widget unexpectedly.
       if (tokenDrag) {
+        setSelectedAnnId(null);
+        setSelectedTokenId(tokenDrag.id);
         if (activeTool === "pan" && Math.hypot(e.clientX - tokenDrag.startX, e.clientY - tokenDrag.startY) < TOKEN_CLICK_TOL_PX) {
           const s = stateRef.current;
           const sc = s.scenes.find((sc2) => sc2.id === s.activeSceneId) ?? s.scenes[0];
@@ -1015,6 +1049,7 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
           const a: MapAnnotation = { id: uid(), type: "highlight", color: markupColor, stroke: markupStroke, points: pts };
           setAnnotations((anns) => [...anns, a]);
           setSelectedAnnId(a.id);
+          setSelectedTokenId(null);
         }
         return;
       }
@@ -1036,6 +1071,7 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
         // quick succession never race for the same label.
         setAnnotations((anns) => [...anns, type === "arrow" ? a : { ...a, label: nextAutoLabel(anns) }]);
         setSelectedAnnId(id);
+        setSelectedTokenId(null);
         return;
       }
 
@@ -1131,6 +1167,9 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
       sc.id === s.activeSceneId ? { ...sc, tokens: sc.tokens.filter((t) => t.id !== id) } : sc,
     );
     onChangeRef.current({ ...s, scenes });
+    // Covers both the keyboard Delete path below and the pin's own × button, so a removed token
+    // never leaves a dangling selection armed for a token that no longer exists.
+    setSelectedTokenId((cur) => (cur === id ? null : cur));
   }, []);
 
   const resizeToken = useCallback((id: string, size: number) => {
@@ -1142,6 +1181,55 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
     );
     onChangeRef.current({ ...s, scenes });
   }, []);
+
+  // Arrow keys nudge the selected token, +/- resizes it, Delete/Backspace removes it, Escape
+  // deselects (ignored while typing in a field) - the keyboard equivalents of drag/wheel-resize/the
+  // pin's own × button. Mirrors the selectedAnnId effect above.
+  useEffect(() => {
+    if (!selectedTokenId) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+
+      const delta = arrowKeyDelta(e.key);
+      if (delta) {
+        e.preventDefault();
+        const sz = imgSizeRef.current;
+        if (!sz) return;
+        const s = stateRef.current;
+        const sc = s.scenes.find((sc2) => sc2.id === s.activeSceneId) ?? s.scenes[0];
+        const step = e.shiftKey ? TOKEN_NUDGE_STEP_LARGE_PX : TOKEN_NUDGE_STEP_PX;
+        const dnx = (delta.dx * step) / (sz.w * sc.scale);
+        const dny = (delta.dy * step) / (sz.h * sc.scale);
+        const scenes = s.scenes.map((sc2) =>
+          sc2.id === s.activeSceneId
+            ? { ...sc2, tokens: sc2.tokens.map((tok) => tok.id === selectedTokenId ? { ...tok, x: tok.x + dnx, y: tok.y + dny } : tok) }
+            : sc2,
+        );
+        onChangeRef.current({ ...s, scenes });
+        return;
+      }
+
+      if (e.key === "+" || e.key === "=" || e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        const s = stateRef.current;
+        const sc = s.scenes.find((sc2) => sc2.id === s.activeSceneId) ?? s.scenes[0];
+        const tok = sc.tokens.find((tk) => tk.id === selectedTokenId);
+        if (!tok) return;
+        const cur = tok.size ?? 1;
+        // Same +/-0.1 step and rounding as TokenPin's own wheel-resize listener above.
+        const stepDelta = (e.key === "+" || e.key === "=") ? 0.1 : -0.1;
+        const next = Math.min(TOKEN_SIZE_MAX, Math.max(TOKEN_SIZE_MIN, Math.round((cur + stepDelta) * 10) / 10));
+        if (next !== cur) resizeToken(selectedTokenId, next);
+        return;
+      }
+
+      if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); removeToken(selectedTokenId); }
+      else if (e.key === "Escape") setSelectedTokenId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedTokenId, removeToken, resizeToken]);
 
   const addOrMoveToken = useCallback(
     (draft: { sourceId?: string; label: string; color: string; portraitPath?: string; kind?: MapTokenKind }, x: number, y: number) => {
@@ -1924,7 +2012,9 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
               imgH={imgSize.h}
               ghost={!isPlayerVisible(t)}
               spotlight={!!t.sourceId && activeSourceIds.includes(t.sourceId)}
+              selected={selectedTokenId === t.id}
               onDragStart={startTokenDrag}
+              onSelect={(id) => { setSelectedAnnId(null); setSelectedTokenId(id); }}
               onRemove={removeToken}
               onResize={resizeToken}
               renaming={renamingTokenId === t.id}

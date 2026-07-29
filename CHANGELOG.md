@@ -30,6 +30,11 @@ All notable changes are documented here.
   "place at map center" button next to each portrait - the same one-click placement Initiative Tracker
   already had - so getting a character or creature onto the map no longer requires a drag.
 
+- **Move, resize and delete a placed map token from the keyboard.** Tab to a token (or click it) to
+  select it, then arrow keys nudge it, +/- resizes it and Delete/Backspace removes it - the same
+  conventions as widget move/resize and canvas panning above, now extended to tokens already on the
+  board.
+
 - **Inventory.** A new widget holding one ledger of everything the party owns. Each item carries a
   kind, rarity, value, weight and a Markdown description, and quantities are tracked per holder, so a
   stack of rations split between three characters is still one row rather than three. Items you assign
