@@ -18,6 +18,14 @@
   outline-offset: -2px;
 }
 
+/* Focus that came from a mouse press on the background, not from Tab. The ring exists so a keyboard
+   user can see where Tab landed, and a mouse user already knows - ringing the whole viewport on an
+   ordinary background click is just noise. See the data-pointer-focus note in Canvas.tsx for why
+   :focus-visible doesn't rule this out on its own. */
+.container[data-pointer-focus]:focus-visible {
+  outline: none;
+}
+
 .container.panning {
   cursor: grabbing;
 }

@@ -88,6 +88,28 @@ describe("Canvas keyboard panning", () => {
     expect(view.transform.x).toBeLessThan(0);
   });
 
+  // The ring is for keyboard users. A programmatic focus() still matches :focus-visible, so without
+  // the marker an ordinary background click outlined the whole viewport in accent.
+  it("marks a click-driven focus so the focus ring can be suppressed, and clears it on blur", () => {
+    renderCanvas();
+    const canvas = screen.getByLabelText("Canvas");
+
+    fireEvent.mouseDown(canvas, { button: 0 });
+    expect(canvas).toHaveAttribute("data-pointer-focus");
+
+    fireEvent.blur(canvas);
+    expect(canvas).not.toHaveAttribute("data-pointer-focus");
+  });
+
+  it("does not mark a Tab-driven focus, so the ring still shows for keyboard users", () => {
+    renderCanvas();
+    const canvas = screen.getByLabelText("Canvas");
+
+    canvas.focus();
+
+    expect(canvas).not.toHaveAttribute("data-pointer-focus");
+  });
+
   it("a click on a widget does not steal focus to the canvas", () => {
     renderCanvas();
     const input = screen.getByLabelText("Widget text field");
