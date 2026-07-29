@@ -18,7 +18,8 @@ import {
   parseTimeTrackerState,
   parseRulesReferenceState,
   parseRuleCardsState,
-  parseInventoryState,
+  parseItemsState,
+  parseMerchantsState,
   parseXpTrackerState,
   parseRollTablesState,
   parseEncounterBuilderState,
@@ -694,7 +695,7 @@ describe("parseCampaignTimelineState", () => {
   });
 });
 
-describe("parseInventoryState", () => {
+describe("parseItemsState", () => {
   const item = {
     id: "i1", name: "Sunblade", kind: "weapon", rarity: "very-rare",
     valueCp: 500000, weightLb: 3, description: "Radiant.", attuned: true,
@@ -702,67 +703,67 @@ describe("parseInventoryState", () => {
   };
   const base = {
     items: [item], currency: { cp: 1, sp: 2, ep: 0, gp: 3, pp: 0 },
-    query: "", kindFilter: null, showWeight: false, carryLimitLb: null,
+    query: "", kindFilter: null, heldFilter: "all", showWeight: false, carryLimitLb: null,
   };
 
   it("passes valid state through", () => {
-    expect(parseInventoryState(base)).toEqual(base);
+    expect(parseItemsState(base)).toEqual(base);
   });
 
   it("drops an item with no id rather than inventing one", () => {
-    const result = parseInventoryState({ ...base, items: [item, { name: "No id", holdings: [] }] }) as { items: unknown[] };
+    const result = parseItemsState({ ...base, items: [item, { name: "No id", holdings: [] }] }) as { items: unknown[] };
     expect(result.items).toHaveLength(1);
   });
 
   it("falls back to gear for an unknown kind", () => {
-    const result = parseInventoryState({ ...base, items: [{ ...item, kind: "wondrous" }] }) as { items: { kind: string }[] };
+    const result = parseItemsState({ ...base, items: [{ ...item, kind: "wondrous" }] }) as { items: { kind: string }[] };
     expect(result.items[0].kind).toBe("gear");
   });
 
   it("drops an unknown rarity instead of keeping the item stuck", () => {
-    const result = parseInventoryState({ ...base, items: [{ ...item, rarity: "mythic" }] }) as { items: { rarity?: string }[] };
+    const result = parseItemsState({ ...base, items: [{ ...item, rarity: "mythic" }] }) as { items: { rarity?: string }[] };
     expect(result.items[0].rarity).toBeUndefined();
   });
 
   it("drops a holding with a non-numeric quantity", () => {
     const holdings = [{ holderId: "pc1", qty: "many" }, { holderId: null, qty: 2 }];
-    const result = parseInventoryState({ ...base, items: [{ ...item, holdings }] }) as { items: { holdings: unknown[] }[] };
+    const result = parseItemsState({ ...base, items: [{ ...item, holdings }] }) as { items: { holdings: unknown[] }[] };
     expect(result.items[0].holdings).toEqual([{ holderId: null, qty: 2 }]);
   });
 
   it("keeps the rest of an item when one field is garbage", () => {
-    const result = parseInventoryState({ ...base, items: [{ ...item, weightLb: "heavy" }] }) as { items: { name: string; weightLb?: number }[] };
+    const result = parseItemsState({ ...base, items: [{ ...item, weightLb: "heavy" }] }) as { items: { name: string; weightLb?: number }[] };
     expect(result.items[0].name).toBe("Sunblade");
     expect(result.items[0].weightLb).toBeUndefined();
   });
 
   it("zeroes a corrupt coin without wiping the purse", () => {
-    const result = parseInventoryState({ ...base, currency: { cp: "lots", sp: 2, ep: 0, gp: 3, pp: 0 } }) as { currency: Record<string, number> };
+    const result = parseItemsState({ ...base, currency: { cp: "lots", sp: 2, ep: 0, gp: 3, pp: 0 } }) as { currency: Record<string, number> };
     expect(result.currency).toEqual({ cp: 0, sp: 2, ep: 0, gp: 3, pp: 0 });
   });
 
   it("resets an unknown kindFilter so nothing filters everything out", () => {
-    const result = parseInventoryState({ ...base, kindFilter: "wondrous" }) as { kindFilter: string | null };
+    const result = parseItemsState({ ...base, kindFilter: "wondrous" }) as { kindFilter: string | null };
     expect(result.kindFilter).toBeNull();
   });
 
   it("returns default for null", () => {
-    expect(parseInventoryState(null)).toEqual({
+    expect(parseItemsState(null)).toEqual({
       items: [], currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
-      query: "", kindFilter: null, showWeight: false, carryLimitLb: null,
+      query: "", kindFilter: null, heldFilter: "all", showWeight: false, carryLimitLb: null,
     });
   });
 });
 
-describe("parseInventoryState quantity and range guards", () => {
+describe("parseItemsState quantity and range guards", () => {
   const item = { id: "i1", name: "Rations", kind: "gear", holdings: [] as unknown[] };
   const base = {
     items: [item], currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
-    query: "", kindFilter: null, showWeight: false, carryLimitLb: null,
+    query: "", kindFilter: null, heldFilter: "all", showWeight: false, carryLimitLb: null,
   };
 
   function holdingsOf(holdings: unknown[]): unknown[] {
-    const result = parseInventoryState({ ...base, items: [{ ...item, holdings }] }) as { items: { holdings: unknown[] }[] };
+    const result = parseItemsState({ ...base, items: [{ ...item, holdings }] }) as { items: { holdings: unknown[] }[] };
     return result.items[0].holdings;
   }
 
@@ -780,26 +781,26 @@ describe("parseInventoryState quantity and range guards", () => {
   });
 
   it("zeroes a negative or fractional coin", () => {
-    const result = parseInventoryState({ ...base, currency: { cp: -5, sp: 1.5, ep: 0, gp: 3, pp: 0 } }) as { currency: Record<string, number> };
+    const result = parseItemsState({ ...base, currency: { cp: -5, sp: 1.5, ep: 0, gp: 3, pp: 0 } }) as { currency: Record<string, number> };
     expect(result.currency).toEqual({ cp: 0, sp: 0, ep: 0, gp: 3, pp: 0 });
   });
 
   it("drops a negative or fractional value in copper", () => {
-    const neg = parseInventoryState({ ...base, items: [{ ...item, valueCp: -100 }] }) as { items: { valueCp?: number }[] };
-    const frac = parseInventoryState({ ...base, items: [{ ...item, valueCp: 12.5 }] }) as { items: { valueCp?: number }[] };
+    const neg = parseItemsState({ ...base, items: [{ ...item, valueCp: -100 }] }) as { items: { valueCp?: number }[] };
+    const frac = parseItemsState({ ...base, items: [{ ...item, valueCp: 12.5 }] }) as { items: { valueCp?: number }[] };
     expect(neg.items[0].valueCp).toBeUndefined();
     expect(frac.items[0].valueCp).toBeUndefined();
   });
 
   it("allows a fractional weight but not a negative one", () => {
-    const half = parseInventoryState({ ...base, items: [{ ...item, weightLb: 0.5 }] }) as { items: { weightLb?: number }[] };
-    const neg = parseInventoryState({ ...base, items: [{ ...item, weightLb: -2 }] }) as { items: { weightLb?: number }[] };
+    const half = parseItemsState({ ...base, items: [{ ...item, weightLb: 0.5 }] }) as { items: { weightLb?: number }[] };
+    const neg = parseItemsState({ ...base, items: [{ ...item, weightLb: -2 }] }) as { items: { weightLb?: number }[] };
     expect(half.items[0].weightLb).toBe(0.5);
     expect(neg.items[0].weightLb).toBeUndefined();
   });
 
   it("drops a negative carry limit", () => {
-    const result = parseInventoryState({ ...base, carryLimitLb: -50 }) as { carryLimitLb: number | null };
+    const result = parseItemsState({ ...base, carryLimitLb: -50 }) as { carryLimitLb: number | null };
     expect(result.carryLimitLb).toBeNull();
   });
 });
@@ -814,18 +815,70 @@ describe("shared-context slices survive corrupt state", () => {
   });
 
   it("turns a non-array inventory collection into an empty one", () => {
-    const result = parseInventoryState({ items: "corrupt" }) as { items: unknown[] };
+    const result = parseItemsState({ items: "corrupt" }) as { items: unknown[] };
     expect(result.items).toEqual([]);
   });
 
   it("turns non-array holdings into an empty list instead of a non-iterable", () => {
     const item = { id: "i1", name: "Rations", kind: "gear", holdings: 7 };
-    const result = parseInventoryState({ items: [item] }) as { items: { holdings: unknown[] }[] };
+    const result = parseItemsState({ items: [item] }) as { items: { holdings: unknown[] }[] };
     expect(result.items[0].holdings).toEqual([]);
   });
 
   it("returns usable defaults when a widget has never been opened", () => {
-    expect((parseInventoryState(undefined) as { items: unknown[] }).items).toEqual([]);
+    expect((parseItemsState(undefined) as { items: unknown[] }).items).toEqual([]);
     expect((parseRollTablesState(undefined) as { tables: unknown[] }).tables).toEqual([]);
+  });
+});
+
+describe("parseMerchantsState", () => {
+  const merchant = {
+    id: "m1", name: "Dorn's Forge", kind: "blacksmith",
+    owner: "Dorn", ownerRef: "npcs/dorn.json",
+    priceModifier: 1.2, buybackModifier: 0.5,
+    stock: [{ itemId: "i1", qty: 3 }, { itemId: "i2", qty: null }],
+  };
+  const base = { merchants: [merchant], selectedId: "m1", query: "", kindFilter: null };
+
+  it("passes valid state through", () => {
+    expect(parseMerchantsState(base)).toEqual(base);
+  });
+
+  it("drops a merchant with no id rather than inventing one", () => {
+    const result = parseMerchantsState({ ...base, merchants: [{ ...merchant, id: undefined }] }) as { merchants: unknown[] };
+    expect(result.merchants).toEqual([]);
+  });
+
+  it("falls back to general for an unknown kind", () => {
+    const result = parseMerchantsState({ ...base, merchants: [{ ...merchant, kind: "fishmonger" }] }) as { merchants: { kind: string }[] };
+    expect(result.merchants[0].kind).toBe("general");
+  });
+
+  it("drops a stock row with no item reference, keeping its siblings", () => {
+    const stock = [{ itemId: "i1", qty: 1 }, { qty: 2 }, { itemId: "i3", qty: 3 }];
+    const result = parseMerchantsState({ ...base, merchants: [{ ...merchant, stock }] }) as { merchants: { stock: unknown[] }[] };
+    expect(result.merchants[0].stock).toEqual([{ itemId: "i1", qty: 1 }, { itemId: "i3", qty: 3 }]);
+  });
+
+  it("keeps null qty meaning unlimited rather than defaulting it to a number", () => {
+    const result = parseMerchantsState(base) as { merchants: { stock: { qty: number | null }[] }[] };
+    expect(result.merchants[0].stock[1].qty).toBeNull();
+  });
+
+  it("rescues a zero or non-finite price modifier, which would price the shelf at nothing", () => {
+    const bad = [{ ...merchant, priceModifier: 0 }, { ...merchant, id: "m2", priceModifier: "loads" }];
+    const result = parseMerchantsState({ ...base, merchants: bad }) as { merchants: { priceModifier: number }[] };
+    expect(result.merchants.map((m) => m.priceModifier)).toEqual([1, 1]);
+  });
+
+  it("resets an unknown kindFilter so nothing filters everything out", () => {
+    const result = parseMerchantsState({ ...base, kindFilter: "fishmonger" }) as { kindFilter: string | null };
+    expect(result.kindFilter).toBeNull();
+  });
+
+  it("returns default for null", () => {
+    expect(parseMerchantsState(null)).toEqual({
+      merchants: [], selectedId: null, query: "", kindFilter: null,
+    });
   });
 });

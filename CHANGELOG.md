@@ -31,6 +31,23 @@ All notable changes are documented here.
   "place at map center" button next to each portrait - the same one-click placement Initiative Tracker
   already had - so getting a character or creature onto the map no longer requires a drag.
 
+- **Merchants.** A new widget holding the shops, traders and fences your party keeps going back to.
+  Give one an owner and a place (linked to your NPC Library and Gazetteer, so they open with a
+  click), then stock its shelves from your Items catalogue. Stock is held by reference, so repricing
+  a longsword in Items updates every merchant selling one, and leaving a count blank means unlimited.
+  **Buy** moves an item into the party stash and pays for it out of the shared purse; **Sell** does
+  the reverse at the merchant's buyback rate. If the party can't afford something you get a warning
+  rather than a refusal, because the ledger doesn't overrule you. Price and buyback multipliers are
+  per merchant, so a gouging port town and a friendly village smith can sit side by side. Merchants
+  import, export and pull from another vault like every other collection.
+
+- **Inventory is now Items, and it's a catalogue.** The rename is the point, not decoration: an item
+  is a *definition* first, so a new one starts with nobody holding it, which is what lets a merchant
+  stock something the party has never owned. A new **All / Held / Catalogue** toggle filters by that
+  distinction. Your existing items, holdings and party purse carry across untouched. One behaviour
+  change worth knowing: typing a name and pressing Enter no longer means the party owns one, so use
+  the steppers (or Roll loot, which still lands in the stash) to say who has some.
+
 - **Move, resize and delete a placed map token from the keyboard.** Tab to a token (or click it) to
   select it, then arrow keys nudge it, +/- resizes it and Delete/Backspace removes it - the same
   conventions as widget move/resize and canvas panning above, now extended to tokens already on the

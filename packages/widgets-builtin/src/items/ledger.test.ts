@@ -7,13 +7,13 @@
 import { describe, it, expect } from "vitest";
 import {
   totalQty, qtyFor, setQty, moveHolding, weightCarried, totalValueCp,
-  currencyToCp, normaliseCurrency, splitEvenly,
-} from "./inventory";
-import type { InventoryItem } from "./types";
+  currencyToCp, normaliseCurrency, splitEvenly, spendFromPurse, addToPurse,
+} from "./ledger";
+import type { CatalogueItem } from "./types";
 
 const NO_COIN = { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
 
-function item(over: Partial<InventoryItem> = {}): InventoryItem {
+function item(over: Partial<CatalogueItem> = {}): CatalogueItem {
   return { id: "i1", name: "Rations", kind: "gear", holdings: [], ...over };
 }
 
@@ -123,5 +123,44 @@ describe("splitEvenly", () => {
       { memberId: "b", delta: { cp: 0, sp: 5, ep: 0, gp: 0, pp: 0 } },
     ]);
     expect(remainder).toEqual(NO_COIN);
+  });
+});
+
+describe("spendFromPurse / addToPurse", () => {
+  it("makes change across denominations, tidying what is left", () => {
+    // The case applyCurrencyDelta gets wrong: it floors each coin independently, so debiting gold
+    // from a purse holding only silver would take nothing at all and report success. The change
+    // comes back tidied (500cp as 5gp, not 50sp), the same rolling-up that Tidy does.
+    expect(spendFromPurse({ ...NO_COIN, sp: 100 }, 500)).toEqual({ ...NO_COIN, gp: 5 });
+  });
+
+  it("spends an exact amount down to nothing", () => {
+    expect(spendFromPurse({ ...NO_COIN, gp: 5 }, 500)).toEqual(NO_COIN);
+  });
+
+  it("clamps an unaffordable spend at empty rather than going negative", () => {
+    // Warn, don't block: the GM can overspend, but a negative coin count isn't renderable.
+    expect(spendFromPurse({ ...NO_COIN, gp: 1 }, 999999)).toEqual(NO_COIN);
+  });
+
+  it("preserves existing electrum where it still fits", () => {
+    const out = spendFromPurse({ ...NO_COIN, ep: 2, gp: 5 }, 100);
+    expect(out.ep).toBe(2);
+    expect(currencyToCp(out)).toBe(500);
+  });
+
+  it("treats a zero or negative spend as a no-op", () => {
+    const purse = { ...NO_COIN, gp: 3 };
+    expect(spendFromPurse(purse, 0)).toEqual(purse);
+    expect(spendFromPurse(purse, -50)).toEqual(purse);
+  });
+
+  it("credits a sale and tidies it into the largest coins", () => {
+    expect(addToPurse(NO_COIN, 500)).toEqual({ ...NO_COIN, gp: 5 });
+  });
+
+  it("round-trips a spend and a credit back to the same total", () => {
+    const purse = { ...NO_COIN, gp: 7, sp: 3 };
+    expect(currencyToCp(addToPurse(spendFromPurse(purse, 250), 250))).toBe(currencyToCp(purse));
   });
 });

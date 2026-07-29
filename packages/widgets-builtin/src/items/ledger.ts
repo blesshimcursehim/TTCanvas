@@ -8,15 +8,15 @@
 // touches React or the vault.
 
 import { CURRENCY_KEYS, COIN_IN_CP, type PCCurrency } from "@ttcanvas/core";
-import type { InventoryItem, Holding } from "./types";
+import type { CatalogueItem, Holding } from "./types";
 
 /** The party total across every holder. */
-export function totalQty(item: InventoryItem): number {
+export function totalQty(item: CatalogueItem): number {
   return item.holdings.reduce((sum, h) => sum + Math.max(0, h.qty), 0);
 }
 
 /** How many a given holder has; null means the party stash. */
-export function qtyFor(item: InventoryItem, holderId: string | null): number {
+export function qtyFor(item: CatalogueItem, holderId: string | null): number {
   return item.holdings.find((h) => h.holderId === holderId)?.qty ?? 0;
 }
 
@@ -42,12 +42,12 @@ export function moveHolding(holdings: Holding[], from: string | null, to: string
 }
 
 /** Total pounds a holder is carrying across the whole ledger. */
-export function weightCarried(items: InventoryItem[], holderId: string | null): number {
+export function weightCarried(items: CatalogueItem[], holderId: string | null): number {
   return items.reduce((sum, i) => sum + (i.weightLb ?? 0) * qtyFor(i, holderId), 0);
 }
 
 /** Ledger value in copper, counting every holding. */
-export function totalValueCp(items: InventoryItem[]): number {
+export function totalValueCp(items: CatalogueItem[]): number {
   return items.reduce((sum, i) => sum + (i.valueCp ?? 0) * totalQty(i), 0);
 }
 
@@ -71,6 +71,35 @@ export function normaliseCurrency(currency: PCCurrency): PCCurrency {
   }
   out.cp = rest;
   return out;
+}
+
+/**
+ * Rebuild a purse from a flat copper total, keeping as much of the existing electrum as still fits.
+ * Shared by the two below so a spend and a credit can never disagree about how coins are rebuilt.
+ */
+function purseFromCp(currency: PCCurrency, totalCp: number): PCCurrency {
+  const total = Math.max(0, Math.round(totalCp));
+  const ep = Math.min(Math.max(0, Math.floor(currency.ep ?? 0)), Math.floor(total / COIN_IN_CP.ep));
+  return normaliseCurrency({ cp: total - ep * COIN_IN_CP.ep, sp: 0, ep, gp: 0, pp: 0 });
+}
+
+/**
+ * Spend `cp` from a purse, making change across denominations.
+ *
+ * `applyCurrencyDelta` (@ttcanvas/core) cannot do this, despite looking like it should: it floors
+ * each denomination *independently*, so debiting 5gp from a purse holding 100sp takes nothing at all
+ * and reports success. Buying has to flatten, subtract and rebuild, which is what this does.
+ *
+ * Clamps at zero rather than going negative: TTCanvas warns about an unaffordable purchase but never
+ * blocks it, and a negative coin count isn't something the ledger can render.
+ */
+export function spendFromPurse(currency: PCCurrency, cp: number): PCCurrency {
+  return purseFromCp(currency, currencyToCp(currency) - Math.max(0, Math.round(cp)));
+}
+
+/** The inverse: credit a sale into the purse, tidied into the largest coins that divide evenly. */
+export function addToPurse(currency: PCCurrency, cp: number): PCCurrency {
+  return purseFromCp(currency, currencyToCp(currency) + Math.max(0, Math.round(cp)));
 }
 
 /**

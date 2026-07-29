@@ -22,7 +22,12 @@ export interface Holding {
   qty: number;
 }
 
-export interface InventoryItem {
+/**
+ * One item *definition*. A catalogue entry first, a possession second: an item with no `holdings` at
+ * all is perfectly valid and means "this exists in the world, nobody has one" - which is what lets
+ * the Merchants widget stock something the party has never owned.
+ */
+export interface CatalogueItem {
   id: string;
   name: string;
   kind: ItemKind;
@@ -36,12 +41,18 @@ export interface InventoryItem {
   holdings: Holding[];
 }
 
-export interface InventoryState {
-  items: InventoryItem[];
+export interface ItemsState {
+  items: CatalogueItem[];
   /** The shared party purse, distinct from each PC's own currency on their sheet. */
   currency: PCCurrency;
   query: string;
   kindFilter: ItemKind | null;
+  /**
+   * Whether the list shows everything, only what somebody holds, or only unheld definitions.
+   * Defaults to "all" - a fresh vault filtered to "held" would look broken to a GM who hasn't yet
+   * met the catalogue/holdings distinction.
+   */
+  heldFilter: "all" | "held" | "catalogue";
   /** Encumbrance is opt-in; plenty of tables ignore it. */
   showWeight: boolean;
   /** One shared carry limit in pounds. No STR maths - TTCanvas is not a rules engine. */

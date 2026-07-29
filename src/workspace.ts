@@ -91,6 +91,10 @@ const DEFAULT_WS: WorkspaceState = {
  * Retiring another widget is one line here. Every entry MUST already be unregistered - a type
  * listed while still registered would silently delete that widget from every layout on next
  * load. `register.test.ts` pins that.
+ *
+ * This is for RETIREMENT only. A widget that was *renamed* must never be listed here: stripping
+ * deletes its singleton state, which is the widget's entire contents. Rename with a migration
+ * instead - `migrateInventoryToItems` below is the worked example.
  */
 export const RETIRED_WIDGET_TYPES: readonly string[] = ["session-clock"];
 
@@ -150,10 +154,60 @@ function migrateNpcGeneratorDraft(ws: WorkspaceState): WorkspaceState {
   return { ...ws, singletonStates: { ...ss, "npc-library": { ...library, generatorDraft: oldDraft } } };
 }
 
-// Both steps run on the *result* of parseWorkspace rather than inside its v2 branch, so they
+// The Inventory widget became Items: same data, catalogue framing, new type string.
+//
+// Renaming is NOT retiring - do not reach for RETIRED_WIDGET_TYPES here. stripRetiredWidgets
+// *deletes* the singleton key, which for this type is every item, every holding and the shared
+// party purse, silently and on load. This carries the ledger across instead, and rewrites the type
+// on every saved layout so App.tsx doesn't render it as a live "Unknown widget type" frame.
+//
+// Runs here for the same reason migrateNpcGeneratorDraft does: this is the only place both keys,
+// every layout and the disabled list are visible at once - each widget's own parseState only ever
+// sees its own slice.
+function migrateInventoryToItems(ws: WorkspaceState): WorkspaceState {
+  const ss = ws.singletonStates ?? {};
+  const inLayouts = Object.values(ws.layouts).some((l) => l.widgets.some((w) => w.type === "inventory"));
+  const inDisabled = (ws.disabledWidgetTypes ?? []).includes("inventory");
+  if (!("inventory" in ss) && !inLayouts && !inDisabled) return ws;
+
+  // The old key is dropped either way: nothing reads it after the rename, so keeping it would
+  // re-save a second, immediately-stale copy of the ledger forever. A workspace that already has an
+  // `items` slice was written by a build that had migrated, so that newer state wins.
+  const { inventory: legacy, ...rest } = ss;
+  const singletonStates = legacy !== undefined && !("items" in ss) ? { ...rest, items: legacy } : rest;
+
+  const layouts = Object.fromEntries(
+    Object.entries(ws.layouts).map(([name, layout]) => [
+      name,
+      {
+        ...layout,
+        // Rewrites `type` and keeps `state`, so a pre-singleton workspace whose ledger still lives
+        // on the widget instance survives too - App.tsx's `singletonStates[t] ?? instance` fallback
+        // then finds it under the new type.
+        widgets: layout.widgets.map((w) => (w.type === "inventory" ? { ...w, type: "items" } : w)),
+      },
+    ])
+  );
+
+  // Deduped: a workspace listing both would otherwise end up with "items" twice.
+  const disabledWidgetTypes = [
+    ...new Set((ws.disabledWidgetTypes ?? []).map((t) => (t === "inventory" ? "items" : t))),
+  ];
+
+  return { ...ws, layouts, singletonStates, disabledWidgetTypes };
+}
+
+// Every step runs on the *result* of parseWorkspace rather than inside its v2 branch, so they all
 // cover the v1 path too - that branch returns early without ever reaching Zod.
+const MIGRATIONS = [
+  stripRetiredWidgets,
+  reconcileSessionTimer,
+  migrateInventoryToItems,
+  migrateNpcGeneratorDraft,
+] as const;
+
 export function migrateWorkspace(raw: unknown): WorkspaceState {
-  return migrateNpcGeneratorDraft(reconcileSessionTimer(stripRetiredWidgets(parseWorkspace(raw))));
+  return MIGRATIONS.reduce((ws, step) => step(ws), parseWorkspace(raw));
 }
 
 export interface LoadedWorkspace {

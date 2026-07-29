@@ -480,7 +480,7 @@ export function parseRuleCardsState(raw: unknown): unknown {
 }
 
 // ---------------------------------------------------------------------------
-// inventory
+// items
 // ---------------------------------------------------------------------------
 
 // Coins are whole and never negative; a fractional or negative one is a corrupt value, not a debt.
@@ -509,7 +509,7 @@ const holdingSchema = z.object({
   qty: z.number().int().positive(),
 });
 
-const inventoryItemSchema = z.object({
+const catalogueItemSchema = z.object({
   id: z.string(),
   name: z.string().catch("Unnamed item"),
   kind: z.enum(ITEM_KIND_VALUES).catch("gear"),
@@ -522,29 +522,33 @@ const inventoryItemSchema = z.object({
   holdings: filterArr(holdingSchema),
 });
 
-const INVENTORY_DEFAULT = {
+const ITEMS_DEFAULT = {
   items: [],
   currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
   query: "",
   kindFilter: null,
+  heldFilter: "all" as const,
   showWeight: false,
   carryLimitLb: null,
 };
 
-const inventorySchema = z
+const itemsSchema = z
   .object({
-    items: filterArr(inventoryItemSchema),
+    items: filterArr(catalogueItemSchema),
     currency: currencySchema,
     query: z.string().catch(""),
     kindFilter: z.enum(ITEM_KIND_VALUES).nullable().catch(null),
+    // Must be declared, not left to passthrough: this is a strip-mode z.object and WidgetSlot
+    // re-parses every render, so an undeclared field would be dropped every frame.
+    heldFilter: z.enum(["all", "held", "catalogue"]).catch("all"),
     showWeight: z.boolean().catch(false),
     carryLimitLb: z.number().nonnegative().finite().nullable().catch(null),
     pullVaultPath: z.string().optional().catch(undefined),
   })
-  .catch(INVENTORY_DEFAULT);
+  .catch(ITEMS_DEFAULT);
 
-export function parseInventoryState(raw: unknown): unknown {
-  return inventorySchema.parse(raw);
+export function parseItemsState(raw: unknown): unknown {
+  return itemsSchema.parse(raw);
 }
 
 // ---------------------------------------------------------------------------
@@ -718,6 +722,57 @@ const cardDecksSchema = z
 
 export function parseCardDecksState(raw: unknown): unknown {
   return cardDecksSchema.parse(raw);
+}
+
+// ---------------------------------------------------------------------------
+// merchants
+// ---------------------------------------------------------------------------
+
+const MERCHANT_KIND_VALUES = ["general", "blacksmith", "apothecary", "magic", "tavern", "fence", "temple"] as const;
+
+const merchantStockSchema = z.object({
+  // No .catch: a stock row with no item reference points at nothing and cannot be priced or bought.
+  itemId: z.string(),
+  // null means unlimited, so nullable rather than defaulted - a row that lost its count is corrupt,
+  // and inventing "1" would silently sell out a general store.
+  qty: z.number().int().nonnegative().nullable().catch(null),
+  priceCpOverride: z.number().int().nonnegative().optional().catch(undefined),
+});
+
+const merchantSchema = z.object({
+  id: z.string(),
+  name: z.string().catch("Unnamed merchant"),
+  kind: z.enum(MERCHANT_KIND_VALUES).catch("general"),
+  owner: z.string().optional().catch(undefined),
+  ownerRef: z.string().optional().catch(undefined),
+  location: z.string().optional().catch(undefined),
+  locationRef: z.string().optional().catch(undefined),
+  description: z.string().optional().catch(undefined),
+  // A zero, negative or non-finite modifier would price the whole shelf at 0 or NaN.
+  priceModifier: z.number().positive().finite().catch(1),
+  buybackModifier: z.number().nonnegative().finite().catch(0.5),
+  stock: filterArr(merchantStockSchema),
+});
+
+const MERCHANTS_DEFAULT = {
+  merchants: [],
+  selectedId: null,
+  query: "",
+  kindFilter: null,
+};
+
+const merchantsSchema = z
+  .object({
+    merchants: filterArr(merchantSchema),
+    selectedId: z.string().nullable().catch(null),
+    query: z.string().catch(""),
+    kindFilter: z.enum(MERCHANT_KIND_VALUES).nullable().catch(null),
+    pullVaultPath: z.string().optional().catch(undefined),
+  })
+  .catch(MERCHANTS_DEFAULT);
+
+export function parseMerchantsState(raw: unknown): unknown {
+  return merchantsSchema.parse(raw);
 }
 
 // ---------------------------------------------------------------------------

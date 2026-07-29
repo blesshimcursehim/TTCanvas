@@ -9,12 +9,12 @@ import {
   useVault, useParty, useToast, useRollTables, logError,
   CURRENCY_KEYS, COIN_IN_CP, formatCoin, type PCCurrency,
 } from "@ttcanvas/core";
-import type { InventoryItem, InventoryState, ItemKind, Rarity } from "./types";
+import type { CatalogueItem, ItemsState, ItemKind, Rarity } from "./types";
 import { ITEM_KINDS, RARITIES } from "./types";
 import {
   totalQty, qtyFor, setQty, weightCarried, totalValueCp, currencyToCp, normaliseCurrency,
   splitEvenly, coinParts,
-} from "./inventory";
+} from "./ledger";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
@@ -23,13 +23,18 @@ import { pullSingletonBundle } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
 import { VaultPullControl } from "../shared/VaultPullControl";
 import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
-import styles from "./Inventory.module.css";
+import { ModeToggle } from "../shared/ModeToggle";
+import styles from "./Items.module.css";
 
 interface Props {
-  state: InventoryState;
-  onChange: (state: InventoryState) => void;
+  state: ItemsState;
+  onChange: (state: ItemsState) => void;
 }
 
+// The on-disk discriminator, deliberately still "inventory" now that the widget is called Items:
+// readBundle rejects a present-but-mismatched type, so renaming this would make every
+// .inventory.json a user has already exported fail to import. Not user-visible branding, and not an
+// oversight - never change it.
 const BUNDLE_TYPE = "ttcanvas-inventory";
 const RARITY_LABELS: Record<Rarity, string> = {
   common: "common", uncommon: "uncommon", rare: "rare",
@@ -46,7 +51,7 @@ function handleWikilinkClick(e: React.MouseEvent) {
   if (name) window.dispatchEvent(new CustomEvent("ttcanvas:open-entity-link", { detail: { name } }));
 }
 
-function itemContentKey(item: InventoryItem): string {
+function itemContentKey(item: CatalogueItem): string {
   // Holdings are campaign state, not part of the item's identity - two vaults describing the same
   // Sunblade should read as duplicates even when different characters are carrying it.
   const { id: _id, holdings: _holdings, ...rest } = item;
@@ -61,13 +66,13 @@ function isRarity(v: unknown): v is Rarity {
   return typeof v === "string" && (RARITIES as readonly string[]).includes(v);
 }
 
-function validateInventoryBundle(parsed: unknown): InventoryItem[] | null {
+function validateItemsBundle(parsed: unknown): CatalogueItem[] | null {
   if (!parsed || typeof parsed !== "object") return null;
   const bundle = parsed as Record<string, unknown>;
   if (bundle.type !== BUNDLE_TYPE || !Array.isArray(bundle.items)) return null;
   // Normalise every field, not just id/name: a garbage `holdings` or `kind` from a hand-edited file
   // would otherwise reach the render and crash it.
-  return bundle.items.flatMap((raw: unknown): InventoryItem[] => {
+  return bundle.items.flatMap((raw: unknown): CatalogueItem[] => {
     if (!raw || typeof raw !== "object") return [];
     const i = raw as Record<string, unknown>;
     if (typeof i.id !== "string" || typeof i.name !== "string" || !i.name.trim()) return [];
@@ -98,7 +103,7 @@ function validateInventoryBundle(parsed: unknown): InventoryItem[] | null {
   });
 }
 
-export function Inventory({ state, onChange }: Props) {
+export function Items({ state, onChange }: Props) {
   const vault = useVault();
   const { members, patchMembers } = useParty();
   const { showToast } = useToast();
@@ -110,7 +115,7 @@ export function Inventory({ state, onChange }: Props) {
   const [newName, setNewName] = useState("");
   const [rollTableId, setRollTableId] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
-  const [pendingImport, setPendingImport] = useState<DedupeResult<InventoryItem> | null>(null);
+  const [pendingImport, setPendingImport] = useState<DedupeResult<CatalogueItem> | null>(null);
 
   const items = state.items;
   const currency = state.currency;
@@ -122,21 +127,28 @@ export function Inventory({ state, onChange }: Props) {
 
   const visible = useMemo(() => {
     const q = state.query.trim().toLowerCase();
-    return items.filter((i) =>
-      (state.kindFilter === null || i.kind === state.kindFilter)
-      && (q === "" || i.name.toLowerCase().includes(q) || (i.description ?? "").toLowerCase().includes(q)));
-  }, [items, state.query, state.kindFilter]);
+    return items.filter((i) => {
+      // "held" and "catalogue" are exact complements, so one comparison covers both.
+      const held = totalQty(i) > 0;
+      return (state.kindFilter === null || i.kind === state.kindFilter)
+        && (state.heldFilter === "all" || (state.heldFilter === "held") === held)
+        && (q === "" || i.name.toLowerCase().includes(q) || (i.description ?? "").toLowerCase().includes(q));
+    });
+  }, [items, state.query, state.kindFilter, state.heldFilter]);
 
-  function patchItem(id: string, patch: Partial<InventoryItem>) {
+  function patchItem(id: string, patch: Partial<CatalogueItem>) {
     onChange({ ...state, items: items.map((i) => (i.id === id ? { ...i, ...patch } : i)) });
   }
 
-  function addItem(name: string, extra: Partial<InventoryItem> = {}): InventoryItem {
+  // An item is a *definition* first: a longsword can exist in the catalogue without anybody owning
+  // one, which is what lets Merchants stock something the party has never had. Callers that really
+  // do mean "the party has one of these" (rolled loot) pass the stash holding explicitly.
+  function addItem(name: string, extra: Partial<CatalogueItem> = {}): CatalogueItem {
     return {
       id: crypto.randomUUID(),
       name,
       kind: "gear",
-      holdings: [{ holderId: null, qty: 1 }],
+      holdings: [],
       ...extra,
     };
   }
@@ -195,7 +207,13 @@ export function Inventory({ state, onChange }: Props) {
           ? { ...i, holdings: setQty(i.holdings, null, qtyFor(i, null) + 1) }
           : i));
       } else {
-        next = [addItem(name, { kind: "treasure", ...(o.note ? { description: o.note } : {}) }), ...next];
+        // Explicit stash holding: unlike a hand-added catalogue entry, rolled loot is something the
+        // party has just been given, so it starts owned rather than as a bare definition.
+        next = [addItem(name, {
+          kind: "treasure",
+          holdings: [{ holderId: null, qty: 1 }],
+          ...(o.note ? { description: o.note } : {}),
+        }), ...next];
       }
     }
     onChange({ ...state, items: next });
@@ -205,7 +223,9 @@ export function Inventory({ state, onChange }: Props) {
 
   // ── Import / export / pull ────────────────────────────────
   async function handleExportAll() {
-    await exportCollection(vault.saveTextFile, buildBundle(BUNDLE_TYPE, { items }), "inventory.inventory.json");
+    // "items" names the widget, ".inventory.json" is the format suffix, which stays put alongside
+    // BUNDLE_TYPE so a new export sits next to older ones as an obvious sibling.
+    await exportCollection(vault.saveTextFile, buildBundle(BUNDLE_TYPE, { items }), "items.inventory.json");
   }
 
   async function handleImportFile(file: File) {
@@ -213,7 +233,7 @@ export function Inventory({ state, onChange }: Props) {
     try {
       handleImportText(await file.text());
     } catch (err) {
-      logError("Inventory: could not read the import file", err);
+      logError("Items: could not read the import file", err);
       setImportError("Failed to read import file.");
     }
   }
@@ -225,10 +245,13 @@ export function Inventory({ state, onChange }: Props) {
     return pullSingletonBundle(
       vault.readForeignSingleton,
       sourceVault,
-      "inventory",
+      // The new key, with no "inventory" fallback needed even for a vault last saved before the
+      // rename: readForeignSingleton goes through loadWorkspace, which runs migrateWorkspace on the
+      // way, so a foreign workspace arrives already migrated in memory.
+      "items",
       BUNDLE_TYPE,
       (foreign) => {
-        const s = foreign as InventoryState | undefined;
+        const s = foreign as ItemsState | undefined;
         if (!s?.items?.length) return null;
         return { items: s.items.map((i) => ({ ...i, holdings: [] })) };
       },
@@ -238,9 +261,9 @@ export function Inventory({ state, onChange }: Props) {
 
   function handleImportText(text: string) {
     setImportError(null);
-    const incoming = readBundle(text, BUNDLE_TYPE, validateInventoryBundle);
+    const incoming = readBundle(text, BUNDLE_TYPE, validateItemsBundle);
     if (!incoming) {
-      setImportError("Not a valid Inventory file.");
+      setImportError("Not a valid Items file.");
       return;
     }
     const result = dedupe(incoming, items, { idOf: (i) => i.id, contentKeyOf: itemContentKey });
@@ -251,7 +274,7 @@ export function Inventory({ state, onChange }: Props) {
     }
   }
 
-  function applyImport(result: DedupeResult<InventoryItem>, conflictMode: "skip" | "replace") {
+  function applyImport(result: DedupeResult<CatalogueItem>, conflictMode: "skip" | "replace") {
     setPendingImport(null);
     setExpandedId(null);
     setEditingDescId(null);
@@ -277,6 +300,15 @@ export function Inventory({ state, onChange }: Props) {
           aria-label="Search items"
           onChange={(e) => onChange({ ...state, query: e.target.value })}
         />
+        <ModeToggle
+          value={state.heldFilter}
+          onChange={(heldFilter) => onChange({ ...state, heldFilter })}
+          options={[
+            { value: "all", label: "All" },
+            { value: "held", label: "Held" },
+            { value: "catalogue", label: "Catalogue" },
+          ]}
+        />
         <span className={styles.count}>{visible.length} item{visible.length !== 1 ? "s" : ""}</span>
       </div>
 
@@ -301,7 +333,13 @@ export function Inventory({ state, onChange }: Props) {
       <div className={styles.list}>
         {visible.length === 0 && (
           <p className={styles.empty}>
-            {items.length === 0 ? "The party owns nothing yet." : "No items match."}
+            {items.length === 0
+              ? "No items yet. Add one to define it, then say who has some."
+              : state.heldFilter === "held"
+                ? "Nobody is carrying anything that matches."
+                : state.heldFilter === "catalogue"
+                  ? "Every item that matches is held by somebody."
+                  : "No items match."}
           </p>
         )}
         {visible.map((item) => {
@@ -548,7 +586,7 @@ export function Inventory({ state, onChange }: Props) {
 
       {pendingImport && (
         <ImportConflictDialog
-          title="Import Inventory"
+          title="Import Items"
           noun="item"
           totalCount={pendingImport.idConflicts.length + pendingImport.contentDuplicates.length + pendingImport.clean.length}
           idConflicts={pendingImport.idConflicts.map((i) => ({ id: i.id, label: i.name }))}

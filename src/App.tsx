@@ -36,9 +36,9 @@ import { NpcProvider } from "./NpcProvider";
 import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, RollTablesContext, InventoryContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, pushPlayerTextScale, useToast, logError, logWarn, DEFAULT_JUMPS, applyCurrencyDelta, type PCCurrency, type RollTableRef, type RollTableOutcome, type InventoryItemRef, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
-import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, rollTableMultiple, buildRollHistoryItems, HISTORY_CAP, currencyOf, withCurrency, type XpTrackerState, type DiceRollerState, type RollTablesState, type InventoryState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
-import { parseRollTablesState, parseInventoryState } from "./widgets/stateSchemas";
+import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, RollTablesContext, ItemsContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, pushPlayerTextScale, useToast, logError, logWarn, DEFAULT_JUMPS, applyCurrencyDelta, type PCCurrency, type RollTableRef, type RollTableOutcome, type ItemRef, type CatalogueItemRef, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, rollTableMultiple, buildRollHistoryItems, HISTORY_CAP, setQty, qtyFor, currencyToCp, spendFromPurse, addToPurse, currencyOf, withCurrency, type XpTrackerState, type DiceRollerState, type RollTablesState, type ItemsState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
+import { parseRollTablesState, parseItemsState } from "./widgets/stateSchemas";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, INTERFACE_SCALE_FACTOR, type AppConfig, type AIConfigPatch } from "./appConfig";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import * as vaultApi from "./vault";
@@ -62,9 +62,22 @@ const DEFAULT_IT_STATE: InitiativeTrackerState = {
 
 const DEFAULT_XP_STATE: XpTrackerState = { mode: "party", partyXp: 0, perPc: {} };
 const DEFAULT_DICE_STATE: DiceRollerState = { macros: [], history: [], input: "", adv: null, query: "", castId: null };
-// Shared empty result for InventoryContext.itemsFor, so a PC holding nothing gets a stable array
+// Shared empty result for ItemsContext.itemsFor, so a PC holding nothing gets a stable array
 // identity instead of a fresh [] that would defeat memoisation in every consumer.
-const EMPTY_INVENTORY: readonly InventoryItemRef[] = [];
+const EMPTY_ITEMS: readonly ItemRef[] = [];
+
+// The effective-state fallback for the two ItemsContext writers, for the case where no Items widget
+// has ever been opened in this vault. Never used as a *base* to overwrite real state - see the
+// `singletonStates ?? instance ?? this` read in grantToParty.
+const DEFAULT_ITEMS_STATE: ItemsState = {
+  items: [],
+  currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+  query: "",
+  kindFilter: null,
+  heldFilter: "all",
+  showWeight: false,
+  carryLimitLb: null,
+};
 
 /**
  * Serializes async writes to one file so callers never race each other, and
@@ -828,9 +841,9 @@ function App() {
   // `tables`/`items` would throw here - at App level, outside any widget error boundary, taking the
   // whole canvas down instead of one widget.
   const rollTablesRaw = singletonStates["roll-tables"] ?? widgets.find((w) => w.type === "roll-tables")?.state;
-  const inventoryRaw = singletonStates["inventory"] ?? widgets.find((w) => w.type === "inventory")?.state;
+  const itemsRaw = singletonStates["items"] ?? widgets.find((w) => w.type === "items")?.state;
   const rollTablesState = useMemo(() => parseRollTablesState(rollTablesRaw) as RollTablesState, [rollTablesRaw]);
-  const inventoryState = useMemo(() => parseInventoryState(inventoryRaw) as InventoryState, [inventoryRaw]);
+  const itemsState = useMemo(() => parseItemsState(itemsRaw) as ItemsState, [itemsRaw]);
   const resolverCreatures = useMemo<NamedRef[]>(() => {
     const s = bestiaryState as { entries?: { id: string; name: string }[] } | undefined;
     return (s?.entries ?? []).map((e) => ({ ref: e.id, name: e.name }));
@@ -1179,27 +1192,106 @@ function App() {
     [rollTableRefs, rollOnTable],
   );
 
-  // Project the ledger into per-holder buckets once, so the PC sheet's ledger section is a Map
-  // lookup rather than a full rescan on every render.
-  const inventoryByHolder = useMemo(() => {
-    const byHolder = new Map<string, InventoryItemRef[]>();
-    for (const item of inventoryState.items) {
+  // Project the catalogue into per-holder buckets once, so the PC sheet's ledger section is a Map
+  // lookup rather than a full rescan on every render. The party stash comes out of the same pass:
+  // it is nobody's character sheet, but it is exactly what a merchant buys from.
+  const { itemsByHolder, partyStash } = useMemo(() => {
+    const byHolder = new Map<string, ItemRef[]>();
+    const stash: ItemRef[] = [];
+    for (const item of itemsState.items) {
       for (const h of item.holdings) {
-        if (h.holderId === null || h.qty <= 0) continue;  // the party stash is nobody's sheet
-        const bucket = byHolder.get(h.holderId) ?? [];
-        bucket.push({
+        if (h.qty <= 0) continue;
+        const ref: ItemRef = {
           id: item.id, name: item.name, qty: h.qty, kind: item.kind,
           rarity: item.rarity, valueCp: item.valueCp, weightLb: item.weightLb,
           description: item.description,
-        });
-        byHolder.set(h.holderId, bucket);
+        };
+        if (h.holderId === null) {
+          stash.push(ref);
+        } else {
+          const bucket = byHolder.get(h.holderId) ?? [];
+          bucket.push(ref);
+          byHolder.set(h.holderId, bucket);
+        }
       }
     }
-    return byHolder;
-  }, [inventoryState]);
-  const inventoryContextValue = useMemo(
-    () => ({ itemsFor: (memberId: string) => inventoryByHolder.get(memberId) ?? EMPTY_INVENTORY }),
-    [inventoryByHolder],
+    return { itemsByHolder: byHolder, partyStash: stash };
+  }, [itemsState]);
+
+  // Definitions only, name-sorted: what a merchant's stock picker browses.
+  const catalogue = useMemo<CatalogueItemRef[]>(
+    () => itemsState.items
+      .map(({ id, name, kind, rarity, valueCp, weightLb, description }) =>
+        ({ id, name, kind, rarity, valueCp, weightLb, description }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [itemsState],
+  );
+
+  const purseCp = useMemo(() => currencyToCp(itemsState.currency), [itemsState]);
+
+  // Move catalogue items into the party stash and settle the coin in one write. Both halves have to
+  // land in the same updater: a stock decrement that committed without its payment (or the reverse)
+  // is a ledger the GM has to repair by hand. Reads the effective state (singletonStates ?? instance
+  // ?? default, like patchMembers) so trading against a workspace whose ledger still lives on the
+  // widget instance builds on it rather than resetting it.
+  //
+  // Nothing non-deterministic is minted here, and the new quantity is computed INSIDE the updater
+  // from the state it was handed, so React 19 StrictMode's replay is a no-op rather than a double
+  // purchase. Do not lift the arithmetic out of the updater.
+  const grantToParty = useCallback((itemId: string, qty: number, unitCostCp = 0) => {
+    const n = Math.max(0, Math.floor(qty));
+    if (n === 0) return;
+    setSingletonStates((ss) => {
+      const cur = (ss["items"]
+        ?? widgetsRef.current.find((w) => w.type === "items")?.state
+        ?? DEFAULT_ITEMS_STATE) as ItemsState;
+      // A dangling reference is the GM's to fix in Items - Merchants stocks by id and this never
+      // invents an item, the same way patchMembers ignores an unknown member id.
+      if (!cur.items.some((i) => i.id === itemId)) return ss;
+      return { ...ss, items: {
+        ...cur,
+        items: cur.items.map((i) => (i.id === itemId
+          ? { ...i, holdings: setQty(i.holdings, null, qtyFor(i, null) + n) }
+          : i)),
+        currency: unitCostCp > 0 ? spendFromPurse(cur.currency, unitCostCp * n) : cur.currency,
+      } };
+    });
+  }, [setSingletonStates]);
+
+  // The mirror. The count is capped at what the party actually holds and the payout scales to it, so
+  // a sale can never invent stock or overpay for it. Same replay-safety argument as grantToParty:
+  // the cap is computed inside the updater from the state the updater was handed.
+  const takeFromParty = useCallback((itemId: string, qty: number, unitPayoutCp = 0) => {
+    const want = Math.max(0, Math.floor(qty));
+    if (want === 0) return;
+    setSingletonStates((ss) => {
+      const cur = (ss["items"]
+        ?? widgetsRef.current.find((w) => w.type === "items")?.state
+        ?? DEFAULT_ITEMS_STATE) as ItemsState;
+      const item = cur.items.find((i) => i.id === itemId);
+      if (!item) return ss;
+      const sold = Math.min(want, qtyFor(item, null));
+      if (sold === 0) return ss;
+      return { ...ss, items: {
+        ...cur,
+        items: cur.items.map((i) => (i.id === itemId
+          ? { ...i, holdings: setQty(i.holdings, null, qtyFor(i, null) - sold) }
+          : i)),
+        currency: unitPayoutCp > 0 ? addToPurse(cur.currency, unitPayoutCp * sold) : cur.currency,
+      } };
+    });
+  }, [setSingletonStates]);
+
+  const itemsContextValue = useMemo(
+    () => ({
+      itemsFor: (memberId: string) => itemsByHolder.get(memberId) ?? EMPTY_ITEMS,
+      catalogue,
+      partyStash,
+      purseCp,
+      grantToParty,
+      takeFromParty,
+    }),
+    [itemsByHolder, catalogue, partyStash, purseCp, grantToParty, takeFromParty],
   );
 
   const railWidgets: RailWidget[] = useMemo(
@@ -1416,7 +1508,7 @@ function App() {
       <DiceContext.Provider value={diceContextValue}>
       <BestiaryContext.Provider value={bestiaryContextValue}>
       <RollTablesContext.Provider value={rollTablesContextValue}>
-      <InventoryContext.Provider value={inventoryContextValue}>
+      <ItemsContext.Provider value={itemsContextValue}>
         {/* Resolves cross-entity [[links]] from entity bodies; inside the provider so it can read the
             vault. Session Notes' own links stay note-only (separate channel), keeping Obsidian intact. */}
         <WikilinkResolver
@@ -1586,7 +1678,7 @@ function App() {
             />
           )}
         </div>
-      </InventoryContext.Provider>
+      </ItemsContext.Provider>
       </RollTablesContext.Provider>
       </BestiaryContext.Provider>
       </DiceContext.Provider>

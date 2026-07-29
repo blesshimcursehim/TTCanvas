@@ -9,8 +9,8 @@ import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PartyContext, RollTablesContext, VaultContext } from "@ttcanvas/core";
 import type { PartyContextValue, PartyMemberPatch, RollTablesContextValue, RollTableOutcome, VaultContextValue } from "@ttcanvas/core";
-import { Inventory } from "./Inventory";
-import type { InventoryState, InventoryItem } from "./types";
+import { Items } from "./Items";
+import type { ItemsState, CatalogueItem } from "./types";
 
 afterEach(cleanup);
 
@@ -22,28 +22,28 @@ const MEMBERS = [
   { id: "pc2", name: "Bram", hp: 8, maxHp: 12, ac: 16, initiative: 0, level: 3 },
 ];
 
-function item(over: Partial<InventoryItem> = {}): InventoryItem {
+function item(over: Partial<CatalogueItem> = {}): CatalogueItem {
   return { id: "i1", name: "Sunblade", kind: "weapon", holdings: [{ holderId: null, qty: 1 }], ...over };
 }
 
-function baseState(over: Partial<InventoryState> = {}): InventoryState {
+function baseState(over: Partial<ItemsState> = {}): ItemsState {
   return {
     items: [item()],
     currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
-    query: "", kindFilter: null, showWeight: false, carryLimitLb: null,
+    query: "", kindFilter: null, heldFilter: "all", showWeight: false, carryLimitLb: null,
     ...over,
   };
 }
 
 interface Harness {
-  onChange?: (s: InventoryState) => void;
+  onChange?: (s: ItemsState) => void;
   patchMembers?: (p: PartyMemberPatch[]) => void;
   rollOn?: (id: string) => RollTableOutcome[] | null;
   tables?: { id: string; name: string }[];
   members?: PartyContextValue["members"];
 }
 
-function renderInventory(state: InventoryState, h: Harness = {}) {
+function renderInventory(state: ItemsState, h: Harness = {}) {
   const party: PartyContextValue = {
     members: h.members ?? MEMBERS,
     patchMembers: h.patchMembers ?? (() => {}),
@@ -56,17 +56,17 @@ function renderInventory(state: InventoryState, h: Harness = {}) {
     <VaultContext.Provider value={VAULT}>
       <PartyContext.Provider value={party}>
         <RollTablesContext.Provider value={rollTables}>
-          <Inventory state={state} onChange={h.onChange ?? (() => {})} />
+          <Items state={state} onChange={h.onChange ?? (() => {})} />
         </RollTablesContext.Provider>
       </PartyContext.Provider>
     </VaultContext.Provider>,
   );
 }
 
-describe("Inventory ledger", () => {
+describe("Items ledger", () => {
   it("shows the empty state before anything is added", () => {
     renderInventory(baseState({ items: [] }));
-    expect(screen.getByText("The party owns nothing yet.")).toBeTruthy();
+    expect(screen.getByText("No items yet. Add one to define it, then say who has some.")).toBeTruthy();
   });
 
   it("distinguishes an empty ledger from a filtered-out one", () => {
@@ -92,6 +92,38 @@ describe("Inventory ledger", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ kindFilter: "armour" }));
   });
 
+  // The catalogue reframe: an item is a definition first, a possession second.
+  it("adds a new item as a bare definition that nobody holds", () => {
+    const onChange = vi.fn();
+    renderInventory(baseState({ items: [] }), { onChange });
+    fireEvent.change(screen.getByPlaceholderText("Add item…"), { target: { value: "Rope" } });
+    fireEvent.click(screen.getByRole("button", { name: "+" }));
+    expect(onChange.mock.calls[0][0].items[0]).toMatchObject({ name: "Rope", holdings: [] });
+  });
+
+  it("hides catalogue-only items under the Held filter", () => {
+    renderInventory(baseState({
+      heldFilter: "held",
+      items: [item({ id: "held", name: "Sunblade" }), item({ id: "defn", name: "Rope", holdings: [] })],
+    }));
+    expect(screen.getByText("Sunblade")).toBeTruthy();
+    expect(screen.queryByText("Rope")).toBeNull();
+  });
+
+  it("hides held items under the Catalogue filter", () => {
+    renderInventory(baseState({
+      heldFilter: "catalogue",
+      items: [item({ id: "held", name: "Sunblade" }), item({ id: "defn", name: "Rope", holdings: [] })],
+    }));
+    expect(screen.getByText("Rope")).toBeTruthy();
+    expect(screen.queryByText("Sunblade")).toBeNull();
+  });
+
+  it("explains an empty Catalogue view rather than looking broken", () => {
+    renderInventory(baseState({ heldFilter: "catalogue" }));
+    expect(screen.getByText("Every item that matches is held by somebody.")).toBeTruthy();
+  });
+
   it("keeps a row collapsed until it is clicked", () => {
     renderInventory(baseState());
     expect(screen.queryByLabelText("Add one to Vex")).toBeNull();
@@ -114,7 +146,7 @@ describe("Inventory ledger", () => {
   });
 });
 
-describe("Inventory coin", () => {
+describe("Items coin", () => {
   it("splits the purse evenly and hands each member a delta", () => {
     const patchMembers = vi.fn();
     const onChange = vi.fn();
@@ -137,7 +169,7 @@ describe("Inventory coin", () => {
   });
 });
 
-describe("Inventory loot rolling", () => {
+describe("Items loot rolling", () => {
   it("disables the roll button until a table is picked", () => {
     renderInventory(baseState(), { tables: [{ id: "t1", name: "Loot" }] });
     expect(screen.getByText("Roll").closest("button")?.disabled).toBe(true);
@@ -172,7 +204,7 @@ describe("Inventory loot rolling", () => {
   });
 });
 
-describe("Inventory descriptions", () => {
+describe("Items descriptions", () => {
   it("routes a wikilink click to the cross-entity channel", () => {
     const heard: string[] = [];
     const listener = (e: Event) => heard.push((e as CustomEvent<{ name: string }>).detail.name);
