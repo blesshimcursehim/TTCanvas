@@ -17,8 +17,21 @@ export interface Combatant {
   ac: number;
   kind: CombatantKind;
   conditions?: string[];
-  /** Origin of this combatant, e.g. a Bestiary entry id (set by the Encounter Builder). Back-compat: absent on old saves. */
+  /**
+   * Individual-source identity for map-token dedup (e.g. a lone NPC or party member), set by the
+   * Encounter Builder. Deliberately unset for Bestiary-sourced foes even at count 1 - one Bestiary
+   * entry can spawn many independent instances, and sharing an id across them breaks map dedup and
+   * the initiative spotlight. Use `templateId` instead to link repeated instances back to their
+   * shared Bestiary origin. Back-compat: absent on old saves.
+   */
   sourceId?: string;
+  /**
+   * Non-exclusive link back to the Bestiary entry this combatant was created from. Unlike `sourceId`,
+   * every copy of a repeated creature (e.g. "Goblin 1", "Goblin 2") shares the same `templateId` - it
+   * identifies the shared template, not a single instance, mirroring `DrawnCard.cardId` in Card Decks.
+   * Only ever set for Bestiary-sourced foes; absent for party members and NPCs.
+   */
+  templateId?: string;
   /** Portrait to carry onto a map token: a vault file path (party) or an inline data URL (Bestiary). */
   portraitPath?: string;
   /** Group-initiative membership, if any - see InitiativeGroup. Absent = not grouped. */

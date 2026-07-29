@@ -321,3 +321,35 @@ describe("lair-action reminder", () => {
     expect(screen.getByTitle("Reminder fires each time a new round begins")).toHaveAttribute("aria-pressed", "true");
   });
 });
+
+describe("templateId - link back to a repeated creature's Bestiary entry", () => {
+  it("dispatches ttcanvas:open-creature with the templateId when the Bestiary button is clicked", () => {
+    const state: InitiativeTrackerState = {
+      combatants: [combatant({ id: "a1", name: "Goblin 1", initiative: 10, templateId: "g1" })],
+      currentId: null,
+      round: 1,
+      showOnPlayer: false,
+    };
+    renderTracker(state);
+
+    const onOpenCreature = vi.fn();
+    window.addEventListener("ttcanvas:open-creature", onOpenCreature);
+    fireEvent.click(screen.getByTitle("View in Bestiary"));
+    window.removeEventListener("ttcanvas:open-creature", onOpenCreature);
+
+    expect(onOpenCreature).toHaveBeenCalledTimes(1);
+    expect((onOpenCreature.mock.calls[0][0] as CustomEvent<{ ref: string }>).detail).toEqual({ ref: "g1" });
+  });
+
+  it("shows no Bestiary link for a combatant without a templateId", () => {
+    const state: InitiativeTrackerState = {
+      combatants: [combatant({ id: "a1", name: "Aria", initiative: 10 })],
+      currentId: null,
+      round: 1,
+      showOnPlayer: false,
+    };
+    renderTracker(state);
+
+    expect(screen.queryByTitle("View in Bestiary")).toBeNull();
+  });
+});

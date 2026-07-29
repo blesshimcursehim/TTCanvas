@@ -1,4 +1,11 @@
 :root {
+  /* Tells the browser to render everything it draws itself - <select> popup lists, scrollbars,
+     checkboxes, date/number spinners - in its dark variant. Without it the UA assumes light and a
+     native <select> popup opens as a white panel in the middle of a dark app, which CSS on <option>
+     cannot fix: that popup is an OS-drawn widget (a GTK menu under WebKitGTK), not part of the page.
+     Unconditional because both themes here are dark; it would need to track [data-theme] otherwise. */
+  color-scheme: dark;
+
   /* Surfaces */
   --bg:          oklch(0.155 0.012 258);
   --bg-2:        oklch(0.185 0.014 258);

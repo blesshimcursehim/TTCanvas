@@ -4,7 +4,8 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import styles from "./ConditionPicker.module.css";
 
@@ -43,6 +44,12 @@ const PICKER_W = 228;
 
 export function ConditionPicker({ active, anchorRect, onChange, onClose, extraConditions = [] }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  // Roving tabindex across all ~21 chip/exhaustion buttons: only the "current" one sits in the Tab
+  // order (tabIndex 0), the rest are -1, so Tab moves past the whole group in one step and arrow
+  // keys move between chips instead - the same trade every native toolbar/radio-group makes, since
+  // tabbing through each one individually is slow for a set this size. Not a listbox/menu (see the
+  // role="group" below): these are independent multi-select toggles, not a single-choice list.
+  const [focusedIdx, setFocusedIdx] = useState(0);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -70,6 +77,25 @@ export function ConditionPicker({ active, anchorRect, onChange, onClose, extraCo
     ref.current?.querySelector("button")?.focus();
     return () => { if (opener instanceof HTMLElement) opener.focus(); };
   }, []);
+
+  // Right/Down step forward, Left/Up step back, Home/End jump to the ends - one flat sequence over
+  // DOM order rather than true 2D grid navigation, since the chips wrap at a width-dependent point
+  // and every direction still lands somewhere sensible without needing layout measurements.
+  function onKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    const buttons = ref.current?.querySelectorAll("button");
+    if (!buttons || buttons.length === 0) return;
+    const count = buttons.length;
+    let next: number;
+    switch (e.key) {
+      case "ArrowRight": case "ArrowDown": next = (focusedIdx + 1) % count; break;
+      case "ArrowLeft": case "ArrowUp": next = (focusedIdx - 1 + count) % count; break;
+      case "Home": next = 0; break;
+      case "End": next = count - 1; break;
+      default: return;
+    }
+    e.preventDefault();
+    (buttons[next] as HTMLButtonElement).focus();
+  }
 
   function toggle(id: string) {
     onChange(
@@ -100,12 +126,13 @@ export function ConditionPicker({ active, anchorRect, onChange, onClose, extraCo
         transform: flipUp ? "translateY(-100%)" : undefined,
       }}
       onMouseDown={(e) => e.stopPropagation()}
+      onKeyDown={onKeyDown}
       // Not a dialog: it is an anchored group of toggles, dismissed by clicking away or Escape.
       role="group"
       aria-label="Conditions"
     >
       <div className={styles.chips}>
-        {CONDITIONS.map((c) => {
+        {CONDITIONS.map((c, i) => {
           const isActive = active.includes(c.id);
           const isConc = c.id === "Concentrating";
           return (
@@ -113,6 +140,8 @@ export function ConditionPicker({ active, anchorRect, onChange, onClose, extraCo
               key={c.id}
               className={`${styles.chip} ${isActive ? (isConc ? styles.chipConcActive : styles.chipActive) : ""}`}
               onClick={() => toggle(c.id)}
+              onFocus={() => setFocusedIdx(i)}
+              tabIndex={i === focusedIdx ? 0 : -1}
               // The chips are abbreviated to fit ("Fright", "KO"), so the full condition is the
               // accessible name and the tooltip. aria-pressed is what makes them read as toggles
               // rather than as buttons that do something new each press.
@@ -124,30 +153,38 @@ export function ConditionPicker({ active, anchorRect, onChange, onClose, extraCo
             </button>
           );
         })}
-        {extraConditions.map((c) => (
-          <button
-            key={`extra-${c.name}`}
-            className={`${styles.chip} ${styles.chipCustom} ${active.includes(c.name) ? styles.chipActive : ""}`}
-            style={active.includes(c.name) && c.color ? { background: c.color, borderColor: c.color } : c.color ? { borderColor: c.color, color: c.color } : undefined}
-            onClick={() => toggle(c.name)}
-            aria-pressed={active.includes(c.name)}
-            aria-label={c.name}
-            title={c.name}
-          >
-            {c.name.slice(0, 6)}
-          </button>
-        ))}
+        {extraConditions.map((c, j) => {
+          const i = CONDITIONS.length + j;
+          return (
+            <button
+              key={`extra-${c.name}`}
+              className={`${styles.chip} ${styles.chipCustom} ${active.includes(c.name) ? styles.chipActive : ""}`}
+              style={active.includes(c.name) && c.color ? { background: c.color, borderColor: c.color } : c.color ? { borderColor: c.color, color: c.color } : undefined}
+              onClick={() => toggle(c.name)}
+              onFocus={() => setFocusedIdx(i)}
+              tabIndex={i === focusedIdx ? 0 : -1}
+              aria-pressed={active.includes(c.name)}
+              aria-label={c.name}
+              title={c.name}
+            >
+              {c.name.slice(0, 6)}
+            </button>
+          );
+        })}
       </div>
       <div className={styles.divider} />
       <div className={styles.exhRow}>
         <span className={styles.exhLabel}>Exhausted</span>
-        {([1, 2, 3, 4, 5, 6] as const).map((n) => {
+        {([1, 2, 3, 4, 5, 6] as const).map((n, k) => {
           const id = `Exhausted ${n}`;
+          const i = CONDITIONS.length + extraConditions.length + k;
           return (
             <button
               key={n}
               className={`${styles.exhBtn} ${active.includes(id) ? styles.exhActive : ""}`}
               onClick={() => toggleExhausted(n)}
+              onFocus={() => setFocusedIdx(i)}
+              tabIndex={i === focusedIdx ? 0 : -1}
               aria-pressed={active.includes(id)}
               aria-label={`Exhaustion level ${n}`}
             >

@@ -249,7 +249,8 @@
   color: oklch(0.68 0.19 290);
 }
 
-.addCondBtn {
+.addCondBtn,
+.templateBtn {
   width: 16px;
   height: 16px;
   display: flex;
@@ -266,11 +267,18 @@
   flex-shrink: 0;
 }
 
-.row:hover .addCondBtn {
+.row:hover .addCondBtn,
+.row:hover .templateBtn,
+.addCondBtn:focus-visible,
+.templateBtn:focus-visible {
+  /* :focus-visible alongside :hover, for the same reason .mapBtn/.removeBtn below do it: a keyboard
+     user tabbing here without also hovering the row with a mouse would land on an invisible
+     (opacity: 0) button. */
   opacity: 1;
 }
 
-.addCondBtn:hover {
+.addCondBtn:hover,
+.templateBtn:hover {
   background: var(--surface-2);
   color: var(--ink);
 }

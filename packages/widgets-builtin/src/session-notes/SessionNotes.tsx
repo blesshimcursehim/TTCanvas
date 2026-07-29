@@ -203,14 +203,6 @@ export function SessionNotes({ state, onChange }: Props) {
     else window.dispatchEvent(new CustomEvent("ttcanvas:open-wikilink", { detail: { name } }));
   }
 
-  // Dismiss the full-screen graph on Escape (a modal overlay should always have a keyboard exit).
-  useEffect(() => {
-    if (!graphOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setGraphOpen(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [graphOpen]);
-
   useEffect(() => {
     if (!state.selectedFile || !state.notesFolder) {
       setContent(null);

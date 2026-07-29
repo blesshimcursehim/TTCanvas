@@ -6,6 +6,22 @@ All notable changes are documented here.
 
 ### Features
 
+- **The canvas itself is now keyboard-reachable, and pans with the arrow keys.** Tab to it (Shift for
+  a bigger step) - the same convention widget move/resize already used. Its rail in the sidebar also
+  gained keyboard reordering, which had silently gone missing from an otherwise-unrelated change.
+  Initiative Tracker's condition picker is quicker to use from the keyboard too: arrow keys now step
+  between the condition chips instead of needing a Tab press for each one.
+
+- **Shift+scroll pans the canvas sideways.** Some trackpads never produce a horizontal delta for a
+  two-finger left/right swipe, which made side-to-side panning impossible without the mouse. Holding
+  Shift while scrolling (a trackpad's two-finger swipe or a plain wheel) now pans horizontally instead,
+  the usual fallback other desktop apps use for the same limitation.
+
+- **Repeated creatures in the Initiative Tracker link back to their Bestiary entry.** Add "Goblin" to
+  a fight three times and each one is its own combatant, as it should be for map placement - but
+  there was no way to tell they'd all come from the same creature. A small book icon now appears on
+  any foe added from the Bestiary; clicking it opens that entry directly.
+
 - **Move and resize widgets from the keyboard.** Every widget's drag handle and resize corner are now
   real, Tab-reachable controls: Tab to one, arrow keys move or resize it, Shift for a bigger step.
   Tabbing to a handle also pans the canvas to bring that widget into view, since panning here is a
@@ -247,6 +263,28 @@ All notable changes are documented here.
   tidy-up: it sits on its own line under a divider, with a clearer, labelled Pull button.
 
 ### Fixes
+
+- **Dropdown lists are dark like the rest of the app.** Opening a dropdown - a location's parent in
+  the Gazetteer, and every other one in the app - popped up a bright white list with amber text on it,
+  near enough unreadable. Scrollbars, checkboxes and number spinners now follow the dark theme too.
+
+- **Modals no longer close themselves the instant they open.** Preferences, the end-of-combat review,
+  creature sheets and full character sheets would all appear and then vanish about a second later,
+  untouched, leaving no way to use them. A dialog reports its own closing through an event that the
+  browser delivers a moment after the fact, and one left over from setting the dialog up was being
+  read as though you had dismissed it. Map Display's expanded view was never affected.
+
+- **Stray middle-click paste on Linux (X11) is fixed properly this time.** The earlier fix guarded
+  against a paste landing shortly after a middle-click *press*, but WebKitGTK actually performs the
+  primary-selection paste on *release* - so panning the canvas (the middle button's job here) for
+  more than a fraction of a second, which is normal, let it through into whatever field the cursor
+  ended up over. The guard now also re-arms on release, closing the gap regardless of how long the
+  drag lasted.
+
+- **A failed NPC library scan now tells you, instead of just looking empty.** If the vault couldn't
+  be read (a permissions problem, a missing folder), the NPC list silently showed nothing, with no
+  hint that anything had gone wrong rather than there being no NPCs. It now shows an error toast as
+  well.
 
 - **`[[wikilinks]]` now work in an NPC's Last Seen and custom fields.** Those short fields printed
   the raw `[[place:...]]` bracket text with no link at all, while the exact same syntax in Notes

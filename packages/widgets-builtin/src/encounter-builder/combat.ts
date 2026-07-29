@@ -69,6 +69,8 @@ interface ResolvedSource {
   portraitPath?: string;
   /** Set only for a source that is a single individual - see the sourceId rule in buildCombatants. */
   identity?: string;
+  /** Bestiary entry id, set only for a bestiary source - carried onto every copy as `templateId`. */
+  templateId?: string;
   /** Party only: a stored initiative is preferred over a roll when non-zero. */
   storedInitiative?: number;
   /** Hit-dice formula for optional rolled HP; undefined when the source carries none. */
@@ -85,6 +87,7 @@ function resolveMember(member: EncounterMember, sources: CombatSources): Resolve
       name: c.name, hp: c.hp, maxHp: c.hp, ac: c.ac, dex: c.abilityScores?.dex ?? 10, kind: "foe",
       portraitPath: c.portrait, // data URL; the map/player token loaders accept it inline
       hpFormula: c.hitDice,
+      templateId: id,
     };
   }
   if (kind === "party") {
@@ -202,6 +205,7 @@ export function buildCombatants(
         ac: resolved.ac,
         kind: resolved.kind,
         sourceId,
+        templateId: resolved.templateId,
         portraitPath: resolved.portraitPath,
         groupId,
       });

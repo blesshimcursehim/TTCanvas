@@ -176,11 +176,6 @@ select.input {
   cursor: pointer;
 }
 
-select.input option {
-  background: var(--bg-2, #1a1a1a);
-  color: var(--ink, #e0e0e0);
-}
-
 .inputSm { width: 120px; flex-shrink: 0; }
 .inputXs { width: 60px; flex-shrink: 0; }
 

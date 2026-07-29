@@ -48,7 +48,7 @@ Linux AppImage: `chmod +x TTCanvas_*.AppImage && ./TTCanvas_*.AppImage`
 1. Launch TTCanvas.
 2. Click the vault crumb in the titlebar and choose a folder. This becomes your **vault** (a plain directory that holds all your session files).
 3. Press `Cmd/Ctrl+K` (command palette) and type a widget name to open it, or click the **+** FAB.
-4. Drag and resize widgets freely. Pan the canvas with two-finger scroll (trackpad) or middle-mouse drag; zoom with pinch or Ctrl+scroll.
+4. Drag and resize widgets freely. Pan the canvas with two-finger scroll (trackpad) or middle-mouse drag - hold Shift while scrolling to pan sideways if your trackpad doesn't do horizontal swipes; zoom with pinch or Ctrl+scroll.
 5. Press `Cmd/Ctrl+S` inside a note to save. Everything else auto-saves.
 
 Your vault is just a folder. Zip it, put it in Dropbox, or commit it to git.

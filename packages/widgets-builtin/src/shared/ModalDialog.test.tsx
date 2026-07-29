@@ -7,11 +7,18 @@
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { StrictMode } from "react";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
 import { ModalDialog } from "./ModalDialog";
 
 // These portal to document.body, so without this each test would find the previous one's dialog.
 afterEach(cleanup);
+
+// The native `close` event is queued as a task, not dispatched synchronously (see the <dialog>
+// polyfill in src/test-setup.ts), so every assertion about a dismissal has to let that task run.
+// Wrapped in act() because the handler it reaches calls onClose, which sets React state.
+async function flushCloseEvent() {
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+}
 
 function renderDialog(props: Partial<React.ComponentProps<typeof ModalDialog>> = {}) {
   const onClose = vi.fn();
@@ -34,21 +41,24 @@ describe("ModalDialog", () => {
     expect(screen.getByRole("dialog", { name: "Test dialog" })).toBe(dialog);
   });
 
-  it("closes on a backdrop click", () => {
+  it("closes on a backdrop click", async () => {
     const { onClose, dialog } = renderDialog();
     fireEvent.mouseDown(dialog);
+    await flushCloseEvent();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("ignores a click on its own content", () => {
+  it("ignores a click on its own content", async () => {
     const { onClose } = renderDialog();
     fireEvent.mouseDown(screen.getByText("Body"));
+    await flushCloseEvent();
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("keeps the backdrop inert when backdropClose is off", () => {
+  it("keeps the backdrop inert when backdropClose is off", async () => {
     const { onClose, dialog } = renderDialog({ backdropClose: false });
     fireEvent.mouseDown(dialog);
+    await flushCloseEvent();
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -67,16 +77,19 @@ describe("ModalDialog", () => {
     expect(cancel.defaultPrevented).toBe(false);
   });
 
-  it("does not report a close when it unmounts", () => {
+  it("does not report a close when it unmounts", async () => {
     const { onClose, view } = renderDialog();
     view.unmount();
+    await flushCloseEvent();
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("still reports a close after StrictMode's double-mount", () => {
-    // The app renders under StrictMode, so in dev the effect runs setup/cleanup/setup. The
-    // cleanup marks the component as unmounting, and if that mark survives into the second
-    // setup every later dismissal is swallowed and the dialog stays on screen.
+  it("stays open after StrictMode's double-mount instead of dismissing itself", async () => {
+    // The regression that made every modal in the app unusable in dev. StrictMode runs the effect
+    // setup/cleanup/setup; the cleanup calls close(), which *queues* a close event rather than
+    // firing it synchronously, and by the time that task runs the second setup has attached a fresh
+    // listener and reset the unmounting flag. So the stale event was read as a real user dismissal
+    // and instantly closed the just-reopened dialog - modals appeared, then vanished within a second.
     const onClose = vi.fn();
     render(
       <StrictMode>
@@ -87,7 +100,31 @@ describe("ModalDialog", () => {
     );
     const dialog = document.querySelector("dialog");
     if (!dialog) throw new Error("no <dialog> rendered");
+
+    await flushCloseEvent();
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(dialog.open).toBe(true);
+  });
+
+  it("still reports a close after StrictMode's double-mount", async () => {
+    // The flip side of the test above: suppressing the stale event must not also swallow real
+    // dismissals, or the dialog becomes impossible to close.
+    const onClose = vi.fn();
+    render(
+      <StrictMode>
+        <ModalDialog label="Test dialog" onClose={onClose}>
+          <p>Body</p>
+        </ModalDialog>
+      </StrictMode>,
+    );
+    const dialog = document.querySelector("dialog");
+    if (!dialog) throw new Error("no <dialog> rendered");
+    await flushCloseEvent();
+
     fireEvent.mouseDown(dialog);
+    await flushCloseEvent();
+
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

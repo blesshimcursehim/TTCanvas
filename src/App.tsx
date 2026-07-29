@@ -601,21 +601,27 @@ function App() {
 
   // Suppress the X11 middle-click "primary selection" paste. The middle button is our
   // pan control, so on Linux clicking it over any input would dump the last selection in.
-  // WebKitGTK performs that paste on the paste/auxclick path (not the mousedown default,
-  // which the canvas already prevents), so we block a paste that lands right after a
-  // middle-button press - leaving Ctrl+V, which has no preceding middle-click, untouched.
+  // WebKitGTK performs that paste on button *release*, not press (upstream: "[GTK] Paste
+  // primary selection on button release"), and Canvas's pan-drag can hold the button for
+  // well over 400ms - so a guard armed only on mousedown expires long before the paste it's
+  // meant to catch, on any drag slower than a quick tap. Arming on both mousedown and
+  // mouseup means the window is always re-set right before the release WebKitGTK actually
+  // pastes on, regardless of how long the drag lasted. Ctrl+V, which has no preceding
+  // middle-click, is untouched.
   useEffect(() => {
-    let lastMiddleDown = 0;
-    const onDown = (e: MouseEvent) => { if (e.button === 1) lastMiddleDown = e.timeStamp; };
+    let lastMiddleAt = 0;
+    const onMiddle = (e: MouseEvent) => { if (e.button === 1) lastMiddleAt = e.timeStamp; };
     const onPaste = (e: ClipboardEvent) => {
-      if (e.timeStamp - lastMiddleDown < 400) e.preventDefault();
+      if (e.timeStamp - lastMiddleAt < 400) e.preventDefault();
     };
     const onAux = (e: MouseEvent) => { if (e.button === 1) e.preventDefault(); };
-    document.addEventListener("mousedown", onDown, true);
+    document.addEventListener("mousedown", onMiddle, true);
+    document.addEventListener("mouseup", onMiddle, true);
     document.addEventListener("paste", onPaste, true);
     document.addEventListener("auxclick", onAux, true);
     return () => {
-      document.removeEventListener("mousedown", onDown, true);
+      document.removeEventListener("mousedown", onMiddle, true);
+      document.removeEventListener("mouseup", onMiddle, true);
       document.removeEventListener("paste", onPaste, true);
       document.removeEventListener("auxclick", onAux, true);
     };
