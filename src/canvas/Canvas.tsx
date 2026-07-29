@@ -32,6 +32,18 @@ const MIN_SCALE = 0.1;
 const MAX_SCALE = 4;
 const GRID_SIZE = 24;
 const ZOOM_SENSITIVITY = 0.002;
+const PAN_STEP = 40;
+const PAN_STEP_LARGE = 200;
+
+function arrowDelta(key: string): { dx: number; dy: number } | null {
+  switch (key) {
+    case "ArrowUp":    return { dx: 0, dy: -1 };
+    case "ArrowDown":  return { dx: 0, dy: 1 };
+    case "ArrowLeft":  return { dx: -1, dy: 0 };
+    case "ArrowRight": return { dx: 1, dy: 0 };
+    default:           return null;
+  }
+}
 
 export function Canvas({
   children,
@@ -88,6 +100,27 @@ export function Canvas({
     };
     containerRef.current?.classList.add(styles.panning);
   }, []);
+
+  // Keyboard equivalent of the mouse/wheel pan, mirroring WidgetFrame's Tab-to-a-handle-then-arrow-
+  // keys idiom: Tab reaches the canvas itself, then arrow keys pan it (Shift for a bigger step).
+  // Guarded on e.target === containerRef.current (not just e.currentTarget) so a keydown bubbling up
+  // from a focused widget's own input/textarea - which also lands on this handler, since React's
+  // onKeyDown delegates via bubbling - never hijacks the cursor keys typing depends on.
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.target !== containerRef.current) return;
+      const delta = arrowDelta(e.key);
+      if (!delta) return;
+      e.preventDefault();
+      const step = e.shiftKey ? PAN_STEP_LARGE : PAN_STEP;
+      // Matches the wheel handler's sign convention just below (scroll-style: Right/Down reveals
+      // more content to that side, panning the view rather than moving an object across it).
+      transform.current.x -= delta.dx * step;
+      transform.current.y -= delta.dy * step;
+      applyTransform();
+    },
+    [applyTransform],
+  );
 
   const onMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -242,7 +275,15 @@ export function Canvas({
 
   return (
     <CanvasContext.Provider value={transform}>
-      <div ref={containerRef} className={containerClass} onMouseDown={onMouseDown}>
+      <div
+        ref={containerRef}
+        className={containerClass}
+        onMouseDown={onMouseDown}
+        onKeyDown={onKeyDown}
+        tabIndex={0}
+        aria-label="Canvas"
+        title="Pan with arrow keys (Shift for a bigger step)"
+      >
         {backgroundSrc && (
           <div className={styles.backdrop} style={{ backgroundImage: `url(${backgroundSrc})` }} />
         )}

@@ -48,6 +48,11 @@ export default tseslint.config(
       "jsx-a11y/no-static-element-interactions": "off",
       "jsx-a11y/click-events-have-key-events": "off",
       "jsx-a11y/no-noninteractive-element-interactions": "off",
+      // Same reasoning, one rule over: the canvas container itself is now Tab-reachable so arrow
+      // keys can pan it (item 57's "keyboard alternatives for pointer-only surfaces"), but it isn't
+      // any existing ARIA widget - "pannable 2D surface" has no interactive role to give it, the
+      // same gap that made the three rules above the wrong fit for this app.
+      "jsx-a11y/no-noninteractive-tabindex": "off",
       // autoFocus is used inside modals, which are now native <dialog>s that move focus on open
       // anyway. The rule can't tell that case from a page-load focus steal, which is what it's
       // actually guarding against.

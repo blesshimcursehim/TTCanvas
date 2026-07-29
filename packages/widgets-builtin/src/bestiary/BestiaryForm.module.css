@@ -127,10 +127,6 @@ select.input {
   background-position: right 8px center;
   padding-right: 24px;
 }
-select.input option {
-  background: var(--bg-2, #1a1a1a);
-  color: var(--ink, #e0e0e0);
-}
 
 .statInput { text-align: center; }
 

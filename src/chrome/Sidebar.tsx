@@ -5,8 +5,8 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState } from "react";
-import { DndContext, closestCenter, type DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { DndContext, closestCenter, type DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Icon } from "../icons/Icon";
 import { getWidget } from "../registry";
@@ -75,9 +75,14 @@ function RailBtn({ widget, isFocused, onFocus }: RailBtnProps) {
 }
 
 export function Sidebar({ widgets, focusedId, onFocusWidget, onReorder }: Props) {
-  // Require 8px movement before drag activates - lets a simple click fire onClick normally
+  // Require 8px movement before drag activates - lets a simple click fire onClick normally.
+  // KeyboardSensor is in dnd-kit's own default sensor list (unlike PartyTracker's DndContext,
+  // which takes no `sensors` prop and so keeps that default for free) - specifying PointerSensor
+  // here without it silently dropped keyboard reordering, the one bit of this list that isn't
+  // already covered by the rail buttons' own Tab order and click-to-focus.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   function handleDragEnd(event: DragEndEvent) {
