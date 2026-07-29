@@ -737,7 +737,13 @@ const merchantStockSchema = z.object({
   // and inventing "1" would silently sell out a general store.
   qty: z.number().int().nonnegative().nullable().catch(null),
   priceCpOverride: z.number().int().nonnegative().optional().catch(undefined),
+  name: z.string().optional().catch(undefined),
 });
+
+// What a merchant created before rarities existed gets, and what a corrupt list resets to. Not
+// filterArr: that would hand a merchant with no `rarities` an empty list, which reads as "generate
+// nothing" - a silent, confusing default. Falling back to a real preset is the kinder failure.
+const DEFAULT_RARITIES = ["common", "uncommon"] as const;
 
 const merchantSchema = z.object({
   id: z.string(),
@@ -751,6 +757,7 @@ const merchantSchema = z.object({
   // A zero, negative or non-finite modifier would price the whole shelf at 0 or NaN.
   priceModifier: z.number().positive().finite().catch(1),
   buybackModifier: z.number().nonnegative().finite().catch(0.5),
+  rarities: z.array(z.enum(RARITY_VALUES)).catch([...DEFAULT_RARITIES]),
   stock: filterArr(merchantStockSchema),
 });
 

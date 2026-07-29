@@ -7,10 +7,10 @@
 
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ItemsContext, NpcContext, GazetteerContext, ToastContext, VaultContext } from "@ttcanvas/core";
+import { ItemsContext, NpcContext, GazetteerContext, RollTablesContext, ToastContext, VaultContext } from "@ttcanvas/core";
 import type {
-  ItemsContextValue, CatalogueItemRef, ItemRef, NpcContextValue,
-  GazetteerContextValue, ToastContextValue, VaultContextValue,
+  ItemsContextValue, CatalogueItemRef, ItemRef, NpcContextValue, GazetteerContextValue,
+  RollTablesContextValue, RollTableOutcome, ToastContextValue, VaultContextValue,
 } from "@ttcanvas/core";
 import { Merchants } from "./Merchants";
 import type { Merchant, MerchantsState } from "./types";
@@ -26,7 +26,7 @@ const POTION: CatalogueItemRef = { id: "i2", name: "Healing potion", kind: "cons
 function merchant(over: Partial<Merchant> = {}): Merchant {
   return {
     id: "m1", name: "Dorn's Forge", kind: "blacksmith",
-    priceModifier: 1, buybackModifier: 0.5,
+    priceModifier: 1, buybackModifier: 0.5, rarities: ["common", "uncommon"],
     stock: [{ itemId: "i1", qty: 3 }],
     ...over,
   };
@@ -46,6 +46,8 @@ interface Harness {
   showToast?: ToastContextValue["showToast"];
   npcs?: NpcContextValue["npcs"];
   locations?: GazetteerContextValue["locations"];
+  tables?: { id: string; name: string }[];
+  rollOn?: (id: string) => RollTableOutcome[] | null;
 }
 
 function renderMerchants(state: MerchantsState, h: Harness = {}) {
@@ -59,15 +61,21 @@ function renderMerchants(state: MerchantsState, h: Harness = {}) {
     takeFromParty: h.takeFromParty ?? (() => {}),
   };
   const toast: ToastContextValue = { showToast: h.showToast ?? (() => {}) } as ToastContextValue;
+  const rollTables: RollTablesContextValue = {
+    tables: h.tables ?? [],
+    rollOn: h.rollOn ?? (() => null),
+  };
   return render(
     <VaultContext.Provider value={VAULT}>
       <ToastContext.Provider value={toast}>
         <ItemsContext.Provider value={items}>
-          <NpcContext.Provider value={{ npcs: h.npcs ?? [], loading: false }}>
-            <GazetteerContext.Provider value={{ locations: h.locations ?? [], loading: false }}>
-              <Merchants state={state} onChange={h.onChange ?? (() => {})} />
-            </GazetteerContext.Provider>
-          </NpcContext.Provider>
+          <RollTablesContext.Provider value={rollTables}>
+            <NpcContext.Provider value={{ npcs: h.npcs ?? [], loading: false }}>
+              <GazetteerContext.Provider value={{ locations: h.locations ?? [], loading: false }}>
+                <Merchants state={state} onChange={h.onChange ?? (() => {})} />
+              </GazetteerContext.Provider>
+            </NpcContext.Provider>
+          </RollTablesContext.Provider>
         </ItemsContext.Provider>
       </ToastContext.Provider>
     </VaultContext.Provider>,
@@ -230,5 +238,140 @@ describe("Merchants - entity links", () => {
     window.removeEventListener("ttcanvas:open-entity-link", spy);
 
     expect((spy.mock.calls[0][0] as CustomEvent).detail).toEqual({ name: "Vex" });
+  });
+});
+
+describe("Merchants - generation", () => {
+  const RARE: CatalogueItemRef = { id: "i3", name: "Flametongue", kind: "weapon", rarity: "rare", valueCp: 100000 };
+  const COMMON: CatalogueItemRef = { id: "i4", name: "Rope", kind: "gear", rarity: "common", valueCp: 100 };
+
+  it("toggles a rarity on the merchant", () => {
+    const onChange = vi.fn();
+    renderMerchants(baseState(), { onChange });
+    fireEvent.click(screen.getByRole("button", { name: "rare" }));
+    expect(onChange.mock.calls[0][0].merchants[0].rarities).toContain("rare");
+  });
+
+  it("untoggles a rarity it already had", () => {
+    const onChange = vi.fn();
+    renderMerchants(baseState(), { onChange });
+    fireEvent.click(screen.getByRole("button", { name: "uncommon" }));
+    expect(onChange.mock.calls[0][0].merchants[0].rarities).not.toContain("uncommon");
+  });
+
+  it("a preset fills the whole rarity list in one click", () => {
+    const onChange = vi.fn();
+    renderMerchants(baseState(), { onChange });
+    fireEvent.click(screen.getByRole("button", { name: "Fabled" }));
+    expect(onChange.mock.calls[0][0].merchants[0].rarities)
+      .toEqual(["common", "uncommon", "rare", "very-rare", "legendary"]);
+  });
+
+  it("no preset grants artifacts, since those are plot objects rather than stock", () => {
+    const onChange = vi.fn();
+    renderMerchants(baseState(), { onChange });
+    fireEvent.click(screen.getByRole("button", { name: "Squalid" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fabled" }));
+    for (const call of onChange.mock.calls) {
+      expect(call[0].merchants[0].rarities).not.toContain("artifact");
+    }
+  });
+
+  it("generates stock the merchant's rarities allow, merging onto the existing shelf", () => {
+    const onChange = vi.fn();
+    renderMerchants(
+      // "general" so the kind default (gear/treasure) admits the rope.
+      baseState({ merchants: [merchant({ kind: "general", rarities: ["common"], stock: [{ itemId: "i1", qty: 3 }] })] }),
+      { onChange, catalogue: [SWORD, COMMON] },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
+
+    const stock = onChange.mock.calls[0][0].merchants[0].stock;
+    // The hand-set line survives the merge, and the rope was drawn alongside it.
+    expect(stock.find((s: { itemId: string }) => s.itemId === "i1")?.qty).toBe(3);
+    expect(stock.find((s: { itemId: string }) => s.itemId === "i4")).toBeTruthy();
+  });
+
+  it("follows the merchant's own kind when picking what to stock", () => {
+    // A blacksmith defaults to weapons and armour, so a gear item is not eligible without an
+    // override - which is what makes a generated shop feel placed rather than random.
+    const showToast = vi.fn();
+    renderMerchants(
+      baseState({ merchants: [merchant({ kind: "blacksmith", rarities: ["common"], stock: [] })] }),
+      { showToast, catalogue: [COMMON] },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
+    expect(showToast).toHaveBeenCalledWith(expect.stringContaining("Nothing left in your Items catalogue"), "info");
+  });
+
+  it("refuses to generate when no rarity is ticked, and says why", () => {
+    const showToast = vi.fn();
+    const onChange = vi.fn();
+    renderMerchants(baseState({ merchants: [merchant({ rarities: [] })] }), { onChange, showToast });
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith(expect.stringContaining("Tick at least one rarity"), "info");
+  });
+
+  it("says so when the catalogue has nothing the merchant could stock", () => {
+    const showToast = vi.fn();
+    renderMerchants(
+      baseState({ merchants: [merchant({ rarities: ["legendary"] })] }),
+      { showToast, catalogue: [COMMON] },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Generate" }));
+    expect(showToast).toHaveBeenCalledWith(expect.stringContaining("Nothing left in your Items catalogue"), "info");
+  });
+
+  it("stocks matched names from a roll table", () => {
+    const onChange = vi.fn();
+    renderMerchants(baseState({ merchants: [merchant({ stock: [] })] }), {
+      onChange,
+      catalogue: [SWORD, RARE],
+      tables: [{ id: "t1", name: "Smithy stock" }],
+      rollOn: () => [{ text: "flametongue" }],
+    });
+    fireEvent.change(screen.getByLabelText("Roll table to stock from"), { target: { value: "t1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Roll" }));
+
+    expect(onChange.mock.calls[0][0].merchants[0].stock).toContainEqual({ itemId: "i3", qty: 1, name: "Flametongue" });
+  });
+
+  // The unmatched report is durable rather than a toast, because it is a list the GM has to act on.
+  it("lists rolled names with no catalogue match so the GM can add them", () => {
+    renderMerchants(baseState(), {
+      catalogue: [SWORD],
+      tables: [{ id: "t1", name: "Smithy stock" }],
+      rollOn: () => [{ text: "Rusty spoon" }, { text: "Longsword" }],
+    });
+    fireEvent.change(screen.getByLabelText("Roll table to stock from"), { target: { value: "t1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Roll" }));
+
+    expect(screen.getByText("Rusty spoon")).toBeTruthy();
+    expect(screen.getByText(/no matching item in your catalogue/)).toBeTruthy();
+  });
+
+  it("cannot roll before a table is picked", () => {
+    renderMerchants(baseState(), { tables: [{ id: "t1", name: "Smithy stock" }] });
+    expect(screen.getByRole("button", { name: "Roll" })).toBeDisabled();
+  });
+});
+
+describe("Merchants - the name snapshot", () => {
+  it("names a deleted item from its snapshot instead of showing it as unknown", () => {
+    renderMerchants(baseState({
+      merchants: [merchant({ stock: [{ itemId: "gone", qty: 1, name: "Flametongue" }] })],
+    }));
+    expect(screen.getByText(/Flametongue/)).toBeTruthy();
+    expect(screen.getByText(/missing from Items/)).toBeTruthy();
+  });
+
+  it("prefers the live catalogue name over a stale snapshot", () => {
+    renderMerchants(baseState({
+      merchants: [merchant({ stock: [{ itemId: "i1", qty: 1, name: "Old name" }] })],
+    }));
+    expect(screen.getByText("Longsword")).toBeTruthy();
+    expect(screen.queryByText("Old name")).toBeNull();
   });
 });

@@ -12,7 +12,7 @@ import type { Merchant, MerchantStock } from "./types";
 function merchant(over: Partial<Merchant> = {}): Merchant {
   return {
     id: "m1", name: "Dorn's Forge", kind: "blacksmith",
-    priceModifier: 1, buybackModifier: 0.5, stock: [], ...over,
+    priceModifier: 1, buybackModifier: 0.5, rarities: ["common", "uncommon"], stock: [], ...over,
   };
 }
 

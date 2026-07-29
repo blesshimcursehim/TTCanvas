@@ -4,8 +4,53 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
+import type { ItemKind, Rarity } from "../items/types";
+
 export const MERCHANT_KINDS = ["general", "blacksmith", "apothecary", "magic", "tavern", "fence", "temple"] as const;
 export type MerchantKind = typeof MERCHANT_KINDS[number];
+
+/**
+ * One-click fills for `Merchant.rarities`. Named for the shop rather than the settlement, because
+ * the two come apart: a slum in a major city is still a slum. Every generator surveyed gates stock
+ * on settlement size, which gets exactly that case wrong, so these are a starting point the GM edits
+ * rather than a rule the generator enforces.
+ *
+ * "artifact" is in no preset - an artifact is a plot object, not merchandise - but the GM can still
+ * tick it by hand for the shop that really does have one under the counter.
+ */
+export const RARITY_PRESETS: { label: string; rarities: Rarity[] }[] = [
+  { label: "Squalid", rarities: ["common"] },
+  { label: "Modest", rarities: ["common", "uncommon"] },
+  { label: "Comfortable", rarities: ["common", "uncommon", "rare"] },
+  { label: "Wealthy", rarities: ["common", "uncommon", "rare", "very-rare"] },
+  { label: "Fabled", rarities: ["common", "uncommon", "rare", "very-rare", "legendary"] },
+];
+
+/**
+ * How often each rarity turns up *relative to the others the merchant stocks*. Renormalised over
+ * whichever rarities are actually ticked, so a merchant selling only rare goods sells rare goods
+ * every time, while one selling common through rare sees roughly 60/30/10. This is why there is no
+ * weights UI: ticking a box is the only control, and the curve supplies the feel.
+ */
+export const RARITY_WEIGHTS: Record<Rarity, number> = {
+  common: 60,
+  uncommon: 30,
+  rare: 10,
+  "very-rare": 4,
+  legendary: 1,
+  artifact: 0.5,
+};
+
+/** Which item kinds a merchant of each sort leans towards, as the generator's opening offer. */
+export const KINDS_BY_MERCHANT: Record<MerchantKind, ItemKind[]> = {
+  general: ["gear", "treasure"],
+  blacksmith: ["weapon", "armour"],
+  apothecary: ["consumable"],
+  magic: ["magic"],
+  tavern: ["consumable", "gear"],
+  fence: ["treasure", "magic"],
+  temple: ["consumable", "gear"],
+};
 
 export interface MerchantStock {
   /**
@@ -18,6 +63,13 @@ export interface MerchantStock {
   qty: number | null;
   /** This merchant's asking price in copper, overriding `item.valueCp * priceModifier`. */
   priceCpOverride?: number;
+  /**
+   * The item's name as it was when this row was created. Display fallback only, never the source of
+   * truth: the live catalogue lookup always wins, and this is what lets a row whose item has since
+   * been deleted read "Longsword (missing from Items)" instead of a bare id. Same denormalised
+   * snapshot `EncounterMember.name` and `Merchant.owner` keep, for the same reason.
+   */
+  name?: string;
 }
 
 export interface Merchant {
@@ -43,6 +95,12 @@ export interface Merchant {
   priceModifier: number;
   /** What the merchant pays for the party's goods. 0.5 by default. */
   buybackModifier: number;
+  /**
+   * Which rarities generation may draw from. The entire availability rule, and deliberately the
+   * GM's to set: a back-alley fence with a legendary blade under the counter is a story, not a bug,
+   * so nothing here caps it. An empty list means generation has nothing to draw and says so.
+   */
+  rarities: Rarity[];
   stock: MerchantStock[];
 }
 

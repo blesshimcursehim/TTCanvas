@@ -6,12 +6,15 @@
 
 import { useMemo, useState } from "react";
 import {
-  useVault, useItems, useNpcs, useGazetteerLocations, useToast, logError,
+  useVault, useItems, useNpcs, useGazetteerLocations, useRollTables, useToast, logError,
   formatCoin, type CatalogueItemRef,
 } from "@ttcanvas/core";
 import type { Merchant, MerchantKind, MerchantStock, MerchantsState } from "./types";
-import { MERCHANT_KINDS } from "./types";
+import { MERCHANT_KINDS, RARITY_PRESETS, KINDS_BY_MERCHANT } from "./types";
+import type { ItemKind, Rarity } from "../items/types";
+import { RARITIES, ITEM_KINDS } from "../items/types";
 import { askPriceCp, offerPriceCp } from "./pricing";
+import { generateStock, matchByName, mergeStock } from "./generate";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
@@ -43,6 +46,12 @@ function isKind(v: unknown): v is MerchantKind {
   return typeof v === "string" && (MERCHANT_KINDS as readonly string[]).includes(v);
 }
 
+function isRarity(v: unknown): v is Rarity {
+  return typeof v === "string" && (RARITIES as readonly string[]).includes(v);
+}
+
+const DEFAULT_RARITIES: Rarity[] = ["common", "uncommon"];
+
 function merchantContentKey(m: Merchant): string {
   // Stock is part of a merchant's identity - two vaults describing "Dorn's Forge" with different
   // shelves are genuinely different merchants, unlike an item whose holdings are campaign state.
@@ -65,11 +74,13 @@ function validateMerchantsBundle(parsed: unknown): Merchant[] | null {
         if (!s || typeof s !== "object") return [];
         const { itemId, qty, priceCpOverride } = s as Record<string, unknown>;
         if (typeof itemId !== "string") return [];
+        const { name } = s as Record<string, unknown>;
         return [{
           itemId,
           qty: typeof qty === "number" && Number.isInteger(qty) && qty >= 0 ? qty : null,
           ...(typeof priceCpOverride === "number" && Number.isInteger(priceCpOverride) && priceCpOverride >= 0
             ? { priceCpOverride } : {}),
+          ...(typeof name === "string" ? { name } : {}),
         }];
       })
       : [];
@@ -87,6 +98,9 @@ function validateMerchantsBundle(parsed: unknown): Merchant[] | null {
       // A zero, negative or non-finite modifier would price the whole shelf at 0 or NaN.
       priceModifier: typeof price === "number" && Number.isFinite(price) && price > 0 ? price : 1,
       buybackModifier: typeof buyback === "number" && Number.isFinite(buyback) && buyback >= 0 ? buyback : 0.5,
+      // A file written before rarities existed falls back to the Modest preset rather than an empty
+      // list, which would read as "this merchant can never generate anything".
+      rarities: Array.isArray(m.rarities) ? m.rarities.filter(isRarity) : [...DEFAULT_RARITIES],
       stock,
     }];
   });
@@ -95,6 +109,7 @@ function validateMerchantsBundle(parsed: unknown): Merchant[] | null {
 export function Merchants({ state, onChange }: Props) {
   const vault = useVault();
   const { catalogue, partyStash, purseCp, grantToParty, takeFromParty } = useItems();
+  const { tables, rollOn } = useRollTables();
   const { npcs } = useNpcs();
   const { locations } = useGazetteerLocations();
   const { showToast } = useToast();
@@ -104,6 +119,14 @@ export function Merchants({ state, onChange }: Props) {
   // Items list (many rows, one confirm) a bare boolean can't leak onto a different merchant.
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [addStockId, setAddStockId] = useState("");
+  const [genCount, setGenCount] = useState(6);
+  const [genTableId, setGenTableId] = useState("");
+  // Kinds the GM has overridden for this session; null means "follow the merchant's own kind".
+  const [genKindsOverride, setGenKindsOverride] = useState<ItemKind[] | null>(null);
+  // Durable rather than a toast: unmatched names are something to read and act on (add them to
+  // Items, run again), and a toast is gone before the GM can do either. Same call Encounter Builder
+  // makes for missing sources.
+  const [lastGenerate, setLastGenerate] = useState<{ added: number; unmatched: string[] } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [pendingImport, setPendingImport] = useState<DedupeResult<Merchant> | null>(null);
 
@@ -133,6 +156,7 @@ export function Merchants({ state, onChange }: Props) {
       kind: "general",
       priceModifier: 1,
       buybackModifier: 0.5,
+      rarities: [...DEFAULT_RARITIES],
       stock: [],
     };
     onChange({ ...state, merchants: [merchant, ...merchants], selectedId: merchant.id });
@@ -164,6 +188,56 @@ export function Merchants({ state, onChange }: Props) {
   function removeStock(itemId: string) {
     if (!selected) return;
     patchMerchant(selected.id, { stock: selected.stock.filter((s) => s.itemId !== itemId) });
+  }
+
+  // ── Generation ────────────────────────────────────────────
+  function toggleRarity(rarity: Rarity) {
+    if (!selected) return;
+    const has = selected.rarities.includes(rarity);
+    patchMerchant(selected.id, {
+      rarities: has ? selected.rarities.filter((r) => r !== rarity) : [...selected.rarities, rarity],
+    });
+  }
+
+  function handleGenerate() {
+    if (!selected) return;
+    if (selected.rarities.length === 0) {
+      showToast("Tick at least one rarity for this merchant to stock.", "info");
+      return;
+    }
+    const added = generateStock(catalogue, {
+      rarities: selected.rarities,
+      kinds: genKinds,
+      count: genCount,
+      existing: selected.stock,
+    });
+    if (added.length === 0) {
+      showToast("Nothing left in your Items catalogue matches this merchant.", "info");
+      return;
+    }
+    setLastGenerate({ added: added.length, unmatched: [] });
+    patchMerchant(selected.id, { stock: mergeStock(selected.stock, added) });
+    showToast(`Stocked ${added.length} line${added.length !== 1 ? "s" : ""}.`, "success");
+  }
+
+  function handleGenerateFromTable() {
+    if (!selected || !genTableId) return;
+    // One rollOn per generate, never one per line: every call writes to the Roll Tables history,
+    // which is capped, so a per-line loop would bury the GM's own audit trail.
+    const outcomes = rollOn(genTableId);
+    if (!outcomes || outcomes.length === 0) {
+      showToast("That table produced nothing to stock.", "info");
+      return;
+    }
+    const { matched, unmatched } = matchByName(outcomes, catalogue);
+    setLastGenerate({ added: matched.length, unmatched });
+    if (matched.length > 0) patchMerchant(selected.id, { stock: mergeStock(selected.stock, matched) });
+    showToast(
+      matched.length > 0
+        ? `Stocked ${matched.length} line${matched.length !== 1 ? "s" : ""} from the table.`
+        : "Nothing the table rolled matches an item in your catalogue.",
+      matched.length > 0 ? "success" : "info",
+    );
   }
 
   // ── Transactions ──────────────────────────────────────────
@@ -271,6 +345,10 @@ export function Merchants({ state, onChange }: Props) {
     () => catalogue.filter((i) => !selected?.stock.some((s) => s.itemId === i.id)),
     [catalogue, selected],
   );
+
+  // The merchant's own kind is the opening offer for what it sells, so a blacksmith generates
+  // weapons and armour without the GM configuring anything. Overridable per session.
+  const genKinds = genKindsOverride ?? (selected ? KINDS_BY_MERCHANT[selected.kind] : []);
 
   return (
     <div className={styles.root}>
@@ -467,8 +545,13 @@ export function Merchants({ state, onChange }: Props) {
                   return (
                     <div key={row.itemId} className={styles.stockRow} data-rarity={item?.rarity}>
                       {/* A row whose item was deleted from the catalogue stays visible and removable
-                          rather than vanishing, so the GM can see and fix the dangling reference. */}
-                      <span className={styles.stockName}>{item?.name ?? "Unknown item"}</span>
+                          rather than vanishing, so the GM can see and fix the dangling reference.
+                          The live lookup always wins; row.name is the snapshot taken when the line
+                          was created, so a deleted item still reads by name instead of as an id. */}
+                      <span className={styles.stockName}>
+                        {item?.name ?? row.name ?? "Unknown item"}
+                        {!item && <span className={styles.missingTag}> · missing from Items</span>}
+                      </span>
                       <input
                         className={styles.qtyInput}
                         type="number"
@@ -506,6 +589,84 @@ export function Merchants({ state, onChange }: Props) {
                     {stockable.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
                   </select>
                 </div>
+              </div>
+
+              {/* ── Generate ─────────────────────────── */}
+              <div className={styles.section}>
+                <div className={styles.sectionHead}><span>Restock</span></div>
+
+                {/* Availability is this merchant's own business, not its settlement's: a slum in a
+                    major city is still a slum, and a fence with a legendary blade under the counter
+                    is the GM's call. So these are plain ticks with no cap behind them. */}
+                <div className={styles.rarityRow}>
+                  {RARITIES.map((r) => (
+                    <button
+                      key={r}
+                      className={styles.rarityChip}
+                      data-rarity={r}
+                      aria-pressed={selected.rarities.includes(r)}
+                      onClick={() => toggleRarity(r)}
+                    >{r.replace("-", " ")}</button>
+                  ))}
+                </div>
+                <div className={styles.presetRow}>
+                  <span className={styles.presetLabel}>Presets</span>
+                  {RARITY_PRESETS.map((p) => (
+                    <button
+                      key={p.label}
+                      className={styles.preset}
+                      onClick={() => patchMerchant(selected.id, { rarities: [...p.rarities] })}
+                    >{p.label}</button>
+                  ))}
+                </div>
+
+                <div className={styles.genRow}>
+                  <select
+                    className={styles.input}
+                    value={genKinds.length === 1 ? genKinds[0] : ""}
+                    aria-label="Item kinds to generate"
+                    onChange={(e) => setGenKindsOverride(e.target.value === "" ? [] : [e.target.value as ItemKind])}
+                  >
+                    <option value="">any kind</option>
+                    {ITEM_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+                  </select>
+                  <input
+                    className={styles.modInput}
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={genCount}
+                    aria-label="How many lines to generate"
+                    onChange={(e) => setGenCount(Math.max(1, Math.min(30, Math.floor(Number(e.target.value) || 1))))}
+                  />
+                  <button className={styles.genBtn} onClick={handleGenerate}>Generate</button>
+                </div>
+
+                <div className={styles.genRow}>
+                  <select
+                    className={styles.input}
+                    value={genTableId}
+                    aria-label="Roll table to stock from"
+                    onChange={(e) => setGenTableId(e.target.value)}
+                  >
+                    <option value="">{tables.length === 0 ? "no roll tables" : "Stock from a table…"}</option>
+                    {tables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  <button className={styles.genBtn} disabled={!genTableId} onClick={handleGenerateFromTable}>Roll</button>
+                </div>
+
+                {lastGenerate && lastGenerate.unmatched.length > 0 && (
+                  <div className={styles.unmatched}>
+                    <span className={styles.unmatchedHead}>
+                      {lastGenerate.unmatched.length} rolled result{lastGenerate.unmatched.length !== 1 ? "s" : ""} had
+                      no matching item in your catalogue, so {lastGenerate.unmatched.length !== 1 ? "they were" : "it was"} skipped.
+                      Add {lastGenerate.unmatched.length !== 1 ? "them" : "it"} to Items and roll again.
+                    </span>
+                    <ul className={styles.unmatchedList}>
+                      {lastGenerate.unmatched.map((name) => <li key={name}>{name}</li>)}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               {/* Buy from party */}

@@ -31,6 +31,17 @@ All notable changes are documented here.
   "place at map center" button next to each portrait - the same one-click placement Initiative Tracker
   already had - so getting a character or creature onto the map no longer requires a drag.
 
+- **Merchants restock themselves.** Hit **Generate** and a merchant fills its own shelves from your
+  Items catalogue. What it deals in comes from its kind, so a blacksmith reaches for weapons and
+  armour whilst an apothecary reaches for potions. How good its stock gets is entirely your call: tick
+  the rarities each merchant is allowed, with one-click presets from Squalid to Fabled as a starting
+  point. Nothing caps you, because a slum in a great city is still a slum and a back-alley fence might
+  genuinely have something legendary under the counter. Within whatever you allow, ordinary things
+  still turn up more often, so a shelf doesn't read as all treasure. Generating adds to the shelves
+  rather than replacing them, so a merchant the party keeps revisiting keeps its character and any
+  prices you set by hand. You can also stock from a Roll Table: results are matched to your catalogue
+  by name, and anything that doesn't match is listed for you to add rather than silently invented.
+
 - **Merchants.** A new widget holding the shops, traders and fences your party keeps going back to.
   Give one an owner and a place (linked to your NPC Library and Gazetteer, so they open with a
   click), then stock its shelves from your Items catalogue. Stock is held by reference, so repricing

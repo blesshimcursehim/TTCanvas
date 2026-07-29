@@ -418,3 +418,112 @@
   color: var(--hp);
   font-size: 10.5px;
 }
+
+/* ── Generation ──────────────────────────────────── */
+
+.rarityRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+/* Each chip carries its own rarity bar, same tokens as the stock rows and the Items ledger, so the
+   tick-list reads as the same vocabulary the shelf below it uses. */
+.rarityChip {
+  padding: 1px 6px 1px 5px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink-4);
+  font-size: 9.5px;
+  cursor: pointer;
+}
+.rarityChip:hover { color: var(--ink); }
+.rarityChip[aria-pressed="true"] {
+  color: var(--ink);
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+
+.rarityChip[data-rarity="uncommon"] { border-left-color: var(--kind-ally); }
+.rarityChip[data-rarity="rare"] { border-left-color: var(--sp); }
+.rarityChip[data-rarity="very-rare"] { border-left-color: var(--pp); }
+.rarityChip[data-rarity="legendary"] { border-left-color: var(--accent); }
+.rarityChip[data-rarity="artifact"] { border-left-color: var(--hp); }
+
+.presetRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.presetLabel {
+  font-size: 9px;
+  color: var(--ink-4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.preset {
+  padding: 1px 6px;
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: 3px;
+  color: var(--ink-3);
+  font-size: 9.5px;
+  cursor: pointer;
+}
+.preset:hover { color: var(--accent); border-color: var(--accent-line); }
+
+.genRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.genRow .input { flex: 1; min-width: 0; }
+
+.genBtn {
+  flex: none;
+  height: 24px;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid var(--accent-line);
+  border-radius: 3px;
+  color: var(--accent);
+  font-size: 10.5px;
+  cursor: pointer;
+}
+.genBtn:hover:not(:disabled) { background: var(--accent-wash); }
+.genBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Durable rather than a toast: these are names the GM needs to read, add to Items, and roll again. */
+.unmatched {
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+
+.unmatchedHead {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-3);
+  line-height: 1.4;
+}
+
+.unmatchedList {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 10px;
+  color: var(--ink-2);
+}
+
+.missingTag {
+  color: var(--ink-4);
+  font-size: 9.5px;
+  font-style: italic;
+}

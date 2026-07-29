@@ -835,7 +835,7 @@ describe("parseMerchantsState", () => {
   const merchant = {
     id: "m1", name: "Dorn's Forge", kind: "blacksmith",
     owner: "Dorn", ownerRef: "npcs/dorn.json",
-    priceModifier: 1.2, buybackModifier: 0.5,
+    priceModifier: 1.2, buybackModifier: 0.5, rarities: ["common", "uncommon"],
     stock: [{ itemId: "i1", qty: 3 }, { itemId: "i2", qty: null }],
   };
   const base = { merchants: [merchant], selectedId: "m1", query: "", kindFilter: null };
@@ -880,5 +880,34 @@ describe("parseMerchantsState", () => {
     expect(parseMerchantsState(null)).toEqual({
       merchants: [], selectedId: null, query: "", kindFilter: null,
     });
+  });
+
+  it("gives a merchant written before rarities existed a usable preset, not an empty list", () => {
+    // An empty list reads as "can never generate anything", which is a silent, confusing default.
+    const { rarities: _rarities, ...legacy } = merchant;
+    const result = parseMerchantsState({ ...base, merchants: [legacy] }) as { merchants: { rarities: string[] }[] };
+    expect(result.merchants[0].rarities).toEqual(["common", "uncommon"]);
+  });
+
+  it("resets a corrupt rarity list to the same preset", () => {
+    const result = parseMerchantsState({
+      ...base, merchants: [{ ...merchant, rarities: ["shiny", 7] }],
+    }) as { merchants: { rarities: string[] }[] };
+    expect(result.merchants[0].rarities).toEqual(["common", "uncommon"]);
+  });
+
+  it("keeps an explicit artifact tick, since that is the GM's call to make", () => {
+    const result = parseMerchantsState({
+      ...base, merchants: [{ ...merchant, rarities: ["artifact"] }],
+    }) as { merchants: { rarities: string[] }[] };
+    expect(result.merchants[0].rarities).toEqual(["artifact"]);
+  });
+
+  it("keeps a stock row's name snapshot", () => {
+    const stock = [{ itemId: "i1", qty: 1, name: "Flametongue" }];
+    const result = parseMerchantsState({
+      ...base, merchants: [{ ...merchant, stock }],
+    }) as { merchants: { stock: { name?: string }[] }[] };
+    expect(result.merchants[0].stock[0].name).toBe("Flametongue");
   });
 });
