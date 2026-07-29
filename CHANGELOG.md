@@ -253,6 +253,10 @@ All notable changes are documented here.
 
 ### Fixes
 
+- **Dropdown lists are dark like the rest of the app.** Opening a dropdown - a location's parent in
+  the Gazetteer, and every other one in the app - popped up a bright white list with amber text on it,
+  near enough unreadable. Scrollbars, checkboxes and number spinners now follow the dark theme too.
+
 - **Modals no longer close themselves the instant they open.** Preferences, the end-of-combat review,
   creature sheets and full character sheets would all appear and then vanish about a second later,
   untouched, leaving no way to use them. A dialog reports its own closing through an event that the
