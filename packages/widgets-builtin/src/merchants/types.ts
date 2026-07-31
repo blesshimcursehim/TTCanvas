@@ -111,4 +111,11 @@ export interface MerchantsState {
   kindFilter: MerchantKind | null;
   /** Vault path last used for a cross-vault pull. */
   pullVaultPath?: string;
+  /**
+   * Keep the player window's price list in step with the selected merchant, so a purchase updates
+   * the shelf the table is reading. Off by default and GM-toggled, exactly like Map Display's
+   * `autoPushMap`: while it is on this widget owns the player scene, which is only ever the GM's
+   * call to make.
+   */
+  autoCast?: boolean;
 }

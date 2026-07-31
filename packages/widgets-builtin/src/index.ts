@@ -58,13 +58,13 @@ export { TimeTracker } from "./time-tracker/TimeTracker";
 export type { TimeTrackerState } from "@ttcanvas/core";
 // Pure calendar time math + overlay formatting, for App-level game-time
 // advances (GameTimeContext) - see calendar/utils.ts.
-export { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents } from "./calendar/utils";
+export { advanceTimeSeconds, formatDateOverlay, formatCalDate, formatTime, eventsStartingBetween, describeCrossedEvents } from "./calendar/utils";
 
 export { Bestiary } from "./bestiary/Bestiary";
 export type { BestiaryState } from "./bestiary/types";
 
 export { SessionRecorder } from "./session-recorder/SessionRecorder";
-export type { SessionRecorderState } from "./session-recorder/types";
+export type { SessionRecorderState, SessionEntry } from "./session-recorder/types";
 
 export { RulesReference } from "./rules-reference/RulesReference";
 export type { RulesReferenceState } from "./rules-reference/types";

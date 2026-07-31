@@ -271,12 +271,38 @@
 }
 
 .purse {
+  /* Takes the free space so the cast buttons that follow it sit flush right, rather than being
+     spread out by the row's space-between. */
+  margin-left: auto;
   font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
   font-size: 10px;
   font-weight: 400;
   color: var(--ink-4);
   text-transform: none;
   letter-spacing: 0;
+}
+
+/* Live-sync + cast pair, mirroring Map Display's toolbar. */
+.castBtn {
+  flex: none;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.castBtn:hover { border-color: var(--accent-line); color: var(--accent); }
+.castBtnActive {
+  border-color: var(--accent-line);
+  background: var(--accent-wash);
+  color: var(--accent);
 }
 
 /* Rarity reads as a 2px bar on the row, the same treatment (and tokens) the Items ledger uses, so

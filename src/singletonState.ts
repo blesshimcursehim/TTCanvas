@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import type { CalendarState, CalEvent } from "@ttcanvas/core";
-import type { CampaignTimelineState, TimelineEntry } from "@ttcanvas/widgets-builtin";
+import type { CampaignTimelineState, TimelineEntry, SessionRecorderState, SessionEntry } from "@ttcanvas/widgets-builtin";
 import type { WidgetInstance } from "./workspace";
 
 /**
@@ -18,6 +18,7 @@ export type SingletonStates = Record<string, unknown>;
 
 const DEFAULT_CAL_STATE: CalendarState = { def: null, events: [] };
 const DEFAULT_TIMELINE_STATE: CampaignTimelineState = { entries: [] };
+const DEFAULT_SESSION_LOG_STATE: SessionRecorderState = { entries: [], exportFolder: null };
 
 // Falls back to the widget instance before the empty default: on an older, instance-backed
 // workspace a bare default would write a singleton holding only the new event, and since the
@@ -46,6 +47,19 @@ export function appendChronicleEntry(
     ?? widgets.find((w) => w.type === "campaign-timeline")?.state
     ?? DEFAULT_TIMELINE_STATE) as CampaignTimelineState;
   return { ...ss, "campaign-timeline": { ...cur, entries: [...(cur.entries ?? []), entry] } };
+}
+
+// Same instance-state fallback and same caller-mints-the-id rule as appendChronicleEntry - a Strict
+// Mode replay of the updater must not produce a second, different entry.
+export function appendSessionEntry(
+  ss: SingletonStates,
+  widgets: readonly WidgetInstance[],
+  entry: SessionEntry,
+): SingletonStates {
+  const cur = (ss["session-recorder"]
+    ?? widgets.find((w) => w.type === "session-recorder")?.state
+    ?? DEFAULT_SESSION_LOG_STATE) as SessionRecorderState;
+  return { ...ss, "session-recorder": { ...cur, entries: [...(cur.entries ?? []), entry] } };
 }
 
 // Which Gazetteer places already have a pin, gathered across every scene. Pre-scenes

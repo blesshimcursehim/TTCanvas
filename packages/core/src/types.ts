@@ -93,8 +93,27 @@ export interface LocationPayload {
   imgSrc?: string;   // data URL of the establishing image, or absent
 }
 
+/** One line of a cast price list. Prices arrive pre-formatted as a coin string, because the coin
+ *  maths and the merchant's modifiers are the GM window's business - the player window only prints
+ *  what it is handed. */
+export interface ShopLine {
+  name: string;
+  price: string;
+  /** null for unlimited stock; 0 renders as sold out. Absent is treated as unlimited. */
+  qty?: number | null;
+  rarity?: string;
+}
+
+/** A merchant's shelves, cast as a player-facing price list. Everything GM-only - buyback rates,
+ *  the party purse, the merchant's notes - stays behind. */
+export interface ShopPayload {
+  name: string;
+  subtitle?: string; // e.g. "Blacksmith - Citadel of Thorns"
+  lines: ShopLine[];
+}
+
 export interface PlayerScene {
-  type: "idle" | "map" | "handout" | "character" | "text" | "location";
+  type: "idle" | "map" | "handout" | "character" | "text" | "location" | "shop";
   inWorldDate?: string; // formatted string; present only when Time Tracker showOnPlayer is true
   map?: {
     mapFolder: string;
@@ -119,6 +138,7 @@ export interface PlayerScene {
   text?: { title?: string; body: string }; // routed generator result cast to players
   character?: CharacterPayload;
   location?: LocationPayload; // Gazetteer establishing card
+  shop?: ShopPayload;         // Merchants price list
 }
 
 export interface AbilityScores {

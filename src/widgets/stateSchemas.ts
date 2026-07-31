@@ -775,6 +775,7 @@ const merchantsSchema = z
     query: z.string().catch(""),
     kindFilter: z.enum(MERCHANT_KIND_VALUES).nullable().catch(null),
     pullVaultPath: z.string().optional().catch(undefined),
+    autoCast: z.boolean().optional().catch(undefined),
   })
   .catch(MERCHANTS_DEFAULT);
 

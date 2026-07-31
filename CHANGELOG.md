@@ -31,6 +31,14 @@ All notable changes are documented here.
   "place at map center" button next to each portrait - the same one-click placement Initiative Tracker
   already had - so getting a character or creature onto the map no longer requires a drag.
 
+- **Show the players what's on the shelves.** Merchants gained a cast button that puts a merchant's
+  price list on the player window - names, prices and rarity, laid out to be read from across the
+  table. Everything that's yours alone stays yours: your markup, the buyback rate, the party purse,
+  your notes on the shopkeeper. Beside it, live sync keeps that list following the selected merchant,
+  so a purchase updates the shelf the players are reading without you casting again. Purchases and
+  sales are also written to the Session Logger with the merchant and the price, so at the end of the
+  night you can see where the money went.
+
 - **Merchants restock themselves.** Hit **Generate** and a merchant fills its own shelves from your
   Items catalogue. What it deals in comes from its kind, so a blacksmith reaches for weapons and
   armour whilst an apothecary reaches for potions. How good its stock gets is entirely your call: tick

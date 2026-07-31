@@ -4,16 +4,16 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  useVault, useItems, useNpcs, useGazetteerLocations, useRollTables, useToast, logError,
-  formatCoin, type CatalogueItemRef,
+  useVault, useItems, useNpcs, useGazetteerLocations, useRollTables, useToast, useSessionLog,
+  logError, pushShopScene, formatCoin, type CatalogueItemRef,
 } from "@ttcanvas/core";
 import type { Merchant, MerchantKind, MerchantStock, MerchantsState } from "./types";
 import { MERCHANT_KINDS, RARITY_PRESETS, KINDS_BY_MERCHANT } from "./types";
 import type { ItemKind, Rarity } from "../items/types";
 import { RARITIES, ITEM_KINDS } from "../items/types";
-import { askPriceCp, offerPriceCp } from "./pricing";
+import { askPriceCp, offerPriceCp, buildShopPayload } from "./pricing";
 import { generateStock, matchByName, mergeStock } from "./generate";
 import { renderMarkdown } from "../shared/markdownRenderer";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
@@ -113,6 +113,7 @@ export function Merchants({ state, onChange }: Props) {
   const { npcs } = useNpcs();
   const { locations } = useGazetteerLocations();
   const { showToast } = useToast();
+  const { logSessionEntry } = useSessionLog();
 
   const [editingDesc, setEditingDesc] = useState(false);
   // Keyed off nothing but the selection, which changing already unmounts the button - so unlike the
@@ -240,6 +241,22 @@ export function Merchants({ state, onChange }: Props) {
     );
   }
 
+  // ── Casting to the players ────────────────────────────────
+  function castShop() {
+    if (!selected) return;
+    void pushShopScene(buildShopPayload(selected, itemById));
+  }
+
+  // Live sync: while it is on, the selected merchant's shelf is the player scene, so a purchase or a
+  // price edit reaches the table without the GM re-casting. Debounced like Map Display's own live
+  // sync, for the same reason - typing in a price field would otherwise emit on every keystroke.
+  const autoCast = state.autoCast ?? false;
+  useEffect(() => {
+    if (!autoCast || !selected) return;
+    const timer = setTimeout(() => pushShopScene(buildShopPayload(selected, itemById)), 400);
+    return () => clearTimeout(timer);
+  }, [autoCast, selected, itemById]);
+
   // ── Transactions ──────────────────────────────────────────
   function handleBuy(row: MerchantStock) {
     if (!selected) return;
@@ -254,6 +271,10 @@ export function Merchants({ state, onChange }: Props) {
     grantToParty(row.itemId, 1, unitCp);
     if (row.qty !== null) patchStock(row.itemId, { qty: Math.max(0, row.qty - 1) });
 
+    // The toast is gone in seconds; the log is what the GM reads back at the end of the night when
+    // someone asks where the money went. Both, not one or the other.
+    logSessionEntry(`Bought ${name} from ${selected.name} for ${formatCoin(unitCp)}.`);
+
     // Warn, never block: the GM overrules the ledger, so an unaffordable purchase still completes.
     if (unitCp > purseCp) {
       showToast(`Bought ${name} for ${formatCoin(unitCp)} - ${formatCoin(unitCp - purseCp)} more than the party had.`, "info");
@@ -266,6 +287,7 @@ export function Merchants({ state, onChange }: Props) {
     if (!selected) return;
     const item = itemById.get(itemId);
     const unitCp = offerPriceCp(item, selected);
+    const name = item?.name ?? "it";
     takeFromParty(itemId, 1, unitCp);
     const existing = selected.stock.find((s) => s.itemId === itemId);
     if (existing) {
@@ -273,7 +295,8 @@ export function Merchants({ state, onChange }: Props) {
     } else {
       patchMerchant(selected.id, { stock: [...selected.stock, { itemId, qty: 1 }] });
     }
-    showToast(`Sold ${item?.name ?? "it"} for ${formatCoin(unitCp)}.`, "success");
+    logSessionEntry(`Sold ${name} to ${selected.name} for ${formatCoin(unitCp)}.`);
+    showToast(`Sold ${name} for ${formatCoin(unitCp)}.`, "success");
   }
 
   // ── Import / export / pull ────────────────────────────────
@@ -536,6 +559,33 @@ export function Merchants({ state, onChange }: Props) {
                 <div className={styles.sectionHead}>
                   <span>For sale</span>
                   <span className={styles.purse}>Party purse: {formatCoin(purseCp)}</span>
+                  {/* Same live-sync-then-cast pair, in the same order, as Map Display's toolbar. */}
+                  <button
+                    className={`${styles.castBtn} ${autoCast ? styles.castBtnActive : ""}`}
+                    aria-pressed={autoCast}
+                    onClick={() => onChange({ ...state, autoCast: !autoCast })}
+                    title={autoCast
+                      ? "Live sync ON - the players' price list follows this merchant. Click to turn off"
+                      : "Live sync OFF - click to keep the players' price list in step with this merchant"}
+                    aria-label="Live sync price list to player window"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="23 4 23 10 17 10" />
+                      <polyline points="1 20 1 14 7 14" />
+                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                    </svg>
+                  </button>
+                  <button
+                    className={styles.castBtn}
+                    onClick={castShop}
+                    title="Cast this price list to the player window"
+                    aria-label="Cast price list to player window"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6" />
+                      <line x1="2" y1="20" x2="2.01" y2="20" />
+                    </svg>
+                  </button>
                 </div>
                 {selected.stock.length === 0 && <p className={styles.empty}>Nothing stocked yet.</p>}
                 {selected.stock.map((row) => {

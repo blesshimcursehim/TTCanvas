@@ -29,15 +29,15 @@ import { ModTrustPrompt } from "./canvas/ModTrustPrompt";
 import { deleteVaultFile } from "./vault";
 import { loadWorkspace, saveWorkspace, WORKSPACE_VERSION } from "./workspace";
 import type { WidgetInstance, Layout, WorkspaceState } from "./workspace";
-import { appendCalendarEvent, appendChronicleEntry, collectPinnedLocationRefs } from "./singletonState";
+import { appendCalendarEvent, appendChronicleEntry, appendSessionEntry, collectPinnedLocationRefs } from "./singletonState";
 import { DEFAULT_SESSION_TIMER, bankSessionTimer } from "./sessionTimer";
 import { VaultProvider } from "./VaultProvider";
 import { NpcProvider } from "./NpcProvider";
 import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
-import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, RollTablesContext, ItemsContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, pushPlayerTextScale, useToast, logError, logWarn, DEFAULT_JUMPS, applyCurrencyDelta, type PCCurrency, type RollTableRef, type RollTableOutcome, type ItemRef, type CatalogueItemRef, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
-import { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, rollTableMultiple, buildRollHistoryItems, HISTORY_CAP, setQty, qtyFor, currencyToCp, spendFromPurse, addToPurse, currencyOf, withCurrency, type XpTrackerState, type DiceRollerState, type RollTablesState, type ItemsState, type TimelineEntry } from "@ttcanvas/widgets-builtin";
+import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, SessionLogContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, RollTablesContext, ItemsContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, pushPlayerTextScale, useToast, logError, logWarn, DEFAULT_JUMPS, applyCurrencyDelta, type PCCurrency, type RollTableRef, type RollTableOutcome, type ItemRef, type CatalogueItemRef, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
+import { advanceTimeSeconds, formatDateOverlay, formatCalDate, formatTime, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, rollTableMultiple, buildRollHistoryItems, HISTORY_CAP, setQty, qtyFor, currencyToCp, spendFromPurse, addToPurse, currencyOf, withCurrency, type XpTrackerState, type DiceRollerState, type RollTablesState, type ItemsState, type TimelineEntry, type SessionEntry } from "@ttcanvas/widgets-builtin";
 import { parseRollTablesState, parseItemsState } from "./widgets/stateSchemas";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, INTERFACE_SCALE_FACTOR, type AppConfig, type AIConfigPatch } from "./appConfig";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -940,6 +940,29 @@ function App() {
   // while the Time Tracker widget itself is closed.
   const singletonStatesRef = useRef(singletonStates);
   useLayoutEffect(() => { singletonStatesRef.current = singletonStates; }, [singletonStates]);
+
+  // Append one line to the Session Logger (e.g. "Bought a longsword from Dorn's Forge"). Sibling of
+  // addChronicleEntry, with the same rule: everything non-deterministic - the id, the wall clock and
+  // the in-game stamp - is computed here rather than inside the updater, because Strict Mode replays
+  // it. The in-game stamp deliberately matches the format the Session Logger writes for hand-typed
+  // entries, so a logged purchase reads as one more line of the same log rather than a foreign one.
+  const logSessionEntry = useCallback(
+    (text: string) => {
+      const cal = (singletonStatesRef.current["custom-calendar"] ?? DEFAULT_CAL_STATE) as CalendarState;
+      const time = (singletonStatesRef.current["time-tracker"] ?? DEFAULT_TIME_STATE) as TimeTrackerState;
+      const entry: SessionEntry = {
+        id: crypto.randomUUID(),
+        text,
+        wallTime: Date.now(),
+        ...(cal.def && time.currentDate
+          ? { inGameTime: `${formatCalDate(time.currentDate, cal.def)} ${formatTime(time.currentHour, time.currentMinute)}` }
+          : {}),
+      };
+      setSingletonStates((ss) => appendSessionEntry(ss, widgetsRef.current, entry));
+    },
+    [setSingletonStates],
+  );
+
   const advanceGameTime = useCallback((deltaSeconds: number) => {
     const cal = (singletonStatesRef.current["custom-calendar"] ?? DEFAULT_CAL_STATE) as CalendarState;
     if (!cal.def) return; // no calendar -> graceful no-op
@@ -1168,6 +1191,7 @@ function App() {
   }), [calState, timeState, setCalendarState, addCalendarEvent, setTimeState]);
 
   const chronicleContextValue = useMemo(() => ({ addChronicleEntry }), [addChronicleEntry]);
+  const sessionLogContextValue = useMemo(() => ({ logSessionEntry }), [logSessionEntry]);
 
   const conditionsContextValue = useMemo(() => ({
     customConditions: appConfig.customConditions,
@@ -1500,6 +1524,7 @@ function App() {
       <AIContext.Provider value={aiContextValue}>
       <CalendarContext.Provider value={calendarContextValue}>
       <ChronicleContext.Provider value={chronicleContextValue}>
+      <SessionLogContext.Provider value={sessionLogContextValue}>
       <GameTimeContext.Provider value={gameTimeContextValue}>
       <ConditionsContext.Provider value={conditionsContextValue}>
       <ITContext.Provider value={itContextValue}>
@@ -1687,6 +1712,7 @@ function App() {
       </ITContext.Provider>
       </ConditionsContext.Provider>
       </GameTimeContext.Provider>
+      </SessionLogContext.Provider>
       </ChronicleContext.Provider>
       </CalendarContext.Provider>
       </AIContext.Provider>

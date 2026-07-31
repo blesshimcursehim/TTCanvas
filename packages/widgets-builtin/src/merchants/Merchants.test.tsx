@@ -7,15 +7,28 @@
 
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ItemsContext, NpcContext, GazetteerContext, RollTablesContext, ToastContext, VaultContext } from "@ttcanvas/core";
+import { ItemsContext, NpcContext, GazetteerContext, RollTablesContext, SessionLogContext, ToastContext, VaultContext } from "@ttcanvas/core";
 import type {
   ItemsContextValue, CatalogueItemRef, ItemRef, NpcContextValue, GazetteerContextValue,
-  RollTablesContextValue, RollTableOutcome, ToastContextValue, VaultContextValue,
+  RollTablesContextValue, RollTableOutcome, SessionLogContextValue, ToastContextValue, VaultContextValue,
+  PlayerScene,
 } from "@ttcanvas/core";
+import { emitTo } from "@tauri-apps/api/event";
 import { Merchants } from "./Merchants";
 import type { Merchant, MerchantsState } from "./types";
 
-afterEach(cleanup);
+// Casting a price list goes through Tauri's emitTo. Stubbed so the cast tests can read the payload.
+vi.mock("@tauri-apps/api/event", () => ({
+  emitTo: vi.fn().mockResolvedValue(undefined),
+}));
+
+afterEach(() => { cleanup(); vi.mocked(emitTo).mockClear(); });
+
+/** The scene handed to the player window by the most recent cast. */
+function lastCastScene(): PlayerScene {
+  const calls = vi.mocked(emitTo).mock.calls;
+  return calls[calls.length - 1]?.[2] as PlayerScene;
+}
 
 // Only the export/pull controls touch the vault, and none of these tests open the settings cog.
 const VAULT = { vaultPath: "/v", vaultVersion: 1, otherVaults: [] } as unknown as VaultContextValue;
@@ -48,6 +61,7 @@ interface Harness {
   locations?: GazetteerContextValue["locations"];
   tables?: { id: string; name: string }[];
   rollOn?: (id: string) => RollTableOutcome[] | null;
+  logSessionEntry?: SessionLogContextValue["logSessionEntry"];
 }
 
 function renderMerchants(state: MerchantsState, h: Harness = {}) {
@@ -72,7 +86,9 @@ function renderMerchants(state: MerchantsState, h: Harness = {}) {
           <RollTablesContext.Provider value={rollTables}>
             <NpcContext.Provider value={{ npcs: h.npcs ?? [], loading: false }}>
               <GazetteerContext.Provider value={{ locations: h.locations ?? [], loading: false }}>
-                <Merchants state={state} onChange={h.onChange ?? (() => {})} />
+                <SessionLogContext.Provider value={{ logSessionEntry: h.logSessionEntry ?? (() => {}) }}>
+                  <Merchants state={state} onChange={h.onChange ?? (() => {})} />
+                </SessionLogContext.Provider>
               </GazetteerContext.Provider>
             </NpcContext.Provider>
           </RollTablesContext.Provider>
@@ -373,5 +389,66 @@ describe("Merchants - the name snapshot", () => {
     }));
     expect(screen.getByText("Longsword")).toBeTruthy();
     expect(screen.queryByText("Old name")).toBeNull();
+  });
+});
+
+describe("Merchants - casting the price list", () => {
+  it("casts the selected merchant's shelf to the player window", () => {
+    renderMerchants(baseState());
+    fireEvent.click(screen.getByLabelText("Cast price list to player window"));
+
+    const scene = lastCastScene();
+    expect(scene.type).toBe("shop");
+    expect(scene.shop?.name).toBe("Dorn's Forge");
+    expect(scene.shop?.lines).toEqual([{ name: "Longsword", price: "15 gp", qty: 3 }]);
+  });
+
+  it("does not cast on its own until the GM turns live sync on", () => {
+    renderMerchants(baseState());
+    expect(emitTo).not.toHaveBeenCalled();
+  });
+
+  it("toggles live sync through onChange rather than local state, so it survives a reload", () => {
+    const onChange = vi.fn();
+    renderMerchants(baseState(), { onChange });
+    fireEvent.click(screen.getByLabelText("Live sync price list to player window"));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ autoCast: true }));
+  });
+
+  it("pushes the shelf without a click once live sync is on", async () => {
+    vi.useFakeTimers();
+    try {
+      renderMerchants(baseState({ autoCast: true }));
+      await vi.advanceTimersByTimeAsync(500);
+      expect(lastCastScene().shop?.name).toBe("Dorn's Forge");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("Merchants - the session log", () => {
+  it("logs a purchase with the merchant and the price paid", () => {
+    const logSessionEntry = vi.fn();
+    renderMerchants(baseState(), { logSessionEntry });
+    fireEvent.click(screen.getByRole("button", { name: "Buy" }));
+    expect(logSessionEntry).toHaveBeenCalledWith("Bought Longsword from Dorn's Forge for 15 gp.");
+  });
+
+  it("logs a purchase the party could not afford, since it still happened", () => {
+    const logSessionEntry = vi.fn();
+    renderMerchants(baseState(), { logSessionEntry, purseCp: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "Buy" }));
+    expect(logSessionEntry).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs a sale at the buyback price, not the asking price", () => {
+    const logSessionEntry = vi.fn();
+    renderMerchants(baseState(), {
+      logSessionEntry,
+      partyStash: [{ ...SWORD, qty: 1 }],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Sell" }));
+    expect(logSessionEntry).toHaveBeenCalledWith("Sold Longsword to Dorn's Forge for 15 ep.");
   });
 });
