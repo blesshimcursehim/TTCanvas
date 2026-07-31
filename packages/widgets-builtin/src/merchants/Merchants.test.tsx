@@ -154,6 +154,51 @@ describe("Merchants - stock", () => {
   });
 });
 
+describe("Merchants - reading a shelf item", () => {
+  const BLADE: CatalogueItemRef = {
+    ...SWORD, rarity: "rare", damage: [{ dice: "1d10+1", type: "slashing" }],
+    properties: ["versatile", "heavy"], weightLb: 3,
+    description: "Forged for a captain who never drew it.",
+  };
+
+  it("keeps the card shut until the name is clicked", () => {
+    renderMerchants(baseState(), { catalogue: [BLADE, POTION] });
+    expect(screen.queryByText(/never drew it/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Longsword" }));
+    expect(screen.getByText(/never drew it/)).toBeTruthy();
+  });
+
+  it("puts the item's detail in the shop, which is the whole point", () => {
+    renderMerchants(baseState(), { catalogue: [BLADE, POTION] });
+    fireEvent.click(screen.getByRole("button", { name: "Longsword" }));
+    expect(screen.getByText("2~11 Damage")).toBeTruthy();
+    expect(screen.getByText("slashing")).toBeTruthy();
+    expect(screen.getByText("versatile")).toBeTruthy();
+    expect(screen.getByText("3 lb")).toBeTruthy();
+  });
+
+  it("closes again on a second click", () => {
+    renderMerchants(baseState(), { catalogue: [BLADE, POTION] });
+    const name = screen.getByRole("button", { name: "Longsword" });
+    fireEvent.click(name);
+    fireEvent.click(name);
+    expect(screen.queryByText(/never drew it/)).toBeNull();
+  });
+
+  it("leaves Buy and the qty box directly clickable, so a trade is never two clicks", () => {
+    const grantToParty = vi.fn();
+    renderMerchants(baseState(), { catalogue: [BLADE, POTION], grantToParty });
+    fireEvent.click(screen.getByText("Buy"));
+    expect(grantToParty).toHaveBeenCalled();
+    expect(screen.queryByText(/never drew it/)).toBeNull();
+  });
+
+  it("will not offer a card for a dangling row, since there is nothing to show", () => {
+    renderMerchants(baseState({ merchants: [merchant({ stock: [{ itemId: "gone", qty: 1 }] })] }));
+    expect(screen.getByRole("button", { name: /Unknown item/ }).hasAttribute("disabled")).toBe(true);
+  });
+});
+
 describe("Merchants - buying", () => {
   it("grants the item to the party at the asking price and decrements stock", () => {
     const grantToParty = vi.fn();

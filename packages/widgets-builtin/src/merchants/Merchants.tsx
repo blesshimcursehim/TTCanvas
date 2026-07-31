@@ -16,6 +16,8 @@ import { RARITIES, ITEM_KINDS } from "../items/types";
 import { askPriceCp, offerPriceCp, buildShopPayload } from "./pricing";
 import { generateStock, matchByName, mergeStock } from "./generate";
 import { renderMarkdown } from "../shared/markdownRenderer";
+import { handleEntityWikilinkClick } from "../shared/wikilinks";
+import { ItemCard } from "../shared/ItemCard";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
@@ -31,16 +33,6 @@ interface Props {
 }
 
 const BUNDLE_TYPE = "ttcanvas-merchants";
-
-// A merchant's description is an entity body, so like Gazetteer/NPC notes its [[links]] go through
-// the cross-entity channel - [[Vex]] resolves to that NPC, [[A Note]] still opens the note.
-function handleWikilinkClick(e: React.MouseEvent) {
-  const link = (e.target as HTMLElement).closest("[data-wikilink]") as HTMLElement | null;
-  if (!link) return;
-  e.preventDefault();
-  const name = link.dataset.wikilink;
-  if (name) window.dispatchEvent(new CustomEvent("ttcanvas:open-entity-link", { detail: { name } }));
-}
 
 function isKind(v: unknown): v is MerchantKind {
   return typeof v === "string" && (MERCHANT_KINDS as readonly string[]).includes(v);
@@ -120,6 +112,9 @@ export function Merchants({ state, onChange }: Props) {
   // Items list (many rows, one confirm) a bare boolean can't leak onto a different merchant.
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [addStockId, setAddStockId] = useState("");
+  // Which shelf row has its item card open. Local, not persisted: which item the GM last peered at
+  // is a glance, not a setting, and saving it would reopen a card on every workspace load.
+  const [openStockId, setOpenStockId] = useState<string | null>(null);
   const [genCount, setGenCount] = useState(6);
   const [genTableId, setGenTableId] = useState("");
   // Kinds the GM has overridden for this session; null means "follow the merchant's own kind".
@@ -546,7 +541,7 @@ export function Merchants({ state, onChange }: Props) {
                         their own clicks, and nesting interactive content inside a button is invalid. */}
                     <div
                       className={styles.prose}
-                      onClick={handleWikilinkClick}
+                      onClick={handleEntityWikilinkClick}
                       dangerouslySetInnerHTML={{ __html: renderMarkdown(selected.description ?? "_No description._") }}
                     />
                     <button className={styles.editBtn} onClick={() => setEditingDesc(true)}>Edit description</button>
@@ -592,16 +587,27 @@ export function Merchants({ state, onChange }: Props) {
                   const item = itemById.get(row.itemId);
                   const unitCp = askPriceCp(row, item, selected);
                   const soldOut = row.qty !== null && row.qty <= 0;
+                  const open = openStockId === row.itemId;
                   return (
-                    <div key={row.itemId} className={styles.stockRow} data-rarity={item?.rarity}>
+                    <div key={row.itemId}>
+                    <div className={styles.stockRow} data-rarity={item?.rarity}>
                       {/* A row whose item was deleted from the catalogue stays visible and removable
                           rather than vanishing, so the GM can see and fix the dangling reference.
                           The live lookup always wins; row.name is the snapshot taken when the line
-                          was created, so a deleted item still reads by name instead of as an id. */}
-                      <span className={styles.stockName}>
+                          was created, so a deleted item still reads by name instead of as an id.
+
+                          Only the name toggles the card. Wrapping the whole row in a button would
+                          nest the qty input and Buy inside it, and the GM selling to a queue wants
+                          those under the cursor without a card opening every time. */}
+                      <button
+                        className={styles.stockName}
+                        aria-expanded={open}
+                        disabled={!item}
+                        onClick={() => setOpenStockId(open ? null : row.itemId)}
+                      >
                         {item?.name ?? row.name ?? "Unknown item"}
                         {!item && <span className={styles.missingTag}> · missing from Items</span>}
-                      </span>
+                      </button>
                       <input
                         className={styles.qtyInput}
                         type="number"
@@ -625,6 +631,10 @@ export function Merchants({ state, onChange }: Props) {
                         aria-label={`Remove ${item?.name ?? "unknown item"} from stock`}
                         onClick={() => removeStock(row.itemId)}
                       >×</button>
+                    </div>
+                    {open && item && (
+                      <div className={styles.stockCard}><ItemCard item={item} /></div>
+                    )}
                     </div>
                   );
                 })}

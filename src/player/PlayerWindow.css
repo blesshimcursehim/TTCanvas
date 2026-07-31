@@ -349,8 +349,9 @@ body,
   font-style: italic;
 }
 
-/* Rarity at a glance from across the table - the conventional green/blue/purple/orange/red ramp
-   rather than the GM widget's palette, which is tuned for a small pane read up close. */
+/* Rarity at a glance from across the table. Same hues as the GM side's --rarity-* ramp, held here as
+   literals at a higher chroma: this screen is read from across a room, the widgets from a foot away.
+   Not var()s, because the player window does not load the GM theme's tokens. */
 .shopLine[data-rarity="uncommon"]  { border-left-color: oklch(0.68 0.15 150); }
 .shopLine[data-rarity="rare"]      { border-left-color: oklch(0.68 0.14 240); }
 .shopLine[data-rarity="very-rare"] { border-left-color: oklch(0.66 0.17 300); }

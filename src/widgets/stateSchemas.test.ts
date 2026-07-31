@@ -696,9 +696,15 @@ describe("parseCampaignTimelineState", () => {
 });
 
 describe("parseItemsState", () => {
+  // Carries every field, so "passes valid state through" doubles as the guard against the strip-mode
+  // trap: this is a z.object that WidgetSlot re-parses each render, so a field nobody declared here
+  // is silently dropped every frame.
   const item = {
     id: "i1", name: "Sunblade", kind: "weapon", rarity: "very-rare",
     valueCp: 500000, weightLb: 3, description: "Radiant.", attuned: true,
+    damage: [{ dice: "1d8+8", type: "piercing" }, { dice: "1d6", type: "thunder" }],
+    versatileDice: "1d10", enchantment: 3, range: "5 ft", armourClass: "",
+    properties: ["versatile", "finesse"],
     holdings: [{ holderId: null, qty: 1 }],
   };
   const base = {
@@ -745,6 +751,37 @@ describe("parseItemsState", () => {
   it("resets an unknown kindFilter so nothing filters everything out", () => {
     const result = parseItemsState({ ...base, kindFilter: "wondrous" }) as { kindFilter: string | null };
     expect(result.kindFilter).toBeNull();
+  });
+
+  it("keeps damage notation as written, since it is free text and not an enum", () => {
+    const damage = [{ dice: "1d6 per level" }];
+    const result = parseItemsState({ ...base, items: [{ ...item, damage }] }) as { items: { damage?: unknown }[] };
+    expect(result.items[0].damage).toEqual(damage);
+  });
+
+  it("drops a damage component with no dice rather than rendering a blank row", () => {
+    const damage = [{ dice: "1d8", type: "piercing" }, { dice: "", type: "fire" }, { type: "cold" }];
+    const result = parseItemsState({ ...base, items: [{ ...item, damage }] }) as { items: { damage?: unknown }[] };
+    expect(result.items[0].damage).toEqual([{ dice: "1d8", type: "piercing" }]);
+  });
+
+  // Damage was briefly a single string before it became a list. Nothing shipped with that shape, but
+  // a vault opened by a development build could hold it, and this is a strip-mode object: an
+  // unrecognised value is dropped on the very next render, so the GM would watch it vanish.
+  it("folds the older single-string damage into one component instead of losing it", () => {
+    const result = parseItemsState({ ...base, items: [{ ...item, damage: "1d8+1" }] }) as { items: { damage?: unknown }[] };
+    expect(result.items[0].damage).toEqual([{ dice: "1d8+1" }]);
+  });
+
+  it("drops the non-strings out of a properties list rather than the whole list", () => {
+    const result = parseItemsState({ ...base, items: [{ ...item, properties: ["light", 7, null, "thrown"] }] }) as { items: { properties?: string[] }[] };
+    expect(result.items[0].properties).toEqual(["light", "thrown"]);
+  });
+
+  it("empties a properties field that is not a list at all", () => {
+    const result = parseItemsState({ ...base, items: [{ ...item, properties: "light" }] }) as { items: { properties?: string[]; name: string }[] };
+    expect(result.items[0].properties).toEqual([]);
+    expect(result.items[0].name).toBe("Sunblade");
   });
 
   it("returns default for null", () => {

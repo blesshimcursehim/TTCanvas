@@ -6,6 +6,23 @@ All notable changes are documented here.
 
 ### Features
 
+- **Weapons and armour can carry their actual detail, and a shop finally shows it.** An item could
+  only record a name, a kind, a rarity, a price and a weight, which is fine for a ledger and useless
+  for describing a sword. Items now take damage, a range, an armour class, a versatile die, an
+  enchantment bonus and free-text properties like light or versatile. All of it, plus the description
+  that was already there, reads as one card wherever the item appears: in the Items editor whilst you
+  write it, under a row on a merchant's shelf, and under a line in a character's own kit. Running a
+  shop no longer means leaving the merchant to go and look something up.
+
+  Damage is a list rather than a single figure, because a magic weapon routinely deals several kinds
+  at once. A trident dealing 1d8+8 piercing plus 1d6 thunder plus 1d4 necrotic is three rows, each
+  labelled, and the card works out what the whole lot comes to and headlines it as "11~26 Damage"
+  before you have to do the arithmetic. Click the dice to roll every component together into the Dice
+  Roller, holding Shift for advantage or Alt for disadvantage, the same as any stat on a character
+  sheet. Damage types and properties are free text with suggestions rather than a fixed list, because
+  TTCanvas is not a rules engine and your game may not have radiant damage in it. Nothing about the
+  price list your players see has changed.
+
 - **The canvas itself is now keyboard-reachable, and pans with the arrow keys.** Tab to it, or just
   click an empty part of it (Shift for a bigger step) - the same convention widget move/resize
   already used. Its rail in the sidebar also
@@ -305,6 +322,15 @@ All notable changes are documented here.
   tidy-up: it sits on its own line under a divider, with a clearer, labelled Pull button.
 
 ### Fixes
+
+- **Uncommon and rare items were the same colour.** The little rarity bar beside an item drew both
+  from the same blue, so two of the six rarities were impossible to tell apart at a glance. Uncommon
+  is now green, matching the ramp the player-facing price list already used. Legendary also stopped
+  following your accent colour, which made it identical to uncommon under the moss theme.
+
+- **Several Merchants controls had lost their amber highlight.** The pressed kind filter, the selected
+  merchant, the live-sync button and a couple of hover states were all reaching for a colour that
+  doesn't exist, so they quietly drew nothing at all.
 
 - **Dropdown lists are dark like the rest of the app.** Opening a dropdown - a location's parent in
   the Gazetteer, and every other one in the app - popped up a bright white list with amber text on it,

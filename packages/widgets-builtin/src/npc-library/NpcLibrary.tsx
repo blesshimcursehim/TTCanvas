@@ -16,6 +16,7 @@ import {
 } from "./npcFormat";
 import { setActiveTokenDrag, clearActiveTokenDrag, placeTokenAtCenter } from "../shared/tokenDrag";
 import { renderMarkdown, applyInline } from "../shared/markdownRenderer";
+import { handleEntityWikilinkClick } from "../shared/wikilinks";
 import { mimeForImageExt } from "../shared/mime";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { NPCSheetModal } from "../shared/NPCSheetModal";
@@ -30,16 +31,6 @@ import styles from "./NpcLibrary.module.css";
 function npcContentKey(npc: ParsedNpc): string {
   const { id: _id, filename: _filename, ...rest } = npc;
   return hashContent(rest);
-}
-
-// Wikilink clicks in an NPC's notes use the cross-entity channel, so [[A Place]] / [[Another NPC]]
-// resolve to that entity (and [[A Note]] still opens the note). An NPC body may link out to entities.
-function onNpcWikilinkClick(e: React.MouseEvent) {
-  const link = (e.target as HTMLElement).closest("[data-wikilink]") as HTMLElement | null;
-  if (!link) return;
-  e.preventDefault();
-  const name = link.dataset.wikilink;
-  if (name) window.dispatchEvent(new CustomEvent("ttcanvas:open-entity-link", { detail: { name } }));
 }
 
 function validateNpcBundle(parsed: unknown): ParsedNpc[] | null {
@@ -642,7 +633,7 @@ export function NpcLibrary({ state, onChange }: Props) {
               {editing
                 ? <input className={styles.metaInput} value={draft?.lastSeen ?? ""} onChange={(e) => setNpc("lastSeen", e.target.value || undefined)} placeholder="-" />
                 : displayNpc.lastSeen
-                  ? <span className={styles.metaVal} dangerouslySetInnerHTML={{ __html: applyInline(displayNpc.lastSeen) }} onClick={onNpcWikilinkClick} />
+                  ? <span className={styles.metaVal} dangerouslySetInnerHTML={{ __html: applyInline(displayNpc.lastSeen) }} onClick={handleEntityWikilinkClick} />
                   : <span className={styles.metaVal}>-</span>}
             </div>
 
@@ -689,7 +680,7 @@ export function NpcLibrary({ state, onChange }: Props) {
                 <div key={i} className={styles.metaField}>
                   <div className={styles.sectionHead}>{f.label}</div>
                   {f.value
-                    ? <span className={styles.metaVal} dangerouslySetInnerHTML={{ __html: applyInline(f.value) }} onClick={onNpcWikilinkClick} />
+                    ? <span className={styles.metaVal} dangerouslySetInnerHTML={{ __html: applyInline(f.value) }} onClick={handleEntityWikilinkClick} />
                     : <span className={styles.metaVal}>-</span>}
                 </div>
               ))
@@ -733,7 +724,7 @@ export function NpcLibrary({ state, onChange }: Props) {
               {editing
                 ? <textarea className={styles.notesTextarea} rows={4} value={draft?.notes ?? ""} onChange={(e) => patchDraft({ notes: e.target.value || undefined })} placeholder="GM notes… [[Place]] and [[NPC]] links work" />
                 : displayNpc.notes?.trim()
-                  ? <div className={styles.notesProse} dangerouslySetInnerHTML={{ __html: renderMarkdown(displayNpc.notes) }} onClick={onNpcWikilinkClick} />
+                  ? <div className={styles.notesProse} dangerouslySetInnerHTML={{ __html: renderMarkdown(displayNpc.notes) }} onClick={handleEntityWikilinkClick} />
                   : <p className={styles.notesText}>-</p>}
             </div>
 

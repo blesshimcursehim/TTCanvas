@@ -9,9 +9,29 @@
 // *sources* of links can be notes, NPC Library notes, or Gazetteer place bodies - so opening a note
 // shows everything across the vault that mentions it.
 
+import type { MouseEvent } from "react";
+
 // Same shape the markdown renderer matches for rendering; kept here for the reverse index. Global so
 // a line with several links yields them all.
 const WIKILINK_RE = /\[\[([^\]]+)\]\]/g;
+
+/**
+ * Click handler for a rendered-Markdown block that is an *entity* body - an NPC, a place, a merchant,
+ * an item. Its [[links]] go through the cross-entity channel, so [[Vex]] resolves to that NPC and
+ * [[A Note]] still opens the note. Session Notes deliberately does not use this: its links stay
+ * note-only so a vault keeps working in Obsidian.
+ *
+ * Delegated from the container rather than bound per link, because the Markdown arrives as injected
+ * HTML with no React elements to attach to; `closest` walks up so a click on a nested `<em>` inside
+ * the link still resolves. `WikilinkResolver` listens for the event.
+ */
+export function handleEntityWikilinkClick(e: MouseEvent): void {
+  const link = (e.target as HTMLElement).closest("[data-wikilink]") as HTMLElement | null;
+  if (!link) return;
+  e.preventDefault();
+  const name = link.dataset.wikilink;
+  if (name) window.dispatchEvent(new CustomEvent("ttcanvas:open-entity-link", { detail: { name } }));
+}
 
 /** The target names referenced by `[[...]]` in a body, in order, honouring `[[target|alias]]`. */
 export function extractWikilinkTargets(text: string): string[] {

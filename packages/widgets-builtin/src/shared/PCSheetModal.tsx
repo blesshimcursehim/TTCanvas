@@ -15,6 +15,7 @@ import type { AbilityScores, SpellSlots, PCCurrency } from "@ttcanvas/core";
 import { useVault, useItems, pushCharacterScene, abilityModifier, proficiencyBonus, CURRENCY_KEYS, formatCoin } from "@ttcanvas/core";
 import { currencyOf, withCurrency } from "../party-tracker/currency";
 import { portraitColor } from "../party-tracker/CharacterCard";
+import { ItemCard } from "./ItemCard";
 import styles from "./PCSheetModal.module.css";
 
 // "Inventory" here is deliberate, and not drift from the Items widget rename: a character genuinely
@@ -59,6 +60,7 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<PartyMember>(member);
   const [newEquipItem, setNewEquipItem] = useState("");
+  const [openLedgerId, setOpenLedgerId] = useState<string | null>(null);
 
   function patch(p: Partial<PartyMember>) {
     setDraft((d) => ({ ...d, ...p }));
@@ -573,19 +575,32 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
             <>
               <SectionHead style={{ marginTop: 14 }}>Party ledger</SectionHead>
               <div className={styles.ledgerList}>
-                {ledgerItems.map((i) => (
-                  <div key={i.id} className={styles.ledgerRow}>
-                    <span className={styles.ledgerQty}>{i.qty}</span>
-                    <span className={styles.ledgerName}>
-                      {i.name}
-                      <span className={styles.ledgerMeta}>
-                        {i.kind}{i.rarity ? ` · ${i.rarity.replace("-", " ")}` : ""}
-                        {i.weightLb ? ` · ${i.weightLb} lb` : ""}
-                      </span>
-                    </span>
-                    <span className={styles.ledgerValue}>{i.valueCp ? formatCoin(i.valueCp) : ""}</span>
-                  </div>
-                ))}
+                {/* The whole row opens the card here, unlike the merchant's shelf: there is nothing
+                    else on it to click, so anything smaller than the row would just be a smaller
+                    target. */}
+                {ledgerItems.map((i) => {
+                  const open = openLedgerId === i.id;
+                  return (
+                    <div key={i.id}>
+                      <button
+                        className={styles.ledgerRow}
+                        aria-expanded={open}
+                        onClick={() => setOpenLedgerId(open ? null : i.id)}
+                      >
+                        <span className={styles.ledgerQty}>{i.qty}</span>
+                        <span className={styles.ledgerName}>
+                          {i.name}
+                          <span className={styles.ledgerMeta}>
+                            {i.kind}{i.rarity ? ` · ${i.rarity.replace("-", " ")}` : ""}
+                            {i.weightLb ? ` · ${i.weightLb} lb` : ""}
+                          </span>
+                        </span>
+                        <span className={styles.ledgerValue}>{i.valueCp ? formatCoin(i.valueCp) : ""}</span>
+                      </button>
+                      {open && <div className={styles.ledgerCard}><ItemCard item={i} qty={i.qty} /></div>}
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}

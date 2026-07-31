@@ -37,7 +37,7 @@ import { GazetteerProvider } from "./GazetteerProvider";
 import { WikilinkResolver, type NamedRef } from "./WikilinkResolver";
 import { VaultSelector } from "./VaultSelector";
 import { PartyContext, BestiaryContext, CalendarContext, ChronicleContext, SessionLogContext, MapPinsContext, LinkSourcesContext, type EntityLinkSource, GameTimeContext, ITContext, XpContext, DiceContext, RollTablesContext, ItemsContext, AIContext, ConditionsContext, pushPlayerScene, pushDateOverlay, pushPlayerTextScale, useToast, logError, logWarn, DEFAULT_JUMPS, applyCurrencyDelta, type PCCurrency, type RollTableRef, type RollTableOutcome, type ItemRef, type CatalogueItemRef, type SharedPartyMember, type BestiaryCreatureRef, type CalendarState, type CalDate, type CalEvent, type ChronicleDraft, type TimeTrackerState, type InitiativeTrackerState, type SessionTimerState } from "@ttcanvas/core";
-import { advanceTimeSeconds, formatDateOverlay, formatCalDate, formatTime, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, rollTableMultiple, buildRollHistoryItems, HISTORY_CAP, setQty, qtyFor, currencyToCp, spendFromPurse, addToPurse, currencyOf, withCurrency, type XpTrackerState, type DiceRollerState, type RollTablesState, type ItemsState, type TimelineEntry, type SessionEntry } from "@ttcanvas/widgets-builtin";
+import { advanceTimeSeconds, formatDateOverlay, formatCalDate, formatTime, eventsStartingBetween, describeCrossedEvents, mimeForImageExt, buildTurnOrder, applyEncounterAward, buildRollEntry, MAX_HISTORY, rollTableMultiple, buildRollHistoryItems, HISTORY_CAP, setQty, qtyFor, currencyToCp, spendFromPurse, addToPurse, currencyOf, withCurrency, type XpTrackerState, type DiceRollerState, type RollTablesState, type ItemsState, type CatalogueItem, type TimelineEntry, type SessionEntry } from "@ttcanvas/widgets-builtin";
 import { parseRollTablesState, parseItemsState } from "./widgets/stateSchemas";
 import { loadAppConfig, saveAppConfig, pushRecentVault, parentDir, INTERFACE_SCALE_FACTOR, type AppConfig, type AIConfigPatch } from "./appConfig";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -78,6 +78,21 @@ const DEFAULT_ITEMS_STATE: ItemsState = {
   showWeight: false,
   carryLimitLb: null,
 };
+
+/**
+ * The one place an item definition is narrowed for the contexts. Both projections below go through
+ * it - the per-holder buckets and the sorted catalogue - so a new field on `CatalogueItem` reaches
+ * Merchants and the PC sheet by being named once here, instead of being forgotten in one of two
+ * near-identical object literals.
+ *
+ * Subtracting the two campaign-state fields rather than listing the definition ones is what makes
+ * that work: `holdings` and `attuned` say who has this and whether they have bonded with it, which
+ * is nobody's business on a merchant's shelf, while everything else describes the thing itself.
+ */
+function toCatalogueRef(item: CatalogueItem): CatalogueItemRef {
+  const { holdings: _holdings, attuned: _attuned, ...ref } = item;
+  return ref;
+}
 
 /**
  * Serializes async writes to one file so callers never race each other, and
@@ -1225,11 +1240,7 @@ function App() {
     for (const item of itemsState.items) {
       for (const h of item.holdings) {
         if (h.qty <= 0) continue;
-        const ref: ItemRef = {
-          id: item.id, name: item.name, qty: h.qty, kind: item.kind,
-          rarity: item.rarity, valueCp: item.valueCp, weightLb: item.weightLb,
-          description: item.description,
-        };
+        const ref: ItemRef = { ...toCatalogueRef(item), qty: h.qty };
         if (h.holderId === null) {
           stash.push(ref);
         } else {
@@ -1244,10 +1255,7 @@ function App() {
 
   // Definitions only, name-sorted: what a merchant's stock picker browses.
   const catalogue = useMemo<CatalogueItemRef[]>(
-    () => itemsState.items
-      .map(({ id, name, kind, rarity, valueCp, weightLb, description }) =>
-        ({ id, name, kind, rarity, valueCp, weightLb, description }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
+    () => itemsState.items.map(toCatalogueRef).sort((a, b) => a.name.localeCompare(b.name)),
     [itemsState],
   );
 

@@ -22,7 +22,7 @@ export type { DiceContextValue } from "./DiceContext";
 export { RollTablesContext, useRollTables } from "./RollTablesContext";
 export type { RollTablesContextValue, RollTableRef, RollTableOutcome } from "./RollTablesContext";
 export { ItemsContext, useItems } from "./ItemsContext";
-export type { ItemsContextValue, CatalogueItemRef, ItemRef } from "./ItemsContext";
+export type { ItemsContextValue, CatalogueItemRef, ItemRef, DamagePart } from "./ItemsContext";
 export { CalendarContext, useCalendar } from "./CalendarContext";
 export type { CalendarContextValue } from "./CalendarContext";
 export { ChronicleContext, useChronicle } from "./ChronicleContext";

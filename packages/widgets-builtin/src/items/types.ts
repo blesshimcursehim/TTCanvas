@@ -4,7 +4,9 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import type { PCCurrency } from "@ttcanvas/core";
+import type { PCCurrency, DamagePart } from "@ttcanvas/core";
+
+export type { DamagePart };
 
 export const RARITIES = ["common", "uncommon", "rare", "very-rare", "legendary", "artifact"] as const;
 export type Rarity = typeof RARITIES[number];
@@ -38,6 +40,38 @@ export interface CatalogueItem {
   /** Markdown, wikilink-aware. */
   description?: string;
   attuned?: boolean;
+  /**
+   * A weapon's damage, in order: the first part is its base, the rest stack on top. Each part's dice
+   * are parsed with the Dice Roller's `parseExpression` so the card can quote a total range and roll
+   * the lot; unparseable text is kept and shown as written rather than rejected, because TTCanvas
+   * warns and does not block.
+   *
+   * Damage types are free text with a `<datalist>` of suggestions rather than an enum: an enum would
+   * make TTCanvas a 5e-only app, and shipping a fixed vocabulary is content we would have to licence.
+   * Same reasoning for `range` and `armourClass` below.
+   */
+  damage?: DamagePart[];
+  /**
+   * Alternate dice for the base damage - a two-handed grip, or a thrown one. Printed beside the base
+   * as "1d8 (1d6)". Deliberately outside the damage range: a range quoting both grips at once would
+   * be quoting a weapon nobody is holding.
+   */
+  versatileDice?: string;
+  /**
+   * A magic weapon's flat bonus, shown on its own line. Display only, never folded into the damage
+   * range - by the time a GM writes "1d8+8" the bonus is usually already in there, and adding it
+   * again would silently inflate every enchanted weapon.
+   */
+  enchantment?: number;
+  /** "20/60 ft". A string, because every system writes ranges differently. */
+  range?: string;
+  /** Armour only: "14 + Dex (max 2)". */
+  armourClass?: string;
+  /**
+   * Free-text tags - light, finesse, versatile, stealth disadvantage. Not weapon-specific: a potion
+   * is as entitled to a tag as a sword is.
+   */
+  properties?: string[];
   holdings: Holding[];
 }
 

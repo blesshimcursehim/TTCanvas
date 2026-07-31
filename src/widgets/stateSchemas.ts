@@ -509,6 +509,16 @@ const holdingSchema = z.object({
   qty: z.number().int().positive(),
 });
 
+// A damage component needs its dice; a part with none is noise the card would render as a blank row.
+const damagePartSchema = z.object({
+  dice: z.string().min(1),
+  type: z.string().optional().catch(undefined),
+});
+const damagePartsSchema = filterArr(damagePartSchema);
+// `damageType` sat beside `damage` in the old flat shape, but zod validates one field at a time, so
+// the type it labelled cannot be recovered here. The dice are the part worth saving.
+const legacyDamageSchema = z.string().min(1).transform((dice) => [{ dice }]);
+
 const catalogueItemSchema = z.object({
   id: z.string(),
   name: z.string().catch("Unnamed item"),
@@ -519,6 +529,22 @@ const catalogueItemSchema = z.object({
   weightLb: z.number().nonnegative().finite().optional().catch(undefined),
   description: z.string().optional().catch(undefined),
   attuned: z.boolean().optional().catch(undefined),
+  // Weapon/armour detail. Mostly free text - the vocabulary is a <datalist> suggestion in the editor,
+  // not an enum, so these validate as strings and nothing more.
+  //
+  // `damage` also accepts the single-string shape it briefly had before becoming a list: the widget
+  // was never released that way, but a vault opened by a development build could hold it, and this
+  // is a strip-mode object, so anything undeclared is dropped on the very next render. A GM losing
+  // what they typed to a shape change we made is the worse failure, and the fallback costs a line.
+  // Legacy first: `filterArr` carries its own `.catch([])`, so it accepts a string by turning it
+  // into an empty list, and a union would never reach a branch placed after it.
+  damage: z.union([legacyDamageSchema, damagePartsSchema]).optional().catch(undefined),
+  versatileDice: z.string().optional().catch(undefined),
+  enchantment: z.number().int().optional().catch(undefined),
+  range: z.string().optional().catch(undefined),
+  armourClass: z.string().optional().catch(undefined),
+  // No `.catch` needed on top: filterArr already drops bad entries and falls back to [].
+  properties: filterArr(z.string()).optional(),
   holdings: filterArr(holdingSchema),
 });
 

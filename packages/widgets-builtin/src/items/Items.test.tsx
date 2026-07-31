@@ -7,9 +7,10 @@
 
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PartyContext, RollTablesContext, VaultContext } from "@ttcanvas/core";
+import { DiceContext, PartyContext, RollTablesContext, VaultContext } from "@ttcanvas/core";
 import type { PartyContextValue, PartyMemberPatch, RollTablesContextValue, RollTableOutcome, VaultContextValue } from "@ttcanvas/core";
 import { Items } from "./Items";
+import { ItemCard } from "../shared/ItemCard";
 import type { ItemsState, CatalogueItem } from "./types";
 
 afterEach(cleanup);
@@ -238,5 +239,115 @@ describe("Items descriptions", () => {
     fireEvent.click(screen.getByText("Sunblade"));
     fireEvent.click(screen.getByText(/Forged by/));
     expect(screen.queryByRole("textbox", { name: /Description of/ })).toBeNull();
+  });
+});
+
+describe("Items weapon and armour detail", () => {
+  function openEditor(over: Partial<CatalogueItem> = {}, onChange = vi.fn()) {
+    renderInventory(baseState({ items: [item(over)] }), { onChange });
+    fireEvent.click(screen.getByText("Sunblade"));
+    return onChange;
+  }
+
+  it("asks a weapon for damage but not armour class", () => {
+    openEditor({ kind: "weapon", damage: [{ dice: "1d8" }] });
+    expect(screen.getByLabelText("Base damage dice")).toBeTruthy();
+    expect(screen.getByLabelText("Range")).toBeTruthy();
+    expect(screen.queryByLabelText("Armour class")).toBeNull();
+  });
+
+  it("asks armour for its class but not for damage", () => {
+    openEditor({ kind: "armour" });
+    expect(screen.getByLabelText("Armour class")).toBeTruthy();
+    expect(screen.queryByText("Add damage")).toBeNull();
+  });
+
+  it("offers properties on every kind, weapon or not", () => {
+    openEditor({ kind: "consumable" });
+    expect(screen.getByLabelText("Properties")).toBeTruthy();
+  });
+
+  it("splits a comma-separated properties field into a list", () => {
+    const onChange = openEditor();
+    fireEvent.change(screen.getByLabelText("Properties"), { target: { value: "light, finesse ,, thrown" } });
+    expect(onChange.mock.calls[0][0].items[0].properties).toEqual(["light", "finesse", "thrown"]);
+  });
+
+  it("clears the properties field to undefined rather than an empty list", () => {
+    const onChange = openEditor({ properties: ["light"] });
+    fireEvent.change(screen.getByLabelText("Properties"), { target: { value: "  " } });
+    expect(onChange.mock.calls[0][0].items[0].properties).toBeUndefined();
+  });
+
+  it("headlines the damage range the card derives from the notation", () => {
+    openEditor({ damage: [{ dice: "1d6-1", type: "bludgeoning" }] });
+    expect(screen.getByText("0~5 Damage")).toBeTruthy();
+    expect(screen.getByText("bludgeoning")).toBeTruthy();
+  });
+
+  it("shows unrollable notation as plain text rather than a dead button", () => {
+    openEditor({ damage: [{ dice: "1d6 per level" }] });
+    expect(screen.queryByText(/\d+~\d+ Damage/)).toBeNull();
+    expect(screen.getByText("1d6 per level").tagName).toBe("SPAN");
+  });
+
+  it("keeps a weapon's damage when its kind changes, so a mis-set kind costs nothing", () => {
+    const onChange = openEditor({ damage: [{ dice: "1d8" }] });
+    fireEvent.change(screen.getByLabelText("Kind"), { target: { value: "armour" } });
+    expect(onChange.mock.calls[0][0].items[0].damage).toEqual([{ dice: "1d8" }]);
+  });
+
+  it("totals every damage component into one headline", () => {
+    openEditor({
+      damage: [
+        { dice: "1d8+8", type: "piercing" },
+        { dice: "1d6", type: "thunder" },
+        { dice: "1d4", type: "necrotic" },
+      ],
+    });
+    expect(screen.getByText("11~26 Damage")).toBeTruthy();
+    // The stacked components read as additions, base first.
+    expect(screen.getByText("1d8+8")).toBeTruthy();
+    expect(screen.getByText("+1d6")).toBeTruthy();
+    expect(screen.getByText("+1d4")).toBeTruthy();
+    expect(screen.getByText("necrotic")).toBeTruthy();
+  });
+
+  it("rolls every component together, since that is the number the GM needs", () => {
+    const roll = vi.fn();
+    render(
+      <DiceContext.Provider value={{ roll }}>
+        <ItemCard item={{ id: "i1", name: "Nyrulna", kind: "weapon", damage: [{ dice: "1d8+8" }, { dice: "1d6" }] }} />
+      </DiceContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Roll 1d8\+8\+1d6/ }));
+    expect(roll).toHaveBeenCalledWith("1d8+8+1d6", null, "Nyrulna damage");
+  });
+
+  it("adds and removes damage components", () => {
+    const onChange = openEditor({ damage: [{ dice: "1d8" }] });
+    fireEvent.click(screen.getByText("+ Add damage"));
+    expect(onChange.mock.calls[0][0].items[0].damage).toEqual([{ dice: "1d8" }, { dice: "" }]);
+
+    onChange.mockClear();
+    fireEvent.click(screen.getByLabelText("Remove base damage"));
+    // An emptied list collapses away rather than lingering as [].
+    expect(onChange.mock.calls[0][0].items[0].damage).toBeUndefined();
+  });
+
+  it("prints the versatile dice beside the base without folding it into the range", () => {
+    openEditor({ damage: [{ dice: "1d8" }], versatileDice: "1d10" });
+    expect(screen.getByText("1~8 Damage")).toBeTruthy();
+    expect(screen.getByText("(1d10)")).toBeTruthy();
+  });
+
+  it("shows an enchantment on its own line, signed", () => {
+    // Rendered on its own: "Enchantment" is also the editor's field label, and this is about the card.
+    render(<ItemCard item={{ id: "i1", name: "Nyrulna", kind: "weapon", damage: [{ dice: "1d8" }], enchantment: 3 }} />);
+    expect(screen.getByText("Enchantment")).toBeTruthy();
+    expect(screen.getByText("+3")).toBeTruthy();
+    // Display only: the bonus is usually already inside the notation, so adding it again would
+    // silently inflate every enchanted weapon.
+    expect(screen.getByText("1~8 Damage")).toBeTruthy();
   });
 });

@@ -252,7 +252,26 @@
 /* Read-only items assigned by the Inventory widget. Two-column like the equipment list above, with
    the quantity in mono so the two lists read as one section. */
 .ledgerList { display: flex; flex-direction: column; gap: 4px; }
-.ledgerRow { display: grid; grid-template-columns: 26px 1fr auto; align-items: baseline; gap: 8px; }
+/* A button wearing the row's old grid: chrome reset only, so the columns line up exactly as before
+   and the only new signal is the hover tint. */
+.ledgerRow {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.ledgerRow:hover .ledgerName { color: var(--ink); }
+.ledgerRow:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.ledgerCard { margin: 4px 0 6px 34px; }
 .ledgerQty {
   font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
   font-size: 12px;

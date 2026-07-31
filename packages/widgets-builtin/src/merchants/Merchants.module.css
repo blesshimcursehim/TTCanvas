@@ -97,7 +97,7 @@
 .chip[aria-pressed="true"] {
   color: var(--accent);
   border-color: var(--accent-line);
-  background: var(--accent-wash);
+  background: var(--accent-soft);
 }
 
 .list {
@@ -124,7 +124,7 @@
 .listRow:hover { background: var(--surface-2); }
 
 .listRowActive {
-  background: var(--accent-wash);
+  background: var(--accent-soft);
   border-color: var(--accent-line);
 }
 
@@ -203,7 +203,7 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.linkBtn:hover { background: var(--accent-wash); }
+.linkBtn:hover { background: var(--accent-soft); }
 
 .descBlock {
   display: flex;
@@ -301,12 +301,12 @@
 .castBtn:hover { border-color: var(--accent-line); color: var(--accent); }
 .castBtnActive {
   border-color: var(--accent-line);
-  background: var(--accent-wash);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
-/* Rarity reads as a 2px bar on the row, the same treatment (and tokens) the Items ledger uses, so
-   the two widgets agree about what "rare" looks like without a second palette. */
+/* Rarity reads as a 2px bar on the row, from the shared --rarity-* ramp in tokens.css, so the shop
+   and the Items ledger agree about what "rare" looks like without a second palette. */
 .stockRow {
   display: flex;
   align-items: center;
@@ -315,19 +315,45 @@
   border-left: 2px solid var(--line);
 }
 
-.stockRow[data-rarity="uncommon"] { border-left-color: var(--kind-ally); }
-.stockRow[data-rarity="rare"] { border-left-color: var(--sp); }
-.stockRow[data-rarity="very-rare"] { border-left-color: var(--pp); }
-.stockRow[data-rarity="legendary"] { border-left-color: var(--accent); }
-.stockRow[data-rarity="artifact"] { border-left-color: var(--hp); }
+.stockRow[data-rarity="uncommon"] { border-left-color: var(--rarity-uncommon); }
+.stockRow[data-rarity="rare"] { border-left-color: var(--rarity-rare); }
+.stockRow[data-rarity="very-rare"] { border-left-color: var(--rarity-very-rare); }
+.stockRow[data-rarity="legendary"] { border-left-color: var(--rarity-legendary); }
+.stockRow[data-rarity="artifact"] { border-left-color: var(--rarity-artifact); }
 
+/* A button that keeps looking like the label it was: only the chrome is reset, so the row's rhythm
+   is unchanged and the affordance is the hover tint. */
 .stockName {
   flex: 1;
   min-width: 0;
+  padding: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: inherit;
   font-size: 11.5px;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.stockName:hover:not(:disabled) { color: var(--accent); }
+
+/* A dangling row has no card to open, so it says so by not being pressable. */
+.stockName:disabled {
+  color: var(--ink-3);
+  cursor: default;
+}
+
+.stockName:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.stockCard {
+  padding: 2px 0 6px 8px;
 }
 
 .qtyInput {
@@ -472,11 +498,11 @@
   border-color: var(--line);
 }
 
-.rarityChip[data-rarity="uncommon"] { border-left-color: var(--kind-ally); }
-.rarityChip[data-rarity="rare"] { border-left-color: var(--sp); }
-.rarityChip[data-rarity="very-rare"] { border-left-color: var(--pp); }
-.rarityChip[data-rarity="legendary"] { border-left-color: var(--accent); }
-.rarityChip[data-rarity="artifact"] { border-left-color: var(--hp); }
+.rarityChip[data-rarity="uncommon"] { border-left-color: var(--rarity-uncommon); }
+.rarityChip[data-rarity="rare"] { border-left-color: var(--rarity-rare); }
+.rarityChip[data-rarity="very-rare"] { border-left-color: var(--rarity-very-rare); }
+.rarityChip[data-rarity="legendary"] { border-left-color: var(--rarity-legendary); }
+.rarityChip[data-rarity="artifact"] { border-left-color: var(--rarity-artifact); }
 
 .presetRow {
   display: flex;
@@ -521,7 +547,7 @@
   font-size: 10.5px;
   cursor: pointer;
 }
-.genBtn:hover:not(:disabled) { background: var(--accent-wash); }
+.genBtn:hover:not(:disabled) { background: var(--accent-soft); }
 .genBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Durable rather than a toast: these are names the GM needs to read, add to Items, and roll again. */

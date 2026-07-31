@@ -7,6 +7,22 @@
 import { createContext, useContext } from "react";
 
 /**
+ * One component of a weapon's damage: some dice, and what kind of damage they are. A weapon is a
+ * list of these rather than one dice string and one type, because a magic weapon routinely deals
+ * several kinds at once ("1d8+8 piercing, plus 1d6 thunder, plus 1d4 necrotic") and a single `type`
+ * field could only ever label the first of them.
+ *
+ * Lives in core rather than in the Items widget because `CatalogueItemRef` below needs it, and core
+ * cannot import from the widget packages.
+ */
+export interface DamagePart {
+  /** Dice notation for this component alone, e.g. "1d8+8" or "1d6". */
+  dice: string;
+  /** "piercing", "thunder". Free text - see CatalogueItem for why this is not an enum. */
+  type?: string;
+}
+
+/**
  * An item *definition* as other widgets see it. `kind` and `rarity` are plain strings here so the
  * Items widget keeps ownership of its own unions - the same reason BestiaryCreatureRef.cr is a
  * string. Carries no holdings: this is what a merchant's stock picker browses.
@@ -20,6 +36,15 @@ export interface CatalogueItemRef {
   valueCp?: number;
   weightLb?: number;
   description?: string;
+  /** Ordered: the first part is the weapon's base damage, the rest stack on top of it. */
+  damage?: DamagePart[];
+  /** Alternate dice for the base damage - two-handed, or thrown. Printed as "1d8 (1d6)". */
+  versatileDice?: string;
+  /** A magic weapon's flat bonus, shown on its own line. Negative for a cursed one. */
+  enchantment?: number;
+  range?: string;
+  armourClass?: string;
+  properties?: string[];
 }
 
 /** A definition plus one holder's count of it. */
