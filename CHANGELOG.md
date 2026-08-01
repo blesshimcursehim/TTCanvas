@@ -14,6 +14,11 @@ All notable changes are documented here.
   write it, under a row on a merchant's shelf, and under a line in a character's own kit. Running a
   shop no longer means leaving the merchant to go and look something up.
 
+  None of it is limited to weapons and armour, because plenty of things that hurt people are neither.
+  A wand, a flask of acid and a poisoned trap all take damage, and a ring or a cloak takes an armour
+  class. The fields sit behind a "Damage and defence" line that opens on its own for anything that
+  already uses them, so a coil of rope still has a short, quiet editor.
+
   Damage is a list rather than a single figure, because a magic weapon routinely deals several kinds
   at once. A trident dealing 1d8+8 piercing plus 1d6 thunder plus 1d4 necrotic is three rows, each
   labelled, and the card works out what the whole lot comes to and headlines it as "11~26 Damage"

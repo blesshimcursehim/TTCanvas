@@ -249,17 +249,26 @@ describe("Items weapon and armour detail", () => {
     return onChange;
   }
 
-  it("asks a weapon for damage but not armour class", () => {
+  it("shows the block already open for an item that has detail", () => {
     openEditor({ kind: "weapon", damage: [{ dice: "1d8" }] });
     expect(screen.getByLabelText("Base damage dice")).toBeTruthy();
     expect(screen.getByLabelText("Range")).toBeTruthy();
-    expect(screen.queryByLabelText("Armour class")).toBeNull();
   });
 
-  it("asks armour for its class but not for damage", () => {
-    openEditor({ kind: "armour" });
+  it("keeps the block shut for an item with none, and opens it on request", () => {
+    openEditor({ kind: "gear" });
+    expect(screen.queryByText("+ Add damage")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Damage and defence/ }));
+    expect(screen.getByText("+ Add damage")).toBeTruthy();
+  });
+
+  // The gate used to be `kind`, which meant a wand could not be given damage and a ring could not be
+  // given an armour class. Both are offered on everything now (deferred item 63).
+  it("offers damage and armour class on a kind that is neither weapon nor armour", () => {
+    openEditor({ kind: "consumable", damage: [{ dice: "2d6", type: "acid" }] });
+    expect(screen.getByLabelText("Base damage dice")).toBeTruthy();
     expect(screen.getByLabelText("Armour class")).toBeTruthy();
-    expect(screen.queryByText("Add damage")).toBeNull();
   });
 
   it("offers properties on every kind, weapon or not", () => {

@@ -63,6 +63,16 @@ function dropAt<T>(list: readonly T[], idx: number): T[] | undefined {
   return next.length > 0 ? next : undefined;
 }
 
+/** Whether an item carries any of the combat block's fields. Only decides whether the block starts
+ *  open, so a longsword shows its numbers straight away and a rope shows a single quiet button. */
+function hasCombatDetail(item: CatalogueItem): boolean {
+  return (item.damage?.length ?? 0) > 0
+    || item.versatileDice !== undefined
+    || item.enchantment !== undefined
+    || item.range !== undefined
+    || item.armourClass !== undefined;
+}
+
 function itemContentKey(item: CatalogueItem): string {
   // Holdings are campaign state, not part of the item's identity - two vaults describing the same
   // Sunblade should read as duplicates even when different characters are carrying it.
@@ -155,6 +165,9 @@ export function Items({ state, onChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [editingDescId, setEditingDescId] = useState<string | null>(null);
+  // Per item, and only once the GM has actually pressed the toggle: `?? hasCombatDetail(item)` below
+  // keeps the default derived from the item, so an imported weapon opens without anyone touching it.
+  const [combatOpen, setCombatOpen] = useState<Record<string, boolean>>({});
   const [newName, setNewName] = useState("");
   const [rollTableId, setRollTableId] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
@@ -393,6 +406,7 @@ export function Items({ state, onChange }: Props) {
         )}
         {visible.map((item) => {
           const open = expandedId === item.id;
+          const showCombat = combatOpen[item.id] ?? hasCombatDetail(item);
           const holders = item.holdings.map((h) => holderName(h.holderId));
           return (
             <div key={item.id} className={styles.item}>
@@ -482,12 +496,72 @@ export function Items({ state, onChange }: Props) {
                     </label>
                   </div>
 
-                  {/* Weapon and armour detail, shown for the kind it belongs to. Anything already
-                      typed survives a change of kind - it just stops being asked about - so a
-                      mis-set kind costs a click, not the numbers. */}
+                  {/* Comma-separated rather than a chip-entry control, and with no datalist: a
+                      datalist offers replacements for the whole field, so picking one would wipe the
+                      properties already typed. The placeholder carries the vocabulary. This is also
+                      where a resistance goes ("resist fire"): it is a label the card prints, not a
+                      rule anything computes, so it needs no field of its own. */}
                   <div className={styles.fields}>
-                    {item.kind === "weapon" && (
-                      <>
+                    <label className={`${styles.field} ${styles.fieldWide}`}>Properties
+                      <input
+                        className={styles.input}
+                        value={item.properties?.join(", ") ?? ""}
+                        placeholder="light, finesse, resist fire"
+                        onChange={(e) => patchItem(item.id, { properties: parseProperties(e.target.value) })}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Offered on every kind, not just weapons and armour. A wand deals damage, a ring
+                      grants an armour class, and any list of kinds we picked would still be wrong for
+                      somebody's game. The disclosure is what keeps a rope's editor short: the fields
+                      are always available, they are just not always in the way. */}
+                  <button
+                    className={styles.combatToggle}
+                    aria-expanded={showCombat}
+                    onClick={() => setCombatOpen({ ...combatOpen, [item.id]: !showCombat })}
+                  >{showCombat ? "−" : "+"} Damage and defence</button>
+
+                  {showCombat && (
+                    <>
+                      {/* Damage is a list, not two boxes: a magic weapon routinely deals several kinds
+                          at once, and one type field could only ever label the first of them. The
+                          first row is the base, the rest stack on top. */}
+                      <div className={styles.damageRows}>
+                        <span className={styles.damageHead}>Damage</span>
+                        {(item.damage ?? []).map((part, i) => (
+                          <div key={i} className={styles.damageRow}>
+                            <input
+                              className={styles.input}
+                              value={part.dice}
+                              placeholder={i === 0 ? "1d8+1" : "1d6"}
+                              aria-label={i === 0 ? "Base damage dice" : `Extra damage ${i} dice`}
+                              onChange={(e) => patchDamage(item, i, { dice: e.target.value })}
+                            />
+                            {/* A datalist, not a select: these are suggestions, and a GM running a
+                                game that has no "radiant" must be able to type "entropy" instead. */}
+                            <input
+                              className={styles.input}
+                              list="ttc-damage-types"
+                              value={part.type ?? ""}
+                              placeholder="slashing"
+                              aria-label={i === 0 ? "Base damage type" : `Extra damage ${i} type`}
+                              onChange={(e) => patchDamage(item, i, { type: e.target.value || undefined })}
+                            />
+                            <button
+                              className={styles.damageRemove}
+                              aria-label={i === 0 ? "Remove base damage" : `Remove extra damage ${i}`}
+                              onClick={() => patchItem(item.id, { damage: dropAt(item.damage ?? [], i) })}
+                            >×</button>
+                          </div>
+                        ))}
+                        <button
+                          className={styles.descEditBtn}
+                          onClick={() => patchItem(item.id, { damage: [...(item.damage ?? []), { dice: "" }] })}
+                        >+ Add damage</button>
+                      </div>
+
+                      <div className={styles.fields}>
                         <label className={styles.field}>Versatile dice
                           <input
                             className={styles.input}
@@ -515,68 +589,16 @@ export function Items({ state, onChange }: Props) {
                             onChange={(e) => patchItem(item.id, { range: e.target.value || undefined })}
                           />
                         </label>
-                      </>
-                    )}
-                    {item.kind === "armour" && (
-                      <label className={styles.field}>Armour class
-                        <input
-                          className={styles.input}
-                          value={item.armourClass ?? ""}
-                          placeholder="14 + Dex (max 2)"
-                          onChange={(e) => patchItem(item.id, { armourClass: e.target.value || undefined })}
-                        />
-                      </label>
-                    )}
-                    {/* Comma-separated rather than a chip-entry control, and with no datalist: a
-                        datalist offers replacements for the whole field, so picking one would wipe
-                        the properties already typed. The placeholder carries the vocabulary. */}
-                    <label className={`${styles.field} ${styles.fieldWide}`}>Properties
-                      <input
-                        className={styles.input}
-                        value={item.properties?.join(", ") ?? ""}
-                        placeholder="light, finesse, thrown"
-                        onChange={(e) => patchItem(item.id, { properties: parseProperties(e.target.value) })}
-                      />
-                    </label>
-                  </div>
-
-                  {/* Damage is a list, not two boxes: a magic weapon routinely deals several kinds at
-                      once, and one type field could only ever label the first of them. The first row
-                      is the weapon's base, the rest stack on top. */}
-                  {item.kind === "weapon" && (
-                    <div className={styles.damageRows}>
-                      <span className={styles.damageHead}>Damage</span>
-                      {(item.damage ?? []).map((part, i) => (
-                        <div key={i} className={styles.damageRow}>
+                        <label className={styles.field}>Armour class
                           <input
                             className={styles.input}
-                            value={part.dice}
-                            placeholder={i === 0 ? "1d8+1" : "1d6"}
-                            aria-label={i === 0 ? "Base damage dice" : `Extra damage ${i} dice`}
-                            onChange={(e) => patchDamage(item, i, { dice: e.target.value })}
+                            value={item.armourClass ?? ""}
+                            placeholder="14 + Dex (max 2)"
+                            onChange={(e) => patchItem(item.id, { armourClass: e.target.value || undefined })}
                           />
-                          {/* A datalist, not a select: these are suggestions, and a GM running a game
-                              that has no "radiant" must be able to type "entropy" instead. */}
-                          <input
-                            className={styles.input}
-                            list="ttc-damage-types"
-                            value={part.type ?? ""}
-                            placeholder="slashing"
-                            aria-label={i === 0 ? "Base damage type" : `Extra damage ${i} type`}
-                            onChange={(e) => patchDamage(item, i, { type: e.target.value || undefined })}
-                          />
-                          <button
-                            className={styles.damageRemove}
-                            aria-label={i === 0 ? "Remove base damage" : `Remove extra damage ${i}`}
-                            onClick={() => patchItem(item.id, { damage: dropAt(item.damage ?? [], i) })}
-                          >×</button>
-                        </div>
-                      ))}
-                      <button
-                        className={styles.descEditBtn}
-                        onClick={() => patchItem(item.id, { damage: [...(item.damage ?? []), { dice: "" }] })}
-                      >+ Add damage</button>
-                    </div>
+                        </label>
+                      </div>
+                    </>
                   )}
 
                   {/* A real button toggles the editor rather than the rendered block being one: the

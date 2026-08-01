@@ -217,6 +217,31 @@
   min-width: 140px;
 }
 
+/* Deliberately quiet. Most items never open it, so it reads as a line of text with a hit area rather
+   than a control competing with the fields above it. */
+.combatToggle {
+  display: block;
+  margin-top: 10px;
+  padding: 2px 0;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-4);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.combatToggle:hover {
+  color: var(--accent);
+}
+
+.combatToggle:focus-visible {
+  outline: 1px solid var(--accent-line);
+  outline-offset: 2px;
+}
+
 /* A list, so it gets its own block rather than a slot in the wrapping field grid: rows that reflowed
    mid-list would break the dice/type/remove alignment that makes it readable. */
 .damageRows {
