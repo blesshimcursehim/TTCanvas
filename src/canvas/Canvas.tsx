@@ -126,6 +126,21 @@ export function Canvas({
     (e: React.MouseEvent<HTMLDivElement>) => {
       const isMiddleClick = e.button === 1;
       const isLeftClick = e.button === 0;
+      // Both branches below call preventDefault(), which also suppresses the browser's own
+      // focus-on-mousedown for this tabIndex={0} container - so without this line, clicking the
+      // canvas never focuses it and the arrow-key pan (guarded on the container being the focus
+      // target) silently does nothing until the user happens to find Tab. Only when the press
+      // actually lands on the canvas itself: a click on a widget belongs to that widget.
+      //
+      // data-pointer-focus marks this as a *mouse* focus so the CSS can suppress the focus ring.
+      // :focus-visible would normally do that itself, but it only skips the ring for the browser's
+      // own pointer-driven focus - a programmatic focus() like this one still matches it, which
+      // would put a 2px accent outline around the entire viewport on every background click.
+      // Cleared on blur below, so a later Tab back to the canvas rings normally.
+      if (e.target === containerRef.current) {
+        containerRef.current.dataset.pointerFocus = "";
+        containerRef.current.focus();
+      }
       if (isMiddleClick || (isLeftClick && spaceDown.current)) {
         e.preventDefault();
         startPan(e.clientX, e.clientY);
@@ -288,6 +303,11 @@ export function Canvas({
         className={containerClass}
         onMouseDown={onMouseDown}
         onKeyDown={onKeyDown}
+        // Guarded on the container itself: onBlur is focusout, which also bubbles up from a widget's
+        // own fields losing focus, and those have nothing to do with how the canvas got focused.
+        onBlur={(e) => {
+          if (e.target === containerRef.current) delete containerRef.current.dataset.pointerFocus;
+        }}
         // Deliberately focusable so arrow keys can pan it, but there is no ARIA role for "pannable
         // 2D surface" to make it interactive in the rule's eyes. Suppressed here rather than
         // repo-wide (unlike the static-element-interaction family in eslint.config.js, which fires
@@ -295,7 +315,9 @@ export function Canvas({
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
         aria-label="Canvas"
-        title="Pan with arrow keys (Shift for a bigger step)"
+        // Deliberately no `title`: this element is the whole viewport, so a tooltip on it fires
+        // wherever the pointer rests on empty canvas rather than over a small control the way a
+        // tooltip is meant to. The hint lives in the keyboard help overlay (?) instead.
       >
         {backgroundSrc && (
           <div className={styles.backdrop} style={{ backgroundImage: `url(${backgroundSrc})` }} />

@@ -310,3 +310,76 @@ describe("migrateWorkspace - npc generator draft", () => {
     expect(result.singletonStates?.["npc-library"]).toBeUndefined();
   });
 });
+
+// The rename is the only place in this feature where user data could be destroyed: following the
+// retire-a-widget recipe instead of migrating would delete every item, holding and coin silently.
+describe("migrateWorkspace - inventory renamed to items", () => {
+  const base = { version: 2, activeLayout: "Default", layouts: { Default: { widgets: [] } } };
+  const ledger = {
+    items: [{ id: "i1", name: "Sunblade", kind: "weapon", holdings: [{ holderId: null, qty: 1 }] }],
+    currency: { cp: 0, sp: 0, ep: 0, gp: 12, pp: 0 },
+  };
+
+  it("moves the ledger to the items key and drops the old one", () => {
+    const raw = { ...base, singletonStates: { inventory: ledger } };
+    const result = migrateWorkspace(raw);
+    expect(result.singletonStates?.["items"]).toEqual(ledger);
+    expect(result.singletonStates).not.toHaveProperty("inventory");
+  });
+
+  it("leaves every other singleton key untouched", () => {
+    const raw = { ...base, singletonStates: { inventory: ledger, "party-tracker": { members: [] } } };
+    const result = migrateWorkspace(raw);
+    expect(result.singletonStates?.["party-tracker"]).toEqual({ members: [] });
+  });
+
+  it("rewrites the widget type in every layout, keeping id, geometry and state", () => {
+    const widget = { id: "w1", type: "inventory", x: 10, y: 20, width: 420, height: 480, state: ledger };
+    const raw = {
+      ...base,
+      layouts: { Default: { widgets: [widget] }, Combat: { widgets: [widget] } },
+    };
+    const result = migrateWorkspace(raw);
+    for (const name of ["Default", "Combat"]) {
+      expect(result.layouts[name].widgets[0]).toMatchObject({
+        id: "w1", type: "items", x: 10, y: 20, width: 420, height: 480, state: ledger,
+      });
+    }
+  });
+
+  it("carries a pre-singleton instance ledger across under the new type", () => {
+    // No singletonStates at all: the ledger still lives on the widget instance, which App.tsx's
+    // `singletonStates[type] ?? instance` fallback then finds under "items".
+    const raw = {
+      ...base,
+      layouts: { Default: { widgets: [{ id: "w1", type: "inventory", x: 0, y: 0, width: 420, height: 480, state: ledger }] } },
+    };
+    const result = migrateWorkspace(raw);
+    expect(result.layouts["Default"].widgets[0].type).toBe("items");
+    expect(result.layouts["Default"].widgets[0].state).toEqual(ledger);
+  });
+
+  it("rewrites a disabled-list entry without duplicating or losing others", () => {
+    const raw = { ...base, disabledWidgetTypes: ["inventory", "dice-roller"] };
+    expect(migrateWorkspace(raw).disabledWidgetTypes).toEqual(["items", "dice-roller"]);
+  });
+
+  it("does not list items twice when both names were disabled", () => {
+    const raw = { ...base, disabledWidgetTypes: ["inventory", "items"] };
+    expect(migrateWorkspace(raw).disabledWidgetTypes).toEqual(["items"]);
+  });
+
+  it("keeps an existing items slice when both are present, still dropping the stale one", () => {
+    const newer = { items: [], currency: { cp: 1, sp: 0, ep: 0, gp: 0, pp: 0 } };
+    const raw = { ...base, singletonStates: { inventory: ledger, items: newer } };
+    const result = migrateWorkspace(raw);
+    expect(result.singletonStates?.["items"]).toEqual(newer);
+    expect(result.singletonStates).not.toHaveProperty("inventory");
+  });
+
+  it("is a no-op when neither key has ever existed, inventing no items slice", () => {
+    const result = migrateWorkspace({ ...base, singletonStates: { "dice-roller": {} } });
+    expect(result.singletonStates?.["items"]).toBeUndefined();
+    expect(result.version).toBe(2);
+  });
+});

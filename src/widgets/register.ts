@@ -23,7 +23,8 @@ import {
   SessionRecorder, type SessionRecorderState,
   RulesReference, type RulesReferenceState,
   RuleCards, type RuleCardsState,
-  Inventory, type InventoryState,
+  Items, type ItemsState,
+  Merchants, type MerchantsState,
   XpTracker, type XpTrackerState,
   RollTables, type RollTablesState,
   EncounterBuilder, type EncounterBuilderState,
@@ -50,10 +51,11 @@ import {
   parseBestiaryState,
   parseRulesReferenceState,
   parseRuleCardsState,
-  parseInventoryState,
+  parseItemsState,
   parseXpTrackerState,
   parseRollTablesState,
   parseEncounterBuilderState,
+  parseMerchantsState,
   parseCardDecksState,
   parseProgressClocksState,
   parseHandoutGalleryState,
@@ -391,9 +393,9 @@ registerWidget({
 });
 
 registerWidget({
-  type: "inventory",
-  title: "Inventory",
-  help: "# Inventory\n\nOne ledger for everything the party owns. Type a name in the footer to add an item, then click its row to set kind, rarity, value, weight and a Markdown description.\n\nQuantities are tracked per holder, so one entry covers the whole party: expand an item and use the steppers to move copies between the party stash and each character. Assigned items also appear on that character's sheet, with all their fields intact.\n\nThe purse along the bottom is the shared party coin. **Split coin** divides it evenly between everyone in the Party Tracker and adds their share to their own purse, leaving anything indivisible behind. Electrum counts towards a share but nobody is paid in it. **Tidy** rolls loose copper up into larger denominations.\n\n**Roll loot** runs one of your Roll Tables and drops the results in as items; the roll is recorded in that widget's history. No tables ship with the app, so make your own first.\n\nUse the cog to track weight, set a carry limit, import and export, or pull an item library from another vault (item definitions come across, holders do not).",
+  type: "items",
+  title: "Items",
+  help: "# Items\n\nYour catalogue of everything that exists in the campaign, and who happens to be carrying it. Type a name in the footer to define an item, then click its row to set kind, rarity, value, weight and a Markdown description.\n\nDefining an item does **not** mean the party owns one. A new item starts as a definition with no holders, which is what lets Merchants stock something the party has never had. Expand an item and use the steppers to say who has some, moving copies between the party stash and each character. Assigned items also appear on that character's sheet, with all their fields intact.\n\nThe **All / Held / Catalogue** toggle filters by that distinction: Held is what somebody is actually carrying, Catalogue is everything nobody has yet.\n\nThe purse along the bottom is the shared party coin, and it is what Merchants buys and sells against. **Split coin** divides it evenly between everyone in the Party Tracker and adds their share to their own purse, leaving anything indivisible behind. Electrum counts towards a share but nobody is paid in it. **Tidy** rolls loose copper up into larger denominations.\n\n**Roll loot** runs one of your Roll Tables and drops the results in as items the party now holds; the roll is recorded in that widget's history. No tables ship with the app, so make your own first.\n\nUse the cog to track weight, set a carry limit, import and export, or pull a catalogue from another vault (item definitions come across, holders do not).",
   icon: "chest",
   category: "Utilities",
   defaultSize: { width: 420, height: 480 },
@@ -402,14 +404,15 @@ registerWidget({
     currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
     query: "",
     kindFilter: null,
+    heldFilter: "all",
     showWeight: false,
     carryLimitLb: null,
-  } satisfies InventoryState,
+  } satisfies ItemsState,
   singleton: true,
   minWidth: 320,
   minHeight: 260,
-  parseState: parseInventoryState,
-  component: Inventory as WidgetComponent,
+  parseState: parseItemsState,
+  component: Items as WidgetComponent,
 });
 
 registerWidget({
@@ -500,4 +503,24 @@ registerWidget({
   minHeight: 220,
   parseState: parseHandoutGalleryState,
   component: HandoutGallery as WidgetComponent,
+});
+
+registerWidget({
+  type: "merchants",
+  title: "Merchants",
+  help: "# Merchants\n\nThe shops, traders and fences your party keeps going back to. Add one, give it an owner and a place, then stock its shelves from your **Items** catalogue.\n\nStock is held **by reference**, so a longsword here is the same longsword as in Items: reprice it there and every merchant selling one follows. Leave a stock count blank for unlimited (a general store never runs out of rope).\n\n**Buy** moves an item into the party stash and pays for it out of the shared purse. **Sell** does the reverse at the buyback rate. If the party cannot afford something you get a warning, not a refusal, because the ledger does not overrule you.\n\n**Price ×** and **Buyback ×** set this merchant's markup: 1.0 is list price, 1.2 is a gouging port town, and buyback defaults to half.\n\n## Restocking\n\n**Generate** fills the shelves from your Items catalogue. Two things steer it. The merchant's **kind** decides what it deals in, so a blacksmith reaches for weapons and armour and an apothecary for consumables. The **rarity ticks** decide how good it gets, and they are entirely yours to set: a slum in a great city is still a slum, so nothing caps them for you. Tick legendary on a back-alley fence if that fence really does have something under the counter. The **presets** are one-click fills, not rules. Within whatever you allow, commoner things still turn up more often, so a shelf does not read as all treasure.\n\nGenerating **adds** to the shelves rather than replacing them, so a merchant the party keeps revisiting keeps its character and any prices you set by hand.\n\nYou can also stock from a **Roll Table**. Results are matched to your catalogue by name, and anything with no match is listed so you can add it to Items and roll again, rather than being invented for you.\n\n## Showing the players\n\nThe **cast** button beside the purse puts this merchant's price list on the player window: names, prices and rarity, and nothing else. Your markup, the buyback rate, the party purse and your notes on the shopkeeper all stay on this screen. Next to it, **live sync** keeps that list following the selected merchant, so a purchase updates the shelf the table is reading without you casting again.\n\nEvery purchase and sale is written to the **Session Logger** with the merchant and the price, so at the end of the night you can see where the money went.\n\nNo merchants or items ship with the app, so build your catalogue in Items first. Use the cog to import, export, or pull merchants from another vault (their shelves and entity links do not come across, since those ids belong to the other vault).",
+  icon: "scales",
+  category: "World",
+  defaultSize: { width: 640, height: 520 },
+  defaultState: {
+    merchants: [],
+    selectedId: null,
+    query: "",
+    kindFilter: null,
+  } satisfies MerchantsState,
+  singleton: true,
+  minWidth: 420,
+  minHeight: 320,
+  parseState: parseMerchantsState,
+  component: Merchants as WidgetComponent,
 });

@@ -497,6 +497,13 @@
   50%      { box-shadow: 0 1px 4px oklch(0 0 0 / 0.5), 0 0 0 7px oklch(0.82 0.17 80 / 0.35); }
 }
 
+/* Selected via click or Tab - arrow keys nudge it, +/- resizes it, Delete removes it. Static (not
+   the spotlight's pulse) and always visible regardless of focus-visible's mouse-click suppression,
+   since selection here is a mode the GM needs to see whether it came from a click or the keyboard. */
+.tokenSelected {
+  box-shadow: 0 1px 4px oklch(0 0 0 / 0.5), 0 0 0 2px var(--accent);
+}
+
 .tokenGhostTag {
   position: absolute;
   top: -8px;
@@ -535,6 +542,14 @@
   align-items: center;
   justify-content: center;
   background: oklch(0.12 0.01 264);
+}
+
+/* The viewport is focusable (tabIndex -1) only so selecting an annotation can claim the keyboard,
+   and that focus is always programmatic - which :focus-visible still matches, so the app-wide focus
+   ring would draw a 2px outline around the whole map every time a shape was selected. It is never a
+   tab stop, so there is no keyboard user to strand by suppressing it. */
+.viewportWrap:focus-visible {
+  outline: none;
 }
 
 .mapWrapper {

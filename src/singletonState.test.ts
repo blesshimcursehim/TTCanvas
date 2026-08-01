@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { describe, it, expect } from "vitest";
-import { appendCalendarEvent, appendChronicleEntry, collectPinnedLocationRefs } from "./singletonState";
+import { appendCalendarEvent, appendChronicleEntry, appendSessionEntry, collectPinnedLocationRefs } from "./singletonState";
 import type { WidgetInstance } from "./workspace";
 
 function widget(type: string, state: unknown): WidgetInstance {
@@ -59,6 +59,41 @@ describe("appendChronicleEntry", () => {
   it("falls back to the empty default when neither singleton nor widget instance exists", () => {
     const result = appendChronicleEntry({}, [], entry);
     expect((result["campaign-timeline"] as { entries: unknown[] }).entries).toEqual([entry]);
+  });
+});
+
+describe("appendSessionEntry", () => {
+  // Same caller-mints-the-id contract as appendChronicleEntry.
+  const entry = { id: "s1", text: "Bought a longsword from Dorn's Forge for 1 gp 5 sp.", wallTime: 1_700_000_000_000 };
+
+  it("appends the given entry onto an existing singleton state", () => {
+    const ss = { "session-recorder": { entries: [{ id: "s0", text: "Old", wallTime: 1 }], exportFolder: null } };
+    const result = appendSessionEntry(ss, [], entry);
+    const entries = (result["session-recorder"] as { entries: unknown[] }).entries;
+    expect(entries).toEqual([ss["session-recorder"].entries[0], entry]);
+  });
+
+  it("keeps the rest of the Session Logger's state, so a logged purchase can't clear the export folder", () => {
+    const ss = { "session-recorder": { entries: [], exportFolder: "/vault/sessions" } };
+    const result = appendSessionEntry(ss, [], entry);
+    expect((result["session-recorder"] as { exportFolder: string }).exportFolder).toBe("/vault/sessions");
+  });
+
+  it("falls back to the widget instance state, not an empty default, when no singleton exists", () => {
+    const existing = { entries: [{ id: "s0", text: "Old", wallTime: 1 }], exportFolder: null };
+    const result = appendSessionEntry({}, [widget("session-recorder", existing)], entry);
+    const entries = (result["session-recorder"] as { entries: unknown[] }).entries;
+    expect(entries).toEqual([existing.entries[0], entry]);
+  });
+
+  it("logs even with no Session Logger anywhere, so the entry is waiting when one is opened", () => {
+    const result = appendSessionEntry({}, [], entry);
+    expect((result["session-recorder"] as { entries: unknown[] }).entries).toEqual([entry]);
+  });
+
+  it("leaves other singletons untouched", () => {
+    const result = appendSessionEntry({ "items": { items: [] } }, [], entry);
+    expect(result["items"]).toEqual({ items: [] });
   });
 });
 

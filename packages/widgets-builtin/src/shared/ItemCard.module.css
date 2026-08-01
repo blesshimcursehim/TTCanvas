@@ -1,0 +1,180 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+   Copyright (C) 2026 blesshimcursehim
+
+   Plugins loaded via the official Plugin SDK are not considered
+   derivative works; see the Plugin Exception in LICENSE. */
+
+/* Rarity as the same 2px bar the Items ledger and the merchant's shelf use, here running the full
+   height of the card. --rarity-* lives in tokens.css so all three agree. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
+  border-left: 2px solid var(--rarity-common);
+  border-radius: var(--radius-sm);
+}
+
+.card[data-rarity="uncommon"] { border-left-color: var(--rarity-uncommon); }
+.card[data-rarity="rare"] { border-left-color: var(--rarity-rare); }
+.card[data-rarity="very-rare"] { border-left-color: var(--rarity-very-rare); }
+.card[data-rarity="legendary"] { border-left-color: var(--rarity-legendary); }
+.card[data-rarity="artifact"] { border-left-color: var(--rarity-artifact); }
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* The name carries the rarity tint too, the way it does on a BG3 card - it is the first thing read,
+   and the bar alone is easy to miss on a short card. Common stays plain ink so an ordinary rope does
+   not read as special. */
+.name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.name[data-rarity="uncommon"] { color: var(--rarity-uncommon); }
+.name[data-rarity="rare"] { color: var(--rarity-rare); }
+.name[data-rarity="very-rare"] { color: var(--rarity-very-rare); }
+.name[data-rarity="legendary"] { color: var(--rarity-legendary); }
+.name[data-rarity="artifact"] { color: var(--rarity-artifact); }
+
+.qty {
+  flex: none;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 10.5px;
+  color: var(--ink-4);
+}
+
+.sub {
+  margin-top: -4px;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 10px;
+  color: var(--ink-4);
+}
+
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* The one line meant to be read at a glance, so it gets the size the name would otherwise own. */
+.headline {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.statLine {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 11px;
+  color: var(--ink-2);
+}
+
+.statKey {
+  color: var(--ink-4);
+}
+
+.dice {
+  color: var(--ink-2);
+}
+
+/* Stacked-on components sit a shade back from the base, so the eye finds the weapon's own dice first
+   and reads the additions as additions. */
+.diceExtra {
+  color: var(--ink-3);
+}
+
+.versatile {
+  color: var(--ink-4);
+}
+
+/* Reset of the button chrome only, so the notation keeps the look of the text beside it and the
+   affordance is the underline - same approach as sheet-primitives/RollableStat. */
+.diceBtn {
+  padding: 0;
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-bottom: 1px dashed var(--line);
+  cursor: pointer;
+}
+
+.diceBtn:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent-line);
+}
+
+.diceBtn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.damageType {
+  color: var(--ink-3);
+}
+
+.props {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* A square tag rather than the pill the filter chips use: those are pressable, these are labels, and
+   the shape difference is what says so without colour doing the work. */
+.prop {
+  padding: 1px 6px;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 9.5px;
+  color: var(--ink-3);
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+}
+
+.prose {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.prose :global(p) {
+  margin: 0 0 4px;
+}
+
+.prose :global(p:last-child) {
+  margin-bottom: 0;
+}
+
+.prose :global(.wikilink) {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--accent-line);
+}
+
+.foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 10.5px;
+  color: var(--ink-4);
+}

@@ -27,6 +27,14 @@ describe("retired widget types", () => {
 
     expect(stillRegistered).toEqual([]);
   });
+
+  it("never retires a type that was renamed rather than removed", () => {
+    // structure.md's retire recipe says "add the type to RETIRED_WIDGET_TYPES". For a *rename* that
+    // recipe is data loss: stripRetiredWidgets deletes singletonStates["inventory"], which is every
+    // item, every holding and the shared party purse. migrateInventoryToItems moves it instead.
+    expect(RETIRED_WIDGET_TYPES).not.toContain("inventory");
+    expect(getAllWidgets().map((w) => w.type)).toContain("items");
+  });
 });
 
 describe("map-display lazy chunk", () => {

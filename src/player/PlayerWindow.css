@@ -243,6 +243,121 @@ body,
   margin-right: auto;
 }
 
+/* ── Shop scene (a Merchants price list cast to the table) ── */
+
+.shopRoot {
+  padding: 5vh 6vw;
+}
+
+.shopCard {
+  width: min(88vw, 1100px);
+  max-height: 88vh;
+  overflow: hidden;
+  padding: clamp(20px, 4vh, 48px) clamp(24px, 4vw, 56px) clamp(24px, 4vh, 48px);
+  border-radius: 12px;
+  background: #14110c;
+  border: 1px solid rgba(200, 160, 90, 0.28);
+  box-shadow: 0 14px 48px rgba(0, 0, 0, 0.6);
+}
+
+.shopEyebrow {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: calc(13px * var(--player-text-scale, 1));
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: oklch(0.72 0.13 70);
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.shopName {
+  font-family: "EB Garamond", "Garamond", "Georgia", serif;
+  font-size: calc(clamp(28px, 4.4vh, 44px) * var(--player-text-scale, 1));
+  line-height: 1.1;
+  color: #f0e7d5;
+  text-align: center;
+  padding-bottom: clamp(12px, 2vh, 22px);
+  border-bottom: 1px solid rgba(200, 160, 90, 0.22);
+}
+
+.shopEmpty {
+  font-family: "EB Garamond", "Garamond", "Georgia", serif;
+  font-style: italic;
+  font-size: calc(clamp(18px, 2.6vh, 26px) * var(--player-text-scale, 1));
+  color: #cfc4ae;
+  text-align: center;
+  margin-top: clamp(16px, 3vh, 32px);
+}
+
+.shopList {
+  list-style: none;
+  margin: clamp(14px, 2.4vh, 28px) 0 0;
+  padding: 0;
+  column-gap: clamp(24px, 4vw, 56px);
+  /* Column rules read as shelf dividers, which is exactly the intent. */
+  column-rule: 1px solid rgba(200, 160, 90, 0.14);
+}
+
+.shopLine {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0.32em 0 0.32em 12px;
+  border-left: 3px solid transparent;
+  /* Without this a row can be split across the column break, leaving a name in one column and its
+     price in the next. */
+  break-inside: avoid;
+}
+
+.shopLineName {
+  font-family: "EB Garamond", "Garamond", "Georgia", serif;
+  font-size: calc(clamp(17px, 2.5vh, 27px) * var(--player-text-scale, 1));
+  color: #e8e0d0;
+}
+
+.shopLineQty {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: calc(clamp(12px, 1.6vh, 17px) * var(--player-text-scale, 1));
+  color: #9a8f7c;
+}
+
+/* The leader between name and price. A border on a flexing spacer rather than repeated "." glyphs,
+   so it stretches to whatever room is left and a wrapped name still lines up with its price. */
+.shopLineDots {
+  flex: 1;
+  min-width: 1.5em;
+  align-self: center;
+  border-bottom: 1px dotted rgba(200, 160, 90, 0.28);
+}
+
+.shopLinePrice {
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  font-size: calc(clamp(15px, 2.1vh, 23px) * var(--player-text-scale, 1));
+  color: oklch(0.80 0.115 78);
+  white-space: nowrap;
+}
+
+.shopLineSoldOut .shopLineName {
+  color: #7d7466;
+  text-decoration: line-through;
+  text-decoration-color: rgba(125, 116, 102, 0.6);
+}
+
+.shopLineSoldOut .shopLinePrice {
+  color: #7d7466;
+  font-style: italic;
+}
+
+/* Rarity at a glance from across the table. Same hues as the GM side's --rarity-* ramp, held here as
+   literals at a higher chroma: this screen is read from across a room, the widgets from a foot away.
+   Not var()s, because the player window does not load the GM theme's tokens. */
+.shopLine[data-rarity="uncommon"]  { border-left-color: oklch(0.68 0.15 150); }
+.shopLine[data-rarity="rare"]      { border-left-color: oklch(0.68 0.14 240); }
+.shopLine[data-rarity="very-rare"] { border-left-color: oklch(0.66 0.17 300); }
+.shopLine[data-rarity="legendary"] { border-left-color: oklch(0.76 0.15 65); }
+.shopLine[data-rarity="artifact"]  { border-left-color: oklch(0.65 0.19 25); }
+
 /* ── Progress Clock overlay (bottom-right) ── */
 
 .clockOverlay {

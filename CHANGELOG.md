@@ -6,8 +6,31 @@ All notable changes are documented here.
 
 ### Features
 
-- **The canvas itself is now keyboard-reachable, and pans with the arrow keys.** Tab to it (Shift for
-  a bigger step) - the same convention widget move/resize already used. Its rail in the sidebar also
+- **Weapons and armour can carry their actual detail, and a shop finally shows it.** An item could
+  only record a name, a kind, a rarity, a price and a weight, which is fine for a ledger and useless
+  for describing a sword. Items now take damage, a range, an armour class, a versatile die, an
+  enchantment bonus and free-text properties like light or versatile. All of it, plus the description
+  that was already there, reads as one card wherever the item appears: in the Items editor whilst you
+  write it, under a row on a merchant's shelf, and under a line in a character's own kit. Running a
+  shop no longer means leaving the merchant to go and look something up.
+
+  None of it is limited to weapons and armour, because plenty of things that hurt people are neither.
+  A wand, a flask of acid and a poisoned trap all take damage, and a ring or a cloak takes an armour
+  class. The fields sit behind a "Damage and defence" line that opens on its own for anything that
+  already uses them, so a coil of rope still has a short, quiet editor.
+
+  Damage is a list rather than a single figure, because a magic weapon routinely deals several kinds
+  at once. A trident dealing 1d8+8 piercing plus 1d6 thunder plus 1d4 necrotic is three rows, each
+  labelled, and the card works out what the whole lot comes to and headlines it as "11~26 Damage"
+  before you have to do the arithmetic. Click the dice to roll every component together into the Dice
+  Roller, holding Shift for advantage or Alt for disadvantage, the same as any stat on a character
+  sheet. Damage types and properties are free text with suggestions rather than a fixed list, because
+  TTCanvas is not a rules engine and your game may not have radiant damage in it. Nothing about the
+  price list your players see has changed.
+
+- **The canvas itself is now keyboard-reachable, and pans with the arrow keys.** Tab to it, or just
+  click an empty part of it (Shift for a bigger step) - the same convention widget move/resize
+  already used. Its rail in the sidebar also
   gained keyboard reordering, which had silently gone missing from an otherwise-unrelated change.
   Initiative Tracker's condition picker is quicker to use from the keyboard too: arrow keys now step
   between the condition chips instead of needing a Tab press for each one.
@@ -29,6 +52,47 @@ All notable changes are documented here.
   works the same as it does after a mouse drag. Party Tracker, Bestiary and NPC Library also gained a
   "place at map center" button next to each portrait - the same one-click placement Initiative Tracker
   already had - so getting a character or creature onto the map no longer requires a drag.
+
+- **Show the players what's on the shelves.** Merchants gained a cast button that puts a merchant's
+  price list on the player window - names, prices and rarity, laid out to be read from across the
+  table. Everything that's yours alone stays yours: your markup, the buyback rate, the party purse,
+  your notes on the shopkeeper. Beside it, live sync keeps that list following the selected merchant,
+  so a purchase updates the shelf the players are reading without you casting again. Purchases and
+  sales are also written to the Session Logger with the merchant and the price, so at the end of the
+  night you can see where the money went.
+
+- **Merchants restock themselves.** Hit **Generate** and a merchant fills its own shelves from your
+  Items catalogue. What it deals in comes from its kind, so a blacksmith reaches for weapons and
+  armour whilst an apothecary reaches for potions. How good its stock gets is entirely your call: tick
+  the rarities each merchant is allowed, with one-click presets from Squalid to Fabled as a starting
+  point. Nothing caps you, because a slum in a great city is still a slum and a back-alley fence might
+  genuinely have something legendary under the counter. Within whatever you allow, ordinary things
+  still turn up more often, so a shelf doesn't read as all treasure. Generating adds to the shelves
+  rather than replacing them, so a merchant the party keeps revisiting keeps its character and any
+  prices you set by hand. You can also stock from a Roll Table: results are matched to your catalogue
+  by name, and anything that doesn't match is listed for you to add rather than silently invented.
+
+- **Merchants.** A new widget holding the shops, traders and fences your party keeps going back to.
+  Give one an owner and a place (linked to your NPC Library and Gazetteer, so they open with a
+  click), then stock its shelves from your Items catalogue. Stock is held by reference, so repricing
+  a longsword in Items updates every merchant selling one, and leaving a count blank means unlimited.
+  **Buy** moves an item into the party stash and pays for it out of the shared purse; **Sell** does
+  the reverse at the merchant's buyback rate. If the party can't afford something you get a warning
+  rather than a refusal, because the ledger doesn't overrule you. Price and buyback multipliers are
+  per merchant, so a gouging port town and a friendly village smith can sit side by side. Merchants
+  import, export and pull from another vault like every other collection.
+
+- **Inventory is now Items, and it's a catalogue.** The rename is the point, not decoration: an item
+  is a *definition* first, so a new one starts with nobody holding it, which is what lets a merchant
+  stock something the party has never owned. A new **All / Held / Catalogue** toggle filters by that
+  distinction. Your existing items, holdings and party purse carry across untouched. One behaviour
+  change worth knowing: typing a name and pressing Enter no longer means the party owns one, so use
+  the steppers (or Roll loot, which still lands in the stash) to say who has some.
+
+- **Move, resize and delete a placed map token from the keyboard.** Tab to a token (or click it) to
+  select it, then arrow keys nudge it, +/- resizes it and Delete/Backspace removes it - the same
+  conventions as widget move/resize and canvas panning above, now extended to tokens already on the
+  board.
 
 - **Inventory.** A new widget holding one ledger of everything the party owns. Each item carries a
   kind, rarity, value, weight and a Markdown description, and quantities are tracked per holder, so a
@@ -263,6 +327,37 @@ All notable changes are documented here.
   tidy-up: it sits on its own line under a divider, with a clearer, labelled Pull button.
 
 ### Fixes
+
+- **A new damage row disappeared before you could type in it.** "+ Add damage" adds an empty row, and
+  the validation that runs over an item on every frame threw it away for having no dice in it yet, so
+  the row vanished the moment it appeared. Clearing an existing row's dice to retype them deleted that
+  row the same way. A row is allowed to be blank whilst you are working on it now, and a blank one is
+  simply left off the card.
+
+- **Deleting something on a map no longer closes a widget as well.** Pressing Delete with a token or
+  a drawn shape selected removed it and also hid whichever widget was on top, which was often not the
+  map. Delete now leaves a widget alone whenever you are working inside one, or whilst a dialog is
+  open, and still closes the widget you are pointed at from the canvas or its title bar. Nudging a
+  token with the arrow keys also stops at the edge of the map instead of walking it off into space,
+  where it could not be selected again to bring it back.
+
+- **Clicking the canvas works on a layout with a background image.** The image sat over the canvas as
+  far as the mouse was concerned, so clicking empty space never actually reached the canvas: no focus,
+  which meant the arrow keys would not pan it, and no drag-select.
+
+- **A merchant's shelf remembers what an item was called.** Adding an item to a merchant by hand
+  stored only a reference to it, so deleting that item from your catalogue later left the shelf
+  reading "Unknown item". It now keeps the name alongside the reference, the way generated and rolled
+  stock already did.
+
+- **Uncommon and rare items were the same colour.** The little rarity bar beside an item drew both
+  from the same blue, so two of the six rarities were impossible to tell apart at a glance. Uncommon
+  is now green, matching the ramp the player-facing price list already used. Legendary also stopped
+  following your accent colour, which made it identical to uncommon under the moss theme.
+
+- **Several Merchants controls had lost their amber highlight.** The pressed kind filter, the selected
+  merchant, the live-sync button and a couple of hover states were all reaching for a colour that
+  doesn't exist, so they quietly drew nothing at all.
 
 - **Dropdown lists are dark like the rest of the app.** Opening a dropdown - a location's parent in
   the Gazetteer, and every other one in the app - popped up a bright white list with amber text on it,

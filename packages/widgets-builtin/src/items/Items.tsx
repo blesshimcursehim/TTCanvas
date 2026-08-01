@@ -9,13 +9,14 @@ import {
   useVault, useParty, useToast, useRollTables, logError,
   CURRENCY_KEYS, COIN_IN_CP, formatCoin, type PCCurrency,
 } from "@ttcanvas/core";
-import type { InventoryItem, InventoryState, ItemKind, Rarity } from "./types";
+import type { CatalogueItem, ItemsState, ItemKind, Rarity, DamagePart } from "./types";
 import { ITEM_KINDS, RARITIES } from "./types";
 import {
   totalQty, qtyFor, setQty, weightCarried, totalValueCp, currencyToCp, normaliseCurrency,
   splitEvenly, coinParts,
-} from "./inventory";
-import { renderMarkdown } from "../shared/markdownRenderer";
+} from "./ledger";
+// Descriptions are rendered by ItemCard now, so the Markdown and wikilink plumbing lives there.
+import { ItemCard } from "../shared/ItemCard";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
@@ -23,34 +24,81 @@ import { pullSingletonBundle } from "../shared/crossVaultPull";
 import { CollectionIO } from "../shared/CollectionIO";
 import { VaultPullControl } from "../shared/VaultPullControl";
 import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
-import styles from "./Inventory.module.css";
+import { ModeToggle } from "../shared/ModeToggle";
+import styles from "./Items.module.css";
 
 interface Props {
-  state: InventoryState;
-  onChange: (state: InventoryState) => void;
+  state: ItemsState;
+  onChange: (state: ItemsState) => void;
 }
 
+// The on-disk discriminator, deliberately still "inventory" now that the widget is called Items:
+// readBundle rejects a present-but-mismatched type, so renaming this would make every
+// .inventory.json a user has already exported fail to import. Not user-visible branding, and not an
+// oversight - never change it.
 const BUNDLE_TYPE = "ttcanvas-inventory";
 const RARITY_LABELS: Record<Rarity, string> = {
   common: "common", uncommon: "uncommon", rare: "rare",
   "very-rare": "very rare", legendary: "legendary", artifact: "artifact",
 };
 
-// An item description is an entity body, so like Gazetteer/NPC notes its [[links]] go through the
-// cross-entity channel - [[Vex]] resolves to that NPC, [[A Note]] still opens the note.
-function handleWikilinkClick(e: React.MouseEvent) {
-  const link = (e.target as HTMLElement).closest("[data-wikilink]") as HTMLElement | null;
-  if (!link) return;
-  e.preventDefault();
-  const name = link.dataset.wikilink;
-  if (name) window.dispatchEvent(new CustomEvent("ttcanvas:open-entity-link", { detail: { name } }));
+// Suggestions only, offered through a <datalist> so the field stays free text. Deliberately not an
+// enum: an enum would make TTCanvas a 5e-only app, and a fixed vocabulary is content we would have
+// to licence. A GM can ignore every one of these and type their own.
+const DAMAGE_TYPES = [
+  "slashing", "piercing", "bludgeoning", "acid", "cold", "fire", "force",
+  "lightning", "necrotic", "poison", "psychic", "radiant", "thunder",
+];
+
+/** "light, finesse ,, thrown" -> ["light","finesse","thrown"]; nothing at all -> undefined. */
+function parseProperties(raw: string): string[] | undefined {
+  const list = raw.split(",").map((p) => p.trim()).filter(Boolean);
+  return list.length > 0 ? list : undefined;
 }
 
-function itemContentKey(item: InventoryItem): string {
+/** Drop one entry, collapsing an emptied list to undefined so the field disappears rather than
+ *  persisting as `[]` and re-rendering an empty damage block forever. */
+function dropAt<T>(list: readonly T[], idx: number): T[] | undefined {
+  const next = list.filter((_, i) => i !== idx);
+  return next.length > 0 ? next : undefined;
+}
+
+/** Whether an item carries any of the combat block's fields. Only decides whether the block starts
+ *  open, so a longsword shows its numbers straight away and a rope shows a single quiet button. */
+function hasCombatDetail(item: CatalogueItem): boolean {
+  return (item.damage?.length ?? 0) > 0
+    || item.versatileDice !== undefined
+    || item.enchantment !== undefined
+    || item.range !== undefined
+    || item.armourClass !== undefined;
+}
+
+function itemContentKey(item: CatalogueItem): string {
   // Holdings are campaign state, not part of the item's identity - two vaults describing the same
   // Sunblade should read as duplicates even when different characters are carrying it.
   const { id: _id, holdings: _holdings, ...rest } = item;
   return hashContent(rest);
+}
+
+/**
+ * A weapon's damage from a bundle. Also accepts the single-string shape damage briefly had before it
+ * became a list, folding `damage: "1d8", damageType: "slashing"` into one component - the widget was
+ * never released with that shape, but a vault opened by a development build could still hold it, and
+ * silently dropping what a GM typed is the worse failure.
+ */
+function readDamage(raw: unknown, legacyType: unknown): DamagePart[] {
+  if (typeof raw === "string") {
+    return raw.trim()
+      ? [{ dice: raw, ...(typeof legacyType === "string" && legacyType ? { type: legacyType } : {}) }]
+      : [];
+  }
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((p: unknown): DamagePart[] => {
+    if (!p || typeof p !== "object") return [];
+    const { dice, type } = p as Record<string, unknown>;
+    if (typeof dice !== "string" || !dice.trim()) return [];
+    return [{ dice, ...(typeof type === "string" && type ? { type } : {}) }];
+  });
 }
 
 function isKind(v: unknown): v is ItemKind {
@@ -61,13 +109,13 @@ function isRarity(v: unknown): v is Rarity {
   return typeof v === "string" && (RARITIES as readonly string[]).includes(v);
 }
 
-function validateInventoryBundle(parsed: unknown): InventoryItem[] | null {
+function validateItemsBundle(parsed: unknown): CatalogueItem[] | null {
   if (!parsed || typeof parsed !== "object") return null;
   const bundle = parsed as Record<string, unknown>;
   if (bundle.type !== BUNDLE_TYPE || !Array.isArray(bundle.items)) return null;
   // Normalise every field, not just id/name: a garbage `holdings` or `kind` from a hand-edited file
   // would otherwise reach the render and crash it.
-  return bundle.items.flatMap((raw: unknown): InventoryItem[] => {
+  return bundle.items.flatMap((raw: unknown): CatalogueItem[] => {
     if (!raw || typeof raw !== "object") return [];
     const i = raw as Record<string, unknown>;
     if (typeof i.id !== "string" || typeof i.name !== "string" || !i.name.trim()) return [];
@@ -83,6 +131,7 @@ function validateInventoryBundle(parsed: unknown): InventoryItem[] | null {
       : [];
     const valueCp = i.valueCp;
     const weightLb = i.weightLb;
+    const damage = readDamage(i.damage, i.damageType);
     return [{
       id: i.id,
       name: i.name,
@@ -93,12 +142,21 @@ function validateInventoryBundle(parsed: unknown): InventoryItem[] | null {
       ...(typeof weightLb === "number" && Number.isFinite(weightLb) && weightLb >= 0 ? { weightLb } : {}),
       ...(typeof i.description === "string" ? { description: i.description } : {}),
       ...(i.attuned === true ? { attuned: true } : {}),
+      // Weapon/armour detail: free text, so the only check is that it is text.
+      ...(damage.length > 0 ? { damage } : {}),
+      ...(typeof i.versatileDice === "string" ? { versatileDice: i.versatileDice } : {}),
+      ...(typeof i.enchantment === "number" && Number.isInteger(i.enchantment) ? { enchantment: i.enchantment } : {}),
+      ...(typeof i.range === "string" ? { range: i.range } : {}),
+      ...(typeof i.armourClass === "string" ? { armourClass: i.armourClass } : {}),
+      ...(Array.isArray(i.properties)
+        ? { properties: i.properties.filter((p): p is string => typeof p === "string") }
+        : {}),
       holdings,
     }];
   });
 }
 
-export function Inventory({ state, onChange }: Props) {
+export function Items({ state, onChange }: Props) {
   const vault = useVault();
   const { members, patchMembers } = useParty();
   const { showToast } = useToast();
@@ -107,10 +165,13 @@ export function Inventory({ state, onChange }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [editingDescId, setEditingDescId] = useState<string | null>(null);
+  // Per item, and only once the GM has actually pressed the toggle: `?? hasCombatDetail(item)` below
+  // keeps the default derived from the item, so an imported weapon opens without anyone touching it.
+  const [combatOpen, setCombatOpen] = useState<Record<string, boolean>>({});
   const [newName, setNewName] = useState("");
   const [rollTableId, setRollTableId] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
-  const [pendingImport, setPendingImport] = useState<DedupeResult<InventoryItem> | null>(null);
+  const [pendingImport, setPendingImport] = useState<DedupeResult<CatalogueItem> | null>(null);
 
   const items = state.items;
   const currency = state.currency;
@@ -122,21 +183,34 @@ export function Inventory({ state, onChange }: Props) {
 
   const visible = useMemo(() => {
     const q = state.query.trim().toLowerCase();
-    return items.filter((i) =>
-      (state.kindFilter === null || i.kind === state.kindFilter)
-      && (q === "" || i.name.toLowerCase().includes(q) || (i.description ?? "").toLowerCase().includes(q)));
-  }, [items, state.query, state.kindFilter]);
+    return items.filter((i) => {
+      // "held" and "catalogue" are exact complements, so one comparison covers both.
+      const held = totalQty(i) > 0;
+      return (state.kindFilter === null || i.kind === state.kindFilter)
+        && (state.heldFilter === "all" || (state.heldFilter === "held") === held)
+        && (q === "" || i.name.toLowerCase().includes(q) || (i.description ?? "").toLowerCase().includes(q));
+    });
+  }, [items, state.query, state.kindFilter, state.heldFilter]);
 
-  function patchItem(id: string, patch: Partial<InventoryItem>) {
+  function patchItem(id: string, patch: Partial<CatalogueItem>) {
     onChange({ ...state, items: items.map((i) => (i.id === id ? { ...i, ...patch } : i)) });
   }
 
-  function addItem(name: string, extra: Partial<InventoryItem> = {}): InventoryItem {
+  /** Edit one component of a weapon's damage, leaving the others alone. */
+  function patchDamage(item: CatalogueItem, idx: number, patch: Partial<DamagePart>) {
+    const damage = (item.damage ?? []).map((p, i) => (i === idx ? { ...p, ...patch } : p));
+    patchItem(item.id, { damage });
+  }
+
+  // An item is a *definition* first: a longsword can exist in the catalogue without anybody owning
+  // one, which is what lets Merchants stock something the party has never had. Callers that really
+  // do mean "the party has one of these" (rolled loot) pass the stash holding explicitly.
+  function addItem(name: string, extra: Partial<CatalogueItem> = {}): CatalogueItem {
     return {
       id: crypto.randomUUID(),
       name,
       kind: "gear",
-      holdings: [{ holderId: null, qty: 1 }],
+      holdings: [],
       ...extra,
     };
   }
@@ -195,7 +269,13 @@ export function Inventory({ state, onChange }: Props) {
           ? { ...i, holdings: setQty(i.holdings, null, qtyFor(i, null) + 1) }
           : i));
       } else {
-        next = [addItem(name, { kind: "treasure", ...(o.note ? { description: o.note } : {}) }), ...next];
+        // Explicit stash holding: unlike a hand-added catalogue entry, rolled loot is something the
+        // party has just been given, so it starts owned rather than as a bare definition.
+        next = [addItem(name, {
+          kind: "treasure",
+          holdings: [{ holderId: null, qty: 1 }],
+          ...(o.note ? { description: o.note } : {}),
+        }), ...next];
       }
     }
     onChange({ ...state, items: next });
@@ -205,7 +285,9 @@ export function Inventory({ state, onChange }: Props) {
 
   // ── Import / export / pull ────────────────────────────────
   async function handleExportAll() {
-    await exportCollection(vault.saveTextFile, buildBundle(BUNDLE_TYPE, { items }), "inventory.inventory.json");
+    // "items" names the widget, ".inventory.json" is the format suffix, which stays put alongside
+    // BUNDLE_TYPE so a new export sits next to older ones as an obvious sibling.
+    await exportCollection(vault.saveTextFile, buildBundle(BUNDLE_TYPE, { items }), "items.inventory.json");
   }
 
   async function handleImportFile(file: File) {
@@ -213,7 +295,7 @@ export function Inventory({ state, onChange }: Props) {
     try {
       handleImportText(await file.text());
     } catch (err) {
-      logError("Inventory: could not read the import file", err);
+      logError("Items: could not read the import file", err);
       setImportError("Failed to read import file.");
     }
   }
@@ -225,10 +307,13 @@ export function Inventory({ state, onChange }: Props) {
     return pullSingletonBundle(
       vault.readForeignSingleton,
       sourceVault,
-      "inventory",
+      // The new key, with no "inventory" fallback needed even for a vault last saved before the
+      // rename: readForeignSingleton goes through loadWorkspace, which runs migrateWorkspace on the
+      // way, so a foreign workspace arrives already migrated in memory.
+      "items",
       BUNDLE_TYPE,
       (foreign) => {
-        const s = foreign as InventoryState | undefined;
+        const s = foreign as ItemsState | undefined;
         if (!s?.items?.length) return null;
         return { items: s.items.map((i) => ({ ...i, holdings: [] })) };
       },
@@ -238,9 +323,9 @@ export function Inventory({ state, onChange }: Props) {
 
   function handleImportText(text: string) {
     setImportError(null);
-    const incoming = readBundle(text, BUNDLE_TYPE, validateInventoryBundle);
+    const incoming = readBundle(text, BUNDLE_TYPE, validateItemsBundle);
     if (!incoming) {
-      setImportError("Not a valid Inventory file.");
+      setImportError("Not a valid Items file.");
       return;
     }
     const result = dedupe(incoming, items, { idOf: (i) => i.id, contentKeyOf: itemContentKey });
@@ -251,7 +336,7 @@ export function Inventory({ state, onChange }: Props) {
     }
   }
 
-  function applyImport(result: DedupeResult<InventoryItem>, conflictMode: "skip" | "replace") {
+  function applyImport(result: DedupeResult<CatalogueItem>, conflictMode: "skip" | "replace") {
     setPendingImport(null);
     setExpandedId(null);
     setEditingDescId(null);
@@ -277,6 +362,15 @@ export function Inventory({ state, onChange }: Props) {
           aria-label="Search items"
           onChange={(e) => onChange({ ...state, query: e.target.value })}
         />
+        <ModeToggle
+          value={state.heldFilter}
+          onChange={(heldFilter) => onChange({ ...state, heldFilter })}
+          options={[
+            { value: "all", label: "All" },
+            { value: "held", label: "Held" },
+            { value: "catalogue", label: "Catalogue" },
+          ]}
+        />
         <span className={styles.count}>{visible.length} item{visible.length !== 1 ? "s" : ""}</span>
       </div>
 
@@ -301,11 +395,18 @@ export function Inventory({ state, onChange }: Props) {
       <div className={styles.list}>
         {visible.length === 0 && (
           <p className={styles.empty}>
-            {items.length === 0 ? "The party owns nothing yet." : "No items match."}
+            {items.length === 0
+              ? "No items yet. Add one to define it, then say who has some."
+              : state.heldFilter === "held"
+                ? "Nobody is carrying anything that matches."
+                : state.heldFilter === "catalogue"
+                  ? "Every item that matches is held by somebody."
+                  : "No items match."}
           </p>
         )}
         {visible.map((item) => {
           const open = expandedId === item.id;
+          const showCombat = combatOpen[item.id] ?? hasCombatDetail(item);
           const holders = item.holdings.map((h) => holderName(h.holderId));
           return (
             <div key={item.id} className={styles.item}>
@@ -395,6 +496,111 @@ export function Inventory({ state, onChange }: Props) {
                     </label>
                   </div>
 
+                  {/* Comma-separated rather than a chip-entry control, and with no datalist: a
+                      datalist offers replacements for the whole field, so picking one would wipe the
+                      properties already typed. The placeholder carries the vocabulary. This is also
+                      where a resistance goes ("resist fire"): it is a label the card prints, not a
+                      rule anything computes, so it needs no field of its own. */}
+                  <div className={styles.fields}>
+                    <label className={`${styles.field} ${styles.fieldWide}`}>Properties
+                      <input
+                        className={styles.input}
+                        value={item.properties?.join(", ") ?? ""}
+                        placeholder="light, finesse, resist fire"
+                        onChange={(e) => patchItem(item.id, { properties: parseProperties(e.target.value) })}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Offered on every kind, not just weapons and armour. A wand deals damage, a ring
+                      grants an armour class, and any list of kinds we picked would still be wrong for
+                      somebody's game. The disclosure is what keeps a rope's editor short: the fields
+                      are always available, they are just not always in the way. */}
+                  <button
+                    className={styles.combatToggle}
+                    aria-expanded={showCombat}
+                    onClick={() => setCombatOpen({ ...combatOpen, [item.id]: !showCombat })}
+                  >{showCombat ? "−" : "+"} Damage and defence</button>
+
+                  {showCombat && (
+                    <>
+                      {/* Damage is a list, not two boxes: a magic weapon routinely deals several kinds
+                          at once, and one type field could only ever label the first of them. The
+                          first row is the base, the rest stack on top. */}
+                      <div className={styles.damageRows}>
+                        <span className={styles.damageHead}>Damage</span>
+                        {(item.damage ?? []).map((part, i) => (
+                          <div key={i} className={styles.damageRow}>
+                            <input
+                              className={styles.input}
+                              value={part.dice}
+                              placeholder={i === 0 ? "1d8+1" : "1d6"}
+                              aria-label={i === 0 ? "Base damage dice" : `Extra damage ${i} dice`}
+                              onChange={(e) => patchDamage(item, i, { dice: e.target.value })}
+                            />
+                            {/* A datalist, not a select: these are suggestions, and a GM running a
+                                game that has no "radiant" must be able to type "entropy" instead. */}
+                            <input
+                              className={styles.input}
+                              list="ttc-damage-types"
+                              value={part.type ?? ""}
+                              placeholder="slashing"
+                              aria-label={i === 0 ? "Base damage type" : `Extra damage ${i} type`}
+                              onChange={(e) => patchDamage(item, i, { type: e.target.value || undefined })}
+                            />
+                            <button
+                              className={styles.damageRemove}
+                              aria-label={i === 0 ? "Remove base damage" : `Remove extra damage ${i}`}
+                              onClick={() => patchItem(item.id, { damage: dropAt(item.damage ?? [], i) })}
+                            >×</button>
+                          </div>
+                        ))}
+                        <button
+                          className={styles.descEditBtn}
+                          onClick={() => patchItem(item.id, { damage: [...(item.damage ?? []), { dice: "" }] })}
+                        >+ Add damage</button>
+                      </div>
+
+                      <div className={styles.fields}>
+                        <label className={styles.field}>Versatile dice
+                          <input
+                            className={styles.input}
+                            value={item.versatileDice ?? ""}
+                            placeholder="1d10"
+                            onChange={(e) => patchItem(item.id, { versatileDice: e.target.value || undefined })}
+                          />
+                        </label>
+                        <label className={styles.field}>Enchantment
+                          <input
+                            className={styles.input}
+                            type="number"
+                            value={item.enchantment ?? ""}
+                            placeholder="+3"
+                            onChange={(e) => patchItem(item.id, {
+                              enchantment: e.target.value === "" ? undefined : Math.trunc(Number(e.target.value) || 0),
+                            })}
+                          />
+                        </label>
+                        <label className={styles.field}>Range
+                          <input
+                            className={styles.input}
+                            value={item.range ?? ""}
+                            placeholder="20/60 ft"
+                            onChange={(e) => patchItem(item.id, { range: e.target.value || undefined })}
+                          />
+                        </label>
+                        <label className={styles.field}>Armour class
+                          <input
+                            className={styles.input}
+                            value={item.armourClass ?? ""}
+                            placeholder="14 + Dex (max 2)"
+                            onChange={(e) => patchItem(item.id, { armourClass: e.target.value || undefined })}
+                          />
+                        </label>
+                      </div>
+                    </>
+                  )}
+
                   {/* A real button toggles the editor rather than the rendered block being one: the
                       block contains its own links, so making it a button would nest interactive
                       elements, swallow Space, and leave no sensible focus ring. */}
@@ -405,7 +611,7 @@ export function Inventory({ state, onChange }: Props) {
                       onClick={() => setEditingDescId(editingDescId === item.id ? null : item.id)}
                     >{editingDescId === item.id ? "Done" : "Edit"}</button>
                   </div>
-                  {editingDescId === item.id ? (
+                  {editingDescId === item.id && (
                     <textarea
                       className={styles.desc}
                       value={item.description ?? ""}
@@ -414,14 +620,15 @@ export function Inventory({ state, onChange }: Props) {
                       placeholder="Supports Markdown and [[wikilinks]]"
                       onChange={(e) => patchItem(item.id, { description: e.target.value })}
                     />
-                  ) : (
-                    <div
-                      className={styles.descView}
-                      onClick={handleWikilinkClick}
-                      {...(item.description
-                        ? { dangerouslySetInnerHTML: { __html: renderMarkdown(item.description) } }
-                        : { children: <span className={styles.descEmpty}>No description yet.</span> })}
-                    />
+                  )}
+
+                  {/* Exactly what the merchant's shelf and the character's kit will show, so the GM
+                      writes the fields above and reads the result without hopping to Merchants to
+                      check. It is also the only place the description is *rendered*: the block above
+                      is the editor, and showing the prose twice on one card was just noise. */}
+                  <ItemCard item={item} />
+                  {!item.description && editingDescId !== item.id && (
+                    <span className={styles.descEmpty}>No description yet.</span>
                   )}
 
                   {/* ── Holdings ─────────────────── */}
@@ -548,7 +755,7 @@ export function Inventory({ state, onChange }: Props) {
 
       {pendingImport && (
         <ImportConflictDialog
-          title="Import Inventory"
+          title="Import Items"
           noun="item"
           totalCount={pendingImport.idConflicts.length + pendingImport.contentDuplicates.length + pendingImport.clean.length}
           idConflicts={pendingImport.idConflicts.map((i) => ({ id: i.id, label: i.name }))}
@@ -558,6 +765,12 @@ export function Inventory({ state, onChange }: Props) {
           onReplace={() => applyImport(pendingImport, "replace")}
         />
       )}
+
+      {/* Once for the whole widget, not once per expanded item: a <datalist> is referenced by id, so
+          every Damage type field can share these two without duplicating the options in the DOM. */}
+      <datalist id="ttc-damage-types">
+        {DAMAGE_TYPES.map((d) => <option key={d} value={d} />)}
+      </datalist>
     </div>
   );
 }

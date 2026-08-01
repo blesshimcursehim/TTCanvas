@@ -12,11 +12,15 @@ import { AbilityGrid } from "./sheet-primitives/AbilityGrid";
 import { RollableStat } from "./sheet-primitives/RollableStat";
 import { NamedEntryList } from "./sheet-primitives/NamedEntryList";
 import type { AbilityScores, SpellSlots, PCCurrency } from "@ttcanvas/core";
-import { useVault, useInventory, pushCharacterScene, abilityModifier, proficiencyBonus, CURRENCY_KEYS, formatCoin } from "@ttcanvas/core";
+import { useVault, useItems, pushCharacterScene, abilityModifier, proficiencyBonus, CURRENCY_KEYS, formatCoin } from "@ttcanvas/core";
 import { currencyOf, withCurrency } from "../party-tracker/currency";
 import { portraitColor } from "../party-tracker/CharacterCard";
+import { ItemCard } from "./ItemCard";
 import styles from "./PCSheetModal.module.css";
 
+// "Inventory" here is deliberate, and not drift from the Items widget rename: a character genuinely
+// has an inventory, whilst the widget is a catalogue of definitions. Keeping both words is the whole
+// point of that split.
 const TABS = ["Overview", "Abilities", "Combat", "Spellcasting", "Features", "Inventory"] as const;
 type Tab = typeof TABS[number];
 
@@ -51,11 +55,12 @@ interface Props {
 
 export function PCSheetModal({ member, onSave, onClose }: Props) {
   const vault = useVault();
-  const ledgerItems = useInventory().itemsFor(member.id);
+  const ledgerItems = useItems().itemsFor(member.id);
   const [tab, setTab] = useState<Tab>("Overview");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<PartyMember>(member);
   const [newEquipItem, setNewEquipItem] = useState("");
+  const [openLedgerId, setOpenLedgerId] = useState<string | null>(null);
 
   function patch(p: Partial<PartyMember>) {
     setDraft((d) => ({ ...d, ...p }));
@@ -562,7 +567,7 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
             </div>
           )}
 
-          {/* Items the Inventory widget has assigned to this character. Read-only and driven by
+          {/* Items the Items widget has assigned to this character. Read-only and driven by
               `member.id`, never `draft`, so a save can never fold them into `equipment: string[]` -
               that would flatten away rarity, value and weight, and duplicate them permanently.
               Renders nothing at all when the ledger holds none, so sheets look unchanged without it. */}
@@ -570,19 +575,32 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
             <>
               <SectionHead style={{ marginTop: 14 }}>Party ledger</SectionHead>
               <div className={styles.ledgerList}>
-                {ledgerItems.map((i) => (
-                  <div key={i.id} className={styles.ledgerRow}>
-                    <span className={styles.ledgerQty}>{i.qty}</span>
-                    <span className={styles.ledgerName}>
-                      {i.name}
-                      <span className={styles.ledgerMeta}>
-                        {i.kind}{i.rarity ? ` · ${i.rarity.replace("-", " ")}` : ""}
-                        {i.weightLb ? ` · ${i.weightLb} lb` : ""}
-                      </span>
-                    </span>
-                    <span className={styles.ledgerValue}>{i.valueCp ? formatCoin(i.valueCp) : ""}</span>
-                  </div>
-                ))}
+                {/* The whole row opens the card here, unlike the merchant's shelf: there is nothing
+                    else on it to click, so anything smaller than the row would just be a smaller
+                    target. */}
+                {ledgerItems.map((i) => {
+                  const open = openLedgerId === i.id;
+                  return (
+                    <div key={i.id}>
+                      <button
+                        className={styles.ledgerRow}
+                        aria-expanded={open}
+                        onClick={() => setOpenLedgerId(open ? null : i.id)}
+                      >
+                        <span className={styles.ledgerQty}>{i.qty}</span>
+                        <span className={styles.ledgerName}>
+                          {i.name}
+                          <span className={styles.ledgerMeta}>
+                            {i.kind}{i.rarity ? ` · ${i.rarity.replace("-", " ")}` : ""}
+                            {i.weightLb ? ` · ${i.weightLb} lb` : ""}
+                          </span>
+                        </span>
+                        <span className={styles.ledgerValue}>{i.valueCp ? formatCoin(i.valueCp) : ""}</span>
+                      </button>
+                      {open && <div className={styles.ledgerCard}><ItemCard item={i} qty={i.qty} /></div>}
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}

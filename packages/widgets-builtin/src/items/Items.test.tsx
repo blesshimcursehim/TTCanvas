@@ -7,10 +7,11 @@
 
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PartyContext, RollTablesContext, VaultContext } from "@ttcanvas/core";
+import { DiceContext, PartyContext, RollTablesContext, VaultContext } from "@ttcanvas/core";
 import type { PartyContextValue, PartyMemberPatch, RollTablesContextValue, RollTableOutcome, VaultContextValue } from "@ttcanvas/core";
-import { Inventory } from "./Inventory";
-import type { InventoryState, InventoryItem } from "./types";
+import { Items } from "./Items";
+import { ItemCard } from "../shared/ItemCard";
+import type { ItemsState, CatalogueItem } from "./types";
 
 afterEach(cleanup);
 
@@ -22,28 +23,28 @@ const MEMBERS = [
   { id: "pc2", name: "Bram", hp: 8, maxHp: 12, ac: 16, initiative: 0, level: 3 },
 ];
 
-function item(over: Partial<InventoryItem> = {}): InventoryItem {
+function item(over: Partial<CatalogueItem> = {}): CatalogueItem {
   return { id: "i1", name: "Sunblade", kind: "weapon", holdings: [{ holderId: null, qty: 1 }], ...over };
 }
 
-function baseState(over: Partial<InventoryState> = {}): InventoryState {
+function baseState(over: Partial<ItemsState> = {}): ItemsState {
   return {
     items: [item()],
     currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
-    query: "", kindFilter: null, showWeight: false, carryLimitLb: null,
+    query: "", kindFilter: null, heldFilter: "all", showWeight: false, carryLimitLb: null,
     ...over,
   };
 }
 
 interface Harness {
-  onChange?: (s: InventoryState) => void;
+  onChange?: (s: ItemsState) => void;
   patchMembers?: (p: PartyMemberPatch[]) => void;
   rollOn?: (id: string) => RollTableOutcome[] | null;
   tables?: { id: string; name: string }[];
   members?: PartyContextValue["members"];
 }
 
-function renderInventory(state: InventoryState, h: Harness = {}) {
+function renderInventory(state: ItemsState, h: Harness = {}) {
   const party: PartyContextValue = {
     members: h.members ?? MEMBERS,
     patchMembers: h.patchMembers ?? (() => {}),
@@ -56,17 +57,17 @@ function renderInventory(state: InventoryState, h: Harness = {}) {
     <VaultContext.Provider value={VAULT}>
       <PartyContext.Provider value={party}>
         <RollTablesContext.Provider value={rollTables}>
-          <Inventory state={state} onChange={h.onChange ?? (() => {})} />
+          <Items state={state} onChange={h.onChange ?? (() => {})} />
         </RollTablesContext.Provider>
       </PartyContext.Provider>
     </VaultContext.Provider>,
   );
 }
 
-describe("Inventory ledger", () => {
+describe("Items ledger", () => {
   it("shows the empty state before anything is added", () => {
     renderInventory(baseState({ items: [] }));
-    expect(screen.getByText("The party owns nothing yet.")).toBeTruthy();
+    expect(screen.getByText("No items yet. Add one to define it, then say who has some.")).toBeTruthy();
   });
 
   it("distinguishes an empty ledger from a filtered-out one", () => {
@@ -92,6 +93,38 @@ describe("Inventory ledger", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ kindFilter: "armour" }));
   });
 
+  // The catalogue reframe: an item is a definition first, a possession second.
+  it("adds a new item as a bare definition that nobody holds", () => {
+    const onChange = vi.fn();
+    renderInventory(baseState({ items: [] }), { onChange });
+    fireEvent.change(screen.getByPlaceholderText("Add item…"), { target: { value: "Rope" } });
+    fireEvent.click(screen.getByRole("button", { name: "+" }));
+    expect(onChange.mock.calls[0][0].items[0]).toMatchObject({ name: "Rope", holdings: [] });
+  });
+
+  it("hides catalogue-only items under the Held filter", () => {
+    renderInventory(baseState({
+      heldFilter: "held",
+      items: [item({ id: "held", name: "Sunblade" }), item({ id: "defn", name: "Rope", holdings: [] })],
+    }));
+    expect(screen.getByText("Sunblade")).toBeTruthy();
+    expect(screen.queryByText("Rope")).toBeNull();
+  });
+
+  it("hides held items under the Catalogue filter", () => {
+    renderInventory(baseState({
+      heldFilter: "catalogue",
+      items: [item({ id: "held", name: "Sunblade" }), item({ id: "defn", name: "Rope", holdings: [] })],
+    }));
+    expect(screen.getByText("Rope")).toBeTruthy();
+    expect(screen.queryByText("Sunblade")).toBeNull();
+  });
+
+  it("explains an empty Catalogue view rather than looking broken", () => {
+    renderInventory(baseState({ heldFilter: "catalogue" }));
+    expect(screen.getByText("Every item that matches is held by somebody.")).toBeTruthy();
+  });
+
   it("keeps a row collapsed until it is clicked", () => {
     renderInventory(baseState());
     expect(screen.queryByLabelText("Add one to Vex")).toBeNull();
@@ -114,7 +147,7 @@ describe("Inventory ledger", () => {
   });
 });
 
-describe("Inventory coin", () => {
+describe("Items coin", () => {
   it("splits the purse evenly and hands each member a delta", () => {
     const patchMembers = vi.fn();
     const onChange = vi.fn();
@@ -137,7 +170,7 @@ describe("Inventory coin", () => {
   });
 });
 
-describe("Inventory loot rolling", () => {
+describe("Items loot rolling", () => {
   it("disables the roll button until a table is picked", () => {
     renderInventory(baseState(), { tables: [{ id: "t1", name: "Loot" }] });
     expect(screen.getByText("Roll").closest("button")?.disabled).toBe(true);
@@ -172,7 +205,7 @@ describe("Inventory loot rolling", () => {
   });
 });
 
-describe("Inventory descriptions", () => {
+describe("Items descriptions", () => {
   it("routes a wikilink click to the cross-entity channel", () => {
     const heard: string[] = [];
     const listener = (e: Event) => heard.push((e as CustomEvent<{ name: string }>).detail.name);
@@ -206,5 +239,124 @@ describe("Inventory descriptions", () => {
     fireEvent.click(screen.getByText("Sunblade"));
     fireEvent.click(screen.getByText(/Forged by/));
     expect(screen.queryByRole("textbox", { name: /Description of/ })).toBeNull();
+  });
+});
+
+describe("Items weapon and armour detail", () => {
+  function openEditor(over: Partial<CatalogueItem> = {}, onChange = vi.fn()) {
+    renderInventory(baseState({ items: [item(over)] }), { onChange });
+    fireEvent.click(screen.getByText("Sunblade"));
+    return onChange;
+  }
+
+  it("shows the block already open for an item that has detail", () => {
+    openEditor({ kind: "weapon", damage: [{ dice: "1d8" }] });
+    expect(screen.getByLabelText("Base damage dice")).toBeTruthy();
+    expect(screen.getByLabelText("Range")).toBeTruthy();
+  });
+
+  it("keeps the block shut for an item with none, and opens it on request", () => {
+    openEditor({ kind: "gear" });
+    expect(screen.queryByText("+ Add damage")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Damage and defence/ }));
+    expect(screen.getByText("+ Add damage")).toBeTruthy();
+  });
+
+  // The gate used to be `kind`, which meant a wand could not be given damage and a ring could not be
+  // given an armour class. Both are offered on everything now (deferred item 63).
+  it("offers damage and armour class on a kind that is neither weapon nor armour", () => {
+    openEditor({ kind: "consumable", damage: [{ dice: "2d6", type: "acid" }] });
+    expect(screen.getByLabelText("Base damage dice")).toBeTruthy();
+    expect(screen.getByLabelText("Armour class")).toBeTruthy();
+  });
+
+  it("offers properties on every kind, weapon or not", () => {
+    openEditor({ kind: "consumable" });
+    expect(screen.getByLabelText("Properties")).toBeTruthy();
+  });
+
+  it("splits a comma-separated properties field into a list", () => {
+    const onChange = openEditor();
+    fireEvent.change(screen.getByLabelText("Properties"), { target: { value: "light, finesse ,, thrown" } });
+    expect(onChange.mock.calls[0][0].items[0].properties).toEqual(["light", "finesse", "thrown"]);
+  });
+
+  it("clears the properties field to undefined rather than an empty list", () => {
+    const onChange = openEditor({ properties: ["light"] });
+    fireEvent.change(screen.getByLabelText("Properties"), { target: { value: "  " } });
+    expect(onChange.mock.calls[0][0].items[0].properties).toBeUndefined();
+  });
+
+  it("headlines the damage range the card derives from the notation", () => {
+    openEditor({ damage: [{ dice: "1d6-1", type: "bludgeoning" }] });
+    expect(screen.getByText("0~5 Damage")).toBeTruthy();
+    expect(screen.getByText("bludgeoning")).toBeTruthy();
+  });
+
+  it("shows unrollable notation as plain text rather than a dead button", () => {
+    openEditor({ damage: [{ dice: "1d6 per level" }] });
+    expect(screen.queryByText(/\d+~\d+ Damage/)).toBeNull();
+    expect(screen.getByText("1d6 per level").tagName).toBe("SPAN");
+  });
+
+  it("keeps a weapon's damage when its kind changes, so a mis-set kind costs nothing", () => {
+    const onChange = openEditor({ damage: [{ dice: "1d8" }] });
+    fireEvent.change(screen.getByLabelText("Kind"), { target: { value: "armour" } });
+    expect(onChange.mock.calls[0][0].items[0].damage).toEqual([{ dice: "1d8" }]);
+  });
+
+  it("totals every damage component into one headline", () => {
+    openEditor({
+      damage: [
+        { dice: "1d8+8", type: "piercing" },
+        { dice: "1d6", type: "thunder" },
+        { dice: "1d4", type: "necrotic" },
+      ],
+    });
+    expect(screen.getByText("11~26 Damage")).toBeTruthy();
+    // The stacked components read as additions, base first.
+    expect(screen.getByText("1d8+8")).toBeTruthy();
+    expect(screen.getByText("+1d6")).toBeTruthy();
+    expect(screen.getByText("+1d4")).toBeTruthy();
+    expect(screen.getByText("necrotic")).toBeTruthy();
+  });
+
+  it("rolls every component together, since that is the number the GM needs", () => {
+    const roll = vi.fn();
+    render(
+      <DiceContext.Provider value={{ roll }}>
+        <ItemCard item={{ id: "i1", name: "Nyrulna", kind: "weapon", damage: [{ dice: "1d8+8" }, { dice: "1d6" }] }} />
+      </DiceContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Roll 1d8\+8\+1d6/ }));
+    expect(roll).toHaveBeenCalledWith("1d8+8+1d6", null, "Nyrulna damage");
+  });
+
+  it("adds and removes damage components", () => {
+    const onChange = openEditor({ damage: [{ dice: "1d8" }] });
+    fireEvent.click(screen.getByText("+ Add damage"));
+    expect(onChange.mock.calls[0][0].items[0].damage).toEqual([{ dice: "1d8" }, { dice: "" }]);
+
+    onChange.mockClear();
+    fireEvent.click(screen.getByLabelText("Remove base damage"));
+    // An emptied list collapses away rather than lingering as [].
+    expect(onChange.mock.calls[0][0].items[0].damage).toBeUndefined();
+  });
+
+  it("prints the versatile dice beside the base without folding it into the range", () => {
+    openEditor({ damage: [{ dice: "1d8" }], versatileDice: "1d10" });
+    expect(screen.getByText("1~8 Damage")).toBeTruthy();
+    expect(screen.getByText("(1d10)")).toBeTruthy();
+  });
+
+  it("shows an enchantment on its own line, signed", () => {
+    // Rendered on its own: "Enchantment" is also the editor's field label, and this is about the card.
+    render(<ItemCard item={{ id: "i1", name: "Nyrulna", kind: "weapon", damage: [{ dice: "1d8" }], enchantment: 3 }} />);
+    expect(screen.getByText("Enchantment")).toBeTruthy();
+    expect(screen.getByText("+3")).toBeTruthy();
+    // Display only: the bonus is usually already inside the notation, so adding it again would
+    // silently inflate every enchanted weapon.
+    expect(screen.getByText("1~8 Damage")).toBeTruthy();
   });
 });

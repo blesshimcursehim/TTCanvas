@@ -480,7 +480,7 @@ export function parseRuleCardsState(raw: unknown): unknown {
 }
 
 // ---------------------------------------------------------------------------
-// inventory
+// items
 // ---------------------------------------------------------------------------
 
 // Coins are whole and never negative; a fractional or negative one is a corrupt value, not a debt.
@@ -509,7 +509,20 @@ const holdingSchema = z.object({
   qty: z.number().int().positive(),
 });
 
-const inventoryItemSchema = z.object({
+// The dice may be empty. WidgetSlot re-parses widget state on every render, so a schema that
+// rejected a blank component would delete the row "+ Add damage" had just created, before the GM
+// could type a die into it - and delete an existing row the moment they cleared it to retype. A
+// blank part is a row mid-edit, not corruption; ItemCard filters them out when it prints a card.
+const damagePartSchema = z.object({
+  dice: z.string(),
+  type: z.string().optional().catch(undefined),
+});
+const damagePartsSchema = filterArr(damagePartSchema);
+// `damageType` sat beside `damage` in the old flat shape, but zod validates one field at a time, so
+// the type it labelled cannot be recovered here. The dice are the part worth saving.
+const legacyDamageSchema = z.string().min(1).transform((dice) => [{ dice }]);
+
+const catalogueItemSchema = z.object({
   id: z.string(),
   name: z.string().catch("Unnamed item"),
   kind: z.enum(ITEM_KIND_VALUES).catch("gear"),
@@ -519,32 +532,52 @@ const inventoryItemSchema = z.object({
   weightLb: z.number().nonnegative().finite().optional().catch(undefined),
   description: z.string().optional().catch(undefined),
   attuned: z.boolean().optional().catch(undefined),
+  // Weapon/armour detail. Mostly free text - the vocabulary is a <datalist> suggestion in the editor,
+  // not an enum, so these validate as strings and nothing more.
+  //
+  // `damage` also accepts the single-string shape it briefly had before becoming a list: the widget
+  // was never released that way, but a vault opened by a development build could hold it, and this
+  // is a strip-mode object, so anything undeclared is dropped on the very next render. A GM losing
+  // what they typed to a shape change we made is the worse failure, and the fallback costs a line.
+  // Legacy first: `filterArr` carries its own `.catch([])`, so it accepts a string by turning it
+  // into an empty list, and a union would never reach a branch placed after it.
+  damage: z.union([legacyDamageSchema, damagePartsSchema]).optional().catch(undefined),
+  versatileDice: z.string().optional().catch(undefined),
+  enchantment: z.number().int().optional().catch(undefined),
+  range: z.string().optional().catch(undefined),
+  armourClass: z.string().optional().catch(undefined),
+  // No `.catch` needed on top: filterArr already drops bad entries and falls back to [].
+  properties: filterArr(z.string()).optional(),
   holdings: filterArr(holdingSchema),
 });
 
-const INVENTORY_DEFAULT = {
+const ITEMS_DEFAULT = {
   items: [],
   currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
   query: "",
   kindFilter: null,
+  heldFilter: "all" as const,
   showWeight: false,
   carryLimitLb: null,
 };
 
-const inventorySchema = z
+const itemsSchema = z
   .object({
-    items: filterArr(inventoryItemSchema),
+    items: filterArr(catalogueItemSchema),
     currency: currencySchema,
     query: z.string().catch(""),
     kindFilter: z.enum(ITEM_KIND_VALUES).nullable().catch(null),
+    // Must be declared, not left to passthrough: this is a strip-mode z.object and WidgetSlot
+    // re-parses every render, so an undeclared field would be dropped every frame.
+    heldFilter: z.enum(["all", "held", "catalogue"]).catch("all"),
     showWeight: z.boolean().catch(false),
     carryLimitLb: z.number().nonnegative().finite().nullable().catch(null),
     pullVaultPath: z.string().optional().catch(undefined),
   })
-  .catch(INVENTORY_DEFAULT);
+  .catch(ITEMS_DEFAULT);
 
-export function parseInventoryState(raw: unknown): unknown {
-  return inventorySchema.parse(raw);
+export function parseItemsState(raw: unknown): unknown {
+  return itemsSchema.parse(raw);
 }
 
 // ---------------------------------------------------------------------------
@@ -718,6 +751,65 @@ const cardDecksSchema = z
 
 export function parseCardDecksState(raw: unknown): unknown {
   return cardDecksSchema.parse(raw);
+}
+
+// ---------------------------------------------------------------------------
+// merchants
+// ---------------------------------------------------------------------------
+
+const MERCHANT_KIND_VALUES = ["general", "blacksmith", "apothecary", "magic", "tavern", "fence", "temple"] as const;
+
+const merchantStockSchema = z.object({
+  // No .catch: a stock row with no item reference points at nothing and cannot be priced or bought.
+  itemId: z.string(),
+  // null means unlimited, so nullable rather than defaulted - a row that lost its count is corrupt,
+  // and inventing "1" would silently sell out a general store.
+  qty: z.number().int().nonnegative().nullable().catch(null),
+  priceCpOverride: z.number().int().nonnegative().optional().catch(undefined),
+  name: z.string().optional().catch(undefined),
+});
+
+// What a merchant created before rarities existed gets, and what a corrupt list resets to. Not
+// filterArr: that would hand a merchant with no `rarities` an empty list, which reads as "generate
+// nothing" - a silent, confusing default. Falling back to a real preset is the kinder failure.
+const DEFAULT_RARITIES = ["common", "uncommon"] as const;
+
+const merchantSchema = z.object({
+  id: z.string(),
+  name: z.string().catch("Unnamed merchant"),
+  kind: z.enum(MERCHANT_KIND_VALUES).catch("general"),
+  owner: z.string().optional().catch(undefined),
+  ownerRef: z.string().optional().catch(undefined),
+  location: z.string().optional().catch(undefined),
+  locationRef: z.string().optional().catch(undefined),
+  description: z.string().optional().catch(undefined),
+  // A zero, negative or non-finite modifier would price the whole shelf at 0 or NaN.
+  priceModifier: z.number().positive().finite().catch(1),
+  buybackModifier: z.number().nonnegative().finite().catch(0.5),
+  rarities: z.array(z.enum(RARITY_VALUES)).catch([...DEFAULT_RARITIES]),
+  stock: filterArr(merchantStockSchema),
+});
+
+const MERCHANTS_DEFAULT = {
+  merchants: [],
+  selectedId: null,
+  query: "",
+  kindFilter: null,
+};
+
+const merchantsSchema = z
+  .object({
+    merchants: filterArr(merchantSchema),
+    selectedId: z.string().nullable().catch(null),
+    query: z.string().catch(""),
+    kindFilter: z.enum(MERCHANT_KIND_VALUES).nullable().catch(null),
+    pullVaultPath: z.string().optional().catch(undefined),
+    autoCast: z.boolean().optional().catch(undefined),
+  })
+  .catch(MERCHANTS_DEFAULT);
+
+export function parseMerchantsState(raw: unknown): unknown {
+  return merchantsSchema.parse(raw);
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVault, useNpcs, useMapPins, pushLocationScene, logWarn, logError, type NpcRef } from "@ttcanvas/core";
 import { autoAccentColor, npcInitials } from "../npc-library/npcFormat";
 import { renderMarkdown } from "../shared/markdownRenderer";
+import { handleEntityWikilinkClick } from "../shared/wikilinks";
 import { mimeForImageExt } from "../shared/mime";
 import { dedupe, exportCollection, readBundle, buildBundle, hashContent, importFailure, type DedupeResult } from "../shared/importExport";
 import { copyPulledAssets, type PullAssets } from "../shared/crossVaultPull";
@@ -499,7 +500,7 @@ export function Gazetteer({ state, onChange }: Props) {
               {editing
                 ? <textarea className={styles.textarea} rows={6} value={displayLoc.body ?? ""} onChange={(e) => patchDraft({ body: e.target.value })} placeholder="GM notes. Markdown and [[wikilinks]] work." />
                 : displayLoc.body?.trim()
-                  ? <div className={styles.prose} dangerouslySetInnerHTML={{ __html: renderMarkdown(displayLoc.body) }} onClick={onWikilinkClick} />
+                  ? <div className={styles.prose} dangerouslySetInnerHTML={{ __html: renderMarkdown(displayLoc.body) }} onClick={handleEntityWikilinkClick} />
                   : <p className={styles.emptyVal}>No notes yet.</p>}
             </div>
 
@@ -548,17 +549,6 @@ function openNpc(filename: string) {
 // Map Display owns that decision (it holds the token data); Gazetteer never needs to know the answer.
 function pinLocation(filename: string, name: string) {
   window.dispatchEvent(new CustomEvent("ttcanvas:pin-location", { detail: { filename, name } }));
-}
-
-// Wikilink clicks in a place's notes go through the cross-entity channel, so [[Another Place]] or
-// [[Vex]] resolves to that place / NPC (and [[A Note]] still opens the note). This is an entity body,
-// so unlike Session Notes it is allowed to link out to other entities.
-function onWikilinkClick(e: React.MouseEvent) {
-  const link = (e.target as HTMLElement).closest("[data-wikilink]") as HTMLElement | null;
-  if (!link) return;
-  e.preventDefault();
-  const name = link.dataset.wikilink;
-  if (name) window.dispatchEvent(new CustomEvent("ttcanvas:open-entity-link", { detail: { name } }));
 }
 
 function KindGlyph({ kind }: { kind: LocationKind }) {

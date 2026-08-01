@@ -140,8 +140,8 @@
   white-space: nowrap;
 }
 
-/* Rarity reads as a 2px bar on the meta line, reusing existing tone tokens rather than adding six
-   new ones - so it stays legible under every accent theme. */
+/* Rarity reads as a 2px bar on the meta line, from the shared --rarity-* ramp in tokens.css so the
+   ledger, the shop and the item card never drift apart. */
 .meta {
   display: flex;
   justify-content: space-between;
@@ -154,11 +154,11 @@
   color: var(--ink-3);
 }
 
-.meta[data-rarity="uncommon"] { border-left-color: var(--kind-ally); }
-.meta[data-rarity="rare"] { border-left-color: var(--sp); }
-.meta[data-rarity="very-rare"] { border-left-color: var(--pp); }
-.meta[data-rarity="legendary"] { border-left-color: var(--accent); }
-.meta[data-rarity="artifact"] { border-left-color: var(--hp); }
+.meta[data-rarity="uncommon"] { border-left-color: var(--rarity-uncommon); }
+.meta[data-rarity="rare"] { border-left-color: var(--rarity-rare); }
+.meta[data-rarity="very-rare"] { border-left-color: var(--rarity-very-rare); }
+.meta[data-rarity="legendary"] { border-left-color: var(--rarity-legendary); }
+.meta[data-rarity="artifact"] { border-left-color: var(--rarity-artifact); }
 
 .holder {
   flex: none;
@@ -209,6 +209,76 @@
   align-self: flex-end;
   padding-bottom: 5px;
 }
+
+/* Properties is a sentence, not a value: it takes the rest of the row so a few tags stay readable
+   instead of scrolling inside a 90px box. */
+.fieldWide {
+  flex: 1;
+  min-width: 140px;
+}
+
+/* Deliberately quiet. Most items never open it, so it reads as a line of text with a hit area rather
+   than a control competing with the fields above it. */
+.combatToggle {
+  display: block;
+  margin-top: 10px;
+  padding: 2px 0;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-4);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.combatToggle:hover {
+  color: var(--accent);
+}
+
+.combatToggle:focus-visible {
+  outline: 1px solid var(--accent-line);
+  outline-offset: 2px;
+}
+
+/* A list, so it gets its own block rather than a slot in the wrapping field grid: rows that reflowed
+   mid-list would break the dice/type/remove alignment that makes it readable. */
+.damageRows {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.damageHead {
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-4);
+}
+
+.damageRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 20px;
+  gap: 4px;
+  width: 100%;
+  align-items: center;
+}
+
+.damageRemove {
+  height: 20px;
+  padding: 0;
+  color: var(--ink-4);
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.damageRemove:hover { color: var(--hp); border-color: var(--hp); }
 
 .input {
   padding: 4px 6px;

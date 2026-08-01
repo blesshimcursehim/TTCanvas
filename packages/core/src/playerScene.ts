@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { emitTo } from "@tauri-apps/api/event";
-import type { PlayerScene, CharacterPayload, LocationPayload } from "./types";
+import type { PlayerScene, CharacterPayload, LocationPayload, ShopPayload } from "./types";
 import type { InitiativeOverlay } from "./ITContext";
 
 export async function pushPlayerScene(scene: PlayerScene): Promise<void> {
@@ -29,6 +29,12 @@ export async function pushHandoutScene(imgSrc: string): Promise<void> {
 // Cast a Gazetteer location's establishing card (image + name + player-safe blurb) to the players.
 export async function pushLocationScene(location: LocationPayload): Promise<void> {
   await emitTo("player", "player-update", { type: "location", location } satisfies PlayerScene);
+}
+
+// Cast a merchant's shelves to the players as a price list. GM-only figures (buyback rate, the
+// party purse, the merchant's notes) never enter the payload - see buildShopPayload.
+export async function pushShopScene(shop: ShopPayload): Promise<void> {
+  await emitTo("player", "player-update", { type: "shop", shop } satisfies PlayerScene);
 }
 
 // Separate channel for the player window's text scale. It reads the setting rather than owning it,

@@ -58,13 +58,13 @@ export { TimeTracker } from "./time-tracker/TimeTracker";
 export type { TimeTrackerState } from "@ttcanvas/core";
 // Pure calendar time math + overlay formatting, for App-level game-time
 // advances (GameTimeContext) - see calendar/utils.ts.
-export { advanceTimeSeconds, formatDateOverlay, eventsStartingBetween, describeCrossedEvents } from "./calendar/utils";
+export { advanceTimeSeconds, formatDateOverlay, formatCalDate, formatTime, eventsStartingBetween, describeCrossedEvents } from "./calendar/utils";
 
 export { Bestiary } from "./bestiary/Bestiary";
 export type { BestiaryState } from "./bestiary/types";
 
 export { SessionRecorder } from "./session-recorder/SessionRecorder";
-export type { SessionRecorderState } from "./session-recorder/types";
+export type { SessionRecorderState, SessionEntry } from "./session-recorder/types";
 
 export { RulesReference } from "./rules-reference/RulesReference";
 export type { RulesReferenceState } from "./rules-reference/types";
@@ -76,11 +76,15 @@ export type { RuleCardsState, RuleCard } from "./rule-cards/types";
 export { currencyOf, withCurrency } from "./party-tracker/currency";
 export type { CoinBearing } from "./party-tracker/currency";
 
-export { Inventory } from "./inventory/Inventory";
-export type { InventoryState, InventoryItem, Holding, ItemKind, Rarity } from "./inventory/types";
-// Exported for App.tsx, which projects the ledger onto InventoryContext for the PC sheet.
-export { qtyFor, totalQty } from "./inventory/inventory";
+export { Items } from "./items/Items";
+export type { ItemsState, CatalogueItem, Holding, ItemKind, Rarity } from "./items/types";
+// Exported for App.tsx, which projects the catalogue onto ItemsContext for the PC sheet and settles
+// Merchants transactions against the shared party purse.
+export { qtyFor, totalQty, setQty, currencyToCp, spendFromPurse, addToPurse } from "./items/ledger";
 
+export { Merchants } from "./merchants/Merchants";
+export type { MerchantsState, Merchant, MerchantStock, MerchantKind } from "./merchants/types";
+export { askPriceCp, offerPriceCp } from "./merchants/pricing";
 
 export { XpTracker } from "./xp-tracker/XpTracker";
 export type { XpTrackerState } from "./xp-tracker/types";
