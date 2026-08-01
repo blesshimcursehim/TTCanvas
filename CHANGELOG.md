@@ -328,6 +328,27 @@ All notable changes are documented here.
 
 ### Fixes
 
+- **A new damage row disappeared before you could type in it.** "+ Add damage" adds an empty row, and
+  the validation that runs over an item on every frame threw it away for having no dice in it yet, so
+  the row vanished the moment it appeared. Clearing an existing row's dice to retype them deleted that
+  row the same way. A row is allowed to be blank whilst you are working on it now, and a blank one is
+  simply left off the card.
+
+- **Deleting a map token no longer closes a widget as well.** Pressing Delete with a token selected
+  removed the token and also hid whichever widget was on top, which was often not the map. The token's
+  keys belong to the token now and stop there. Nudging a token with the arrow keys also stops at the
+  edge of the map instead of walking it off into space, where it could not be selected again to bring
+  it back.
+
+- **Clicking the canvas works on a layout with a background image.** The image sat over the canvas as
+  far as the mouse was concerned, so clicking empty space never actually reached the canvas: no focus,
+  which meant the arrow keys would not pan it, and no drag-select.
+
+- **A merchant's shelf remembers what an item was called.** Adding an item to a merchant by hand
+  stored only a reference to it, so deleting that item from your catalogue later left the shelf
+  reading "Unknown item". It now keeps the name alongside the reference, the way generated and rolled
+  stock already did.
+
 - **Uncommon and rare items were the same colour.** The little rarity bar beside an item drew both
   from the same blue, so two of the six rarities were impossible to tell apart at a glance. Uncommon
   is now green, matching the ramp the player-facing price list already used. Legendary also stopped

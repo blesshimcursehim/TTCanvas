@@ -112,9 +112,9 @@ describe("MapDisplay - keyboard repositioning of an existing token", () => {
 
     const tokenEl = screen.getByText("Goblin").closest("div")!;
     clickToken(tokenEl);
-    expect(tokenEl).toHaveAttribute("aria-pressed", "true");
+    expect(tokenEl).toHaveAttribute("aria-current", "true");
 
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(tokenEl, { key: "ArrowRight" });
     // 8px step / (800px image * scale 1) = 0.01 fraction -> x 0.5 -> 0.51 -> left 408px.
     expect(tokenEl.style.left).toBe("408px");
   });
@@ -129,7 +129,7 @@ describe("MapDisplay - keyboard repositioning of an existing token", () => {
     const tokenEl = screen.getByText("Goblin").closest("div")!;
     clickToken(tokenEl);
 
-    fireEvent.keyDown(window, { key: "ArrowRight", shiftKey: true });
+    fireEvent.keyDown(tokenEl, { key: "ArrowRight", shiftKey: true });
     // 40px step / 800px = 0.05 fraction -> x 0.5 -> 0.55 -> left 440px.
     expect(parseFloat(tokenEl.style.left)).toBeCloseTo(440);
   });
@@ -143,12 +143,12 @@ describe("MapDisplay - keyboard repositioning of an existing token", () => {
 
     const tokenEl = screen.getByText("Goblin").closest("div")!;
     expect(tokenEl).toHaveAttribute("tabindex", "0");
-    expect(tokenEl).toHaveAttribute("aria-pressed", "false");
+    expect(tokenEl).toHaveAttribute("aria-current", "false");
 
     act(() => { tokenEl.focus(); });
-    expect(tokenEl).toHaveAttribute("aria-pressed", "true");
+    expect(tokenEl).toHaveAttribute("aria-current", "true");
 
-    fireEvent.keyDown(window, { key: "ArrowDown" });
+    fireEvent.keyDown(tokenEl, { key: "ArrowDown" });
     // 8px step / 600px image height = fraction ~0.0133 -> y 0.5 -> 0.5133 -> top 308px.
     expect(parseFloat(tokenEl.style.top)).toBeCloseTo(308);
   });
@@ -163,11 +163,11 @@ describe("MapDisplay - keyboard repositioning of an existing token", () => {
     const tokenEl = screen.getByText("Goblin").closest("div")!;
     clickToken(tokenEl);
 
-    fireEvent.keyDown(window, { key: "+" });
+    fireEvent.keyDown(tokenEl, { key: "+" });
     expect(parseFloat(tokenEl.style.width)).toBeCloseTo(57.2); // TOKEN_BASE_PX 52 * size 1.1
 
-    fireEvent.keyDown(window, { key: "-" });
-    fireEvent.keyDown(window, { key: "-" });
+    fireEvent.keyDown(tokenEl, { key: "-" });
+    fireEvent.keyDown(tokenEl, { key: "-" });
     expect(parseFloat(tokenEl.style.width)).toBeCloseTo(46.8); // back down to size 0.9
   });
 
@@ -181,8 +181,46 @@ describe("MapDisplay - keyboard repositioning of an existing token", () => {
     const tokenEl = screen.getByText("Goblin").closest("div")!;
     clickToken(tokenEl);
 
-    fireEvent.keyDown(window, { key: "Delete" });
+    fireEvent.keyDown(tokenEl, { key: "Delete" });
     expect(screen.queryByText("Goblin")).not.toBeInTheDocument();
+  });
+
+  it("keeps a nudged token on the map instead of pushing it past the edge", async () => {
+    const scene1 = makeScene("s1", "Scene 1", "map1.jpg", {
+      tokens: [{ id: "t1", label: "Goblin", color: "red", x: 0.99, y: 0.5 }],
+    });
+    render(<Wrapper initialState={makeState("s1", [scene1])} vault={makeMockVault()} />);
+    await waitForAndLoadImg(800, 600);
+
+    const tokenEl = screen.getByText("Goblin").closest("div")!;
+    clickToken(tokenEl);
+
+    // Two 0.01 steps from 0.99 would land at 1.01, off the map and unreachable after a reload.
+    fireEvent.keyDown(tokenEl, { key: "ArrowRight" });
+    fireEvent.keyDown(tokenEl, { key: "ArrowRight" });
+    expect(parseFloat(tokenEl.style.left)).toBeCloseTo(800); // 1.0 * 800
+  });
+
+  // The canvas has a window-level Delete of its own that removes the focused widget. The pin's keys
+  // are scoped to the pin for exactly this reason: one Delete must not also close a widget.
+  it("does not let a handled key reach the window", async () => {
+    const scene1 = makeScene("s1", "Scene 1", "map1.jpg", {
+      tokens: [{ id: "t1", label: "Goblin", color: "red", x: 0.5, y: 0.5 }],
+    });
+    render(<Wrapper initialState={makeState("s1", [scene1])} vault={makeMockVault()} />);
+    await waitForAndLoadImg(800, 600);
+
+    const onWindowKey = vi.fn();
+    window.addEventListener("keydown", onWindowKey);
+    try {
+      const tokenEl = screen.getByText("Goblin").closest("div")!;
+      clickToken(tokenEl);
+      fireEvent.keyDown(tokenEl, { key: "Delete" });
+      expect(screen.queryByText("Goblin")).not.toBeInTheDocument();
+      expect(onWindowKey).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener("keydown", onWindowKey);
+    }
   });
 
   it("Escape deselects, so a later arrow key no longer moves it", async () => {
@@ -194,10 +232,10 @@ describe("MapDisplay - keyboard repositioning of an existing token", () => {
 
     const tokenEl = screen.getByText("Goblin").closest("div")!;
     clickToken(tokenEl);
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(tokenEl).toHaveAttribute("aria-pressed", "false");
+    fireEvent.keyDown(tokenEl, { key: "Escape" });
+    expect(tokenEl).toHaveAttribute("aria-current", "false");
 
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(tokenEl, { key: "ArrowRight" });
     expect(tokenEl.style.left).toBe("400px"); // unchanged: 0.5 * 800
   });
 
@@ -224,6 +262,6 @@ describe("MapDisplay - keyboard repositioning of an existing token", () => {
     const tokenEl = screen.getByText("Goblin").closest("div")!;
     clickToken(tokenEl);
     expect(screen.queryByText("Markup")).not.toBeInTheDocument();
-    expect(tokenEl).toHaveAttribute("aria-pressed", "true");
+    expect(tokenEl).toHaveAttribute("aria-current", "true");
   });
 });

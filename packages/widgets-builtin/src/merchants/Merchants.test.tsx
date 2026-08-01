@@ -127,11 +127,12 @@ describe("Merchants - list and selection", () => {
 });
 
 describe("Merchants - stock", () => {
-  it("stocks an item from the catalogue by reference", () => {
+  it("stocks an item from the catalogue by reference, snapshotting its name", () => {
     const onChange = vi.fn();
     renderMerchants(baseState({ merchants: [merchant({ stock: [] })] }), { onChange });
     fireEvent.change(screen.getByLabelText("Add item to stock"), { target: { value: "i2" } });
-    expect(onChange.mock.calls[0][0].merchants[0].stock).toEqual([{ itemId: "i2", qty: 1 }]);
+    // The name is the fallback a row falls back to if that item is later deleted from Items.
+    expect(onChange.mock.calls[0][0].merchants[0].stock).toEqual([{ itemId: "i2", qty: 1, name: "Healing potion" }]);
   });
 
   it("does not offer an item it already stocks", () => {

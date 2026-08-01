@@ -92,6 +92,10 @@
 .backdrop {
   position: absolute;
   inset: 0;
+  /* Decoration only: it covers the whole viewport, so without this it becomes the event target of
+     every background click and the canvas never sees one - no focus for the arrow-key pan, and no
+     marquee drag, on any layout that has a background image. */
+  pointer-events: none;
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;

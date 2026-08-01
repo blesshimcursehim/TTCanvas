@@ -509,9 +509,12 @@ const holdingSchema = z.object({
   qty: z.number().int().positive(),
 });
 
-// A damage component needs its dice; a part with none is noise the card would render as a blank row.
+// The dice may be empty. WidgetSlot re-parses widget state on every render, so a schema that
+// rejected a blank component would delete the row "+ Add damage" had just created, before the GM
+// could type a die into it - and delete an existing row the moment they cleared it to retype. A
+// blank part is a row mid-edit, not corruption; ItemCard filters them out when it prints a card.
 const damagePartSchema = z.object({
-  dice: z.string().min(1),
+  dice: z.string(),
   type: z.string().optional().catch(undefined),
 });
 const damagePartsSchema = filterArr(damagePartSchema);

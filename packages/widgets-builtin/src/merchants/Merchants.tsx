@@ -170,7 +170,10 @@ export function Merchants({ state, onChange }: Props) {
   function addStock(itemId: string) {
     if (!selected || !itemId) return;
     if (selected.stock.some((s) => s.itemId === itemId)) return;
-    patchMerchant(selected.id, { stock: [...selected.stock, { itemId, qty: 1 }] });
+    // Snapshot the name like the generated and rolled paths do, so a row whose catalogue item is
+    // later deleted still reads as what it was instead of "Unknown item".
+    const name = itemById.get(itemId)?.name;
+    patchMerchant(selected.id, { stock: [...selected.stock, { itemId, qty: 1, ...(name ? { name } : {}) }] });
     setAddStockId("");
   }
 

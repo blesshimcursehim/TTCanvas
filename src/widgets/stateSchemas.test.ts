@@ -759,10 +759,12 @@ describe("parseItemsState", () => {
     expect(result.items[0].damage).toEqual(damage);
   });
 
-  it("drops a damage component with no dice rather than rendering a blank row", () => {
+  // The editor adds an empty row and the GM types into it, but state is re-parsed on every render:
+  // rejecting a blank component here would delete the row between the click and the first keystroke.
+  it("keeps a damage component whose dice are still empty, since that is a row mid-edit", () => {
     const damage = [{ dice: "1d8", type: "piercing" }, { dice: "", type: "fire" }, { type: "cold" }];
     const result = parseItemsState({ ...base, items: [{ ...item, damage }] }) as { items: { damage?: unknown }[] };
-    expect(result.items[0].damage).toEqual([{ dice: "1d8", type: "piercing" }]);
+    expect(result.items[0].damage).toEqual([{ dice: "1d8", type: "piercing" }, { dice: "", type: "fire" }]);
   });
 
   // Damage was briefly a single string before it became a list. Nothing shipped with that shape, but

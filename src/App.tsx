@@ -1274,7 +1274,10 @@ function App() {
     const n = Math.max(0, Math.floor(qty));
     if (n === 0) return;
     setSingletonStates((ss) => {
-      const cur = (ss["items"]
+      // Parsed, not cast, for the same reason the projections above are: this reads the raw slice,
+      // and a corrupt `holdings` that the render path quietly repairs would throw here - inside a
+      // state updater, where it takes the canvas down rather than one widget.
+      const cur = parseItemsState(ss["items"]
         ?? widgetsRef.current.find((w) => w.type === "items")?.state
         ?? DEFAULT_ITEMS_STATE) as ItemsState;
       // A dangling reference is the GM's to fix in Items - Merchants stocks by id and this never
@@ -1297,7 +1300,7 @@ function App() {
     const want = Math.max(0, Math.floor(qty));
     if (want === 0) return;
     setSingletonStates((ss) => {
-      const cur = (ss["items"]
+      const cur = parseItemsState(ss["items"]
         ?? widgetsRef.current.find((w) => w.type === "items")?.state
         ?? DEFAULT_ITEMS_STATE) as ItemsState;
       const item = cur.items.find((i) => i.id === itemId);
