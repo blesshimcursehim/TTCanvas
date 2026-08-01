@@ -334,11 +334,12 @@ All notable changes are documented here.
   row the same way. A row is allowed to be blank whilst you are working on it now, and a blank one is
   simply left off the card.
 
-- **Deleting a map token no longer closes a widget as well.** Pressing Delete with a token selected
-  removed the token and also hid whichever widget was on top, which was often not the map. The token's
-  keys belong to the token now and stop there. Nudging a token with the arrow keys also stops at the
-  edge of the map instead of walking it off into space, where it could not be selected again to bring
-  it back.
+- **Deleting something on a map no longer closes a widget as well.** Pressing Delete with a token or
+  a drawn shape selected removed it and also hid whichever widget was on top, which was often not the
+  map. Delete now leaves a widget alone whenever you are working inside one, or whilst a dialog is
+  open, and still closes the widget you are pointed at from the canvas or its title bar. Nudging a
+  token with the arrow keys also stops at the edge of the map instead of walking it off into space,
+  where it could not be selected again to bring it back.
 
 - **Clicking the canvas works on a layout with a background image.** The image sat over the canvas as
   far as the mouse was concerned, so clicking empty space never actually reached the canvas: no focus,

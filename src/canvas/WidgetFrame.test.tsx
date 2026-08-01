@@ -54,6 +54,19 @@ describe("WidgetFrame help", () => {
   });
 });
 
+describe("WidgetFrame content boundary", () => {
+  // App's Delete shortcut stands down for anything focused inside this marker, which is how a
+  // selected map token or annotation keeps a Delete to itself. Losing the attribute would silently
+  // bring back the double-delete, so it is pinned here.
+  it("marks the widget's own body, and leaves the header chrome outside it", () => {
+    const { container } = renderFrame();
+    const content = container.querySelector("[data-widget-content]");
+
+    expect(content).toHaveTextContent("Widget content");
+    expect(screen.getByRole("button", { name: "Move Test widget widget" }).closest("[data-widget-content]")).toBeNull();
+  });
+});
+
 describe("WidgetFrame keyboard move", () => {
   it("nudges by MOVE_STEP on an arrow key, and by the large step with Shift", () => {
     const onMove = vi.fn();

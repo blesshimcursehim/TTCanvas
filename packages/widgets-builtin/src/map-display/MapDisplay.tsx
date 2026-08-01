@@ -1149,9 +1149,16 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
     setLiveAnn(null);
   }, []);
 
-  // Delete / Escape act on the selected annotation (ignored while typing in a field).
+  // Delete / Escape act on the selected annotation (ignored while typing in a field). Still a window
+  // listener, unlike the token's keys just below: a shape is painted on the map surface and has no
+  // element of its own to hang a handler on. Focusing the viewport is what keeps the canvas's own
+  // Delete ("remove the focused widget") off it - that shortcut stands down for anything focused
+  // inside a widget's body, which is what `data-widget-content` in WidgetFrame marks. The viewport's
+  // tabIndex is -1, so this focus is only ever programmatic, and preventScroll keeps the browser
+  // from scrolling the canvas to reveal it.
   useEffect(() => {
     if (!selectedAnnId) return;
+    viewportRef.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
@@ -1905,6 +1912,8 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
       <div
         ref={viewportRef}
         className={`${styles.viewportWrap} ${cursorClass}`}
+        // Not a tab stop: focused only by selecting an annotation, so the widget can claim Delete.
+        tabIndex={-1}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}

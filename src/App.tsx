@@ -582,6 +582,17 @@ function App() {
       }
 
       if ((e.key === "Delete" || e.key === "Backspace") && !isInputActive()) {
+        // Scoped to the canvas and a widget's own chrome. Two things get to say "not you":
+        //
+        // A control focused inside a widget's body owns its keys - a selected map token or
+        // annotation deletes itself on Delete, and since this is a window listener, its
+        // preventDefault() can't reach us: one press used to remove the token *and* hide whichever
+        // widget was topmost. Anything focused inside [data-widget-content] therefore wins.
+        //
+        // An open modal makes the canvas behind it inert, so a Delete belongs to the dialog (or to
+        // nothing), never to a widget the user can't currently see.
+        if (document.activeElement?.closest("[data-widget-content]")) return;
+        if (document.querySelector("dialog[open]")) return;
         const id = focusedIdRef.current;
         if (id) { e.preventDefault(); removeWidget(id); }
         return;

@@ -325,7 +325,11 @@ export function WidgetFrame({
           />
         </div>
       )}
-      <div className={styles.content}>
+      {/* data-widget-content marks the widget's own territory for App's Delete shortcut: a control
+          focused in here owns its keys (a selected map token or annotation), and that shortcut is a
+          window listener the widget cannot preventDefault its way out of. The header chrome is
+          deliberately outside it, so Tab to the grip and Delete still removes the widget. */}
+      <div className={styles.content} data-widget-content>
         <WidgetChromeContext.Provider value={{ headerSlot }}>
           <WidgetErrorBoundary title={title}>{children}</WidgetErrorBoundary>
         </WidgetChromeContext.Provider>

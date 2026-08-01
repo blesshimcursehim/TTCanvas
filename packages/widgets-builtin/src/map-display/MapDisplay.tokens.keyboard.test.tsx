@@ -239,6 +239,29 @@ describe("MapDisplay - keyboard repositioning of an existing token", () => {
     expect(tokenEl.style.left).toBe("400px"); // unchanged: 0.5 * 800
   });
 
+  // A shape is painted on the map surface and has no element to focus, so the viewport takes the
+  // focus on its behalf. That is what tells the canvas's own Delete shortcut - a window listener
+  // that stands down for anything focused inside a widget's body - to leave this key alone.
+  it("focuses the viewport when an annotation is selected, and Delete then removes only the shape", async () => {
+    const scene1 = makeScene("s1", "Scene 1", "map1.jpg");
+    const { container } = render(<Wrapper initialState={makeState("s1", [scene1])} vault={makeMockVault()} />);
+    await waitForAndLoadImg(800, 600);
+
+    // Drawing a ring auto-selects it, which is what opens the Markup drawer.
+    act(() => { fireEvent.click(screen.getByTitle(/^Ring/)); });
+    const viewport = screen.getByTestId("map-wrapper").parentElement!;
+    act(() => {
+      fireEvent.mouseDown(viewport, { clientX: 100, clientY: 100, button: 0 });
+      fireEvent.mouseUp(viewport, { clientX: 160, clientY: 160, button: 0 });
+    });
+    await waitFor(() => expect(screen.getByText("Markup")).toBeInTheDocument());
+    expect(container.querySelectorAll("ellipse").length).toBeGreaterThan(0);
+    expect(document.activeElement).toBe(viewport);
+
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(container.querySelector("ellipse")).toBeNull();
+  });
+
   it("selecting a token deselects a previously-selected annotation", async () => {
     const scene1 = makeScene("s1", "Scene 1", "map1.jpg", {
       tokens: [{ id: "t1", label: "Goblin", color: "red", x: 0.5, y: 0.5 }],
