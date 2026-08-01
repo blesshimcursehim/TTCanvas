@@ -1,6 +1,6 @@
 [package]
 name = "ttcanvas"
-version = "0.15.0"
+version = "0.16.0"
 description = "A local-first GM screen for tabletop RPGs"
 authors = ["blesshimcursehim"]
 edition = "2024"
