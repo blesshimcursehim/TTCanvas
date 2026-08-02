@@ -87,10 +87,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10
-
+      # No pnpm setup here on purpose: site/ has its own package-lock.json and builds with npm.
+      # The step that used to sit here pinned `version: 10`, which conflicts with the root
+      # package.json's `packageManager` field and fails the job outright.
       - uses: actions/setup-node@v6
         with:
           node-version: lts/*
