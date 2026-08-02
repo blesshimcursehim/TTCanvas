@@ -76,8 +76,18 @@ patchRegex(
   `Public Alpha · v${version}`,
   "hero badge version",
 );
-console.log("Done. Stage, commit, tag, and push:");
-console.log(`  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml CHANGELOG.md site/src/pages/index.astro`);
+// The tag deliberately does not appear until after the PR has merged. `main` only moves by pull
+// request (a ruleset blocks direct pushes), the merge is a merge commit, and pushing a v* tag is what
+// triggers release.yml - so tagging here would pin the release to a commit that isn't main's HEAD and
+// publish installers before the required checks had run. See tracking/release-guide.md.
+console.log(`\nDone. Stage and commit on dev:`);
+console.log(`  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock CHANGELOG.md site/src/pages/index.astro`);
 console.log(`  git commit -m "chore: bump to v${version}"`);
-console.log(`  git tag v${version}`);
-console.log(`  git push && git push --tags`);
+console.log(`  git push`);
+console.log(`\nThen open the release PR - and tag only once it has merged, on main:`);
+console.log(`  gh pr create --base main --head dev --title "Release v${version}"`);
+console.log(`  gh pr merge --merge          # once the Frontend and Rust checks pass`);
+console.log(`  git checkout main && git pull origin main`);
+console.log(`  git tag v${version} && git push origin v${version}`);
+console.log(`\nPushing that tag is what builds the installers and publishes the release and the site.`);
+console.log(`Do not tag dev: the tag belongs on main's merge commit. See tracking/release-guide.md.`);
