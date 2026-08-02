@@ -5,6 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { z } from "zod";
+import { DEFAULT_JUMPS, MAX_JUMP_AMOUNT } from "@ttcanvas/core";
 import { createDefaultNpcGeneratorState } from "@ttcanvas/widgets-builtin";
 
 // ---------------------------------------------------------------------------
@@ -116,6 +117,19 @@ const initiativeGroupSchema = z
   })
   .passthrough();
 
+// Snapshot of the encounter a combat started from. Must be declared, not passed through: this is a
+// strip-mode z.object, and WidgetSlot re-parses every render, so an undeclared field is dropped each
+// frame. `.optional().catch(undefined)` so an ad-hoc combat (no encounter) and a corrupt value both
+// resolve to absent.
+const combatEncounterRefSchema = z
+  .object({
+    id: z.string(),
+    name: z.string().catch("Encounter"),
+    rewardXp: z.number().optional().catch(undefined),
+  })
+  .optional()
+  .catch(undefined);
+
 const initiativeTrackerSchema = z
   .object({
     combatants: filterArr(combatantSchema),
@@ -127,6 +141,7 @@ const initiativeTrackerSchema = z
     roundAdvances: z.array(z.number()).catch([]),
     groups: filterArr(initiativeGroupSchema),
     lairActionReminder: z.boolean().catch(false),
+    encounter: combatEncounterRefSchema,
   })
   .catch({
     combatants: [], currentId: null, round: 1, showOnPlayer: false,
@@ -184,8 +199,11 @@ export function parseNpcGeneratorState(raw: unknown): unknown {
 // ---------------------------------------------------------------------------
 
 const npcLibrarySchema = z
-  .object({ selectedFile: z.string().nullable().catch(null) })
-  .catch({ selectedFile: null });
+  .object({
+    selectedFile: z.string().nullable().catch(null),
+    generatorDraft: npcGeneratorSchema.catch({ ...defaultNpcGen }),
+  })
+  .catch({ selectedFile: null, generatorDraft: { ...defaultNpcGen } });
 
 export function parseNpcLibraryState(raw: unknown): unknown {
   return npcLibrarySchema.parse(raw);
@@ -324,6 +342,9 @@ const calendarSchema = z
   .object({
     def: z.unknown().catch(null),
     events: z.array(z.unknown()).catch([]),
+    // Transient one-shot (Almanac consumes and clears it) - kept in the schema, not stripped, so it
+    // survives the per-render parse and reaches the widget. Validated inside the widget.
+    openRequest: z.unknown().optional(),
   })
   .catch({ def: null, events: [] });
 
@@ -335,6 +356,32 @@ export function parseCalendarState(raw: unknown): unknown {
 // time-tracker
 // ---------------------------------------------------------------------------
 
+// amount must be a non-zero integer within the shared bound: the editor only produces such values, so
+// a fraction, zero (which can't be re-signed), or a runaway magnitude (which could stall the calendar
+// conversion) means a hand-edited or corrupt entry - drop it rather than let it through.
+const jumpSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  amount: z.number().int().refine((n) => n !== 0 && Math.abs(n) <= MAX_JUMP_AMOUNT),
+  unit: z.enum(["min", "hour", "day", "week"]),
+});
+
+// Absent (a Time Tracker saved before jumps existed) seeds the defaults; a present list keeps only its
+// valid entries - one corrupt jump is dropped, not the whole bar - and may be intentionally empty. A
+// non-array or otherwise unparseable value falls back to the defaults.
+const jumpsSchema = z
+  .array(z.unknown())
+  .optional()
+  .transform((arr) =>
+    arr === undefined
+      ? [...DEFAULT_JUMPS]
+      : arr.flatMap((item) => {
+          const r = jumpSchema.safeParse(item);
+          return r.success ? [r.data] : [];
+        }),
+  )
+  .catch([...DEFAULT_JUMPS]);
+
 const timeTrackerSchema = z
   .object({
     currentDate: z.unknown().catch(null),
@@ -343,10 +390,11 @@ const timeTrackerSchema = z
     currentSecond: z.number().catch(0),
     history: z.array(z.unknown()).catch([]),
     showOnPlayer: z.boolean().catch(false),
+    jumps: jumpsSchema,
   })
   .catch({
     currentDate: null, currentHour: 8, currentMinute: 0, currentSecond: 0,
-    history: [], showOnPlayer: false,
+    history: [], showOnPlayer: false, jumps: [...DEFAULT_JUMPS],
   });
 
 export function parseTimeTrackerState(raw: unknown): unknown {
@@ -432,21 +480,104 @@ export function parseRuleCardsState(raw: unknown): unknown {
 }
 
 // ---------------------------------------------------------------------------
-// session-clock
+// items
 // ---------------------------------------------------------------------------
 
-const sessionClockSchema = z
-  .object({
-    mode: z.enum(["clock", "timer"]).catch("clock"),
-    running: z.boolean().catch(false),
-    startedAt: z.number().nullable().catch(null),
-    accumulatedMs: z.number().catch(0),
-    showSeconds: z.boolean().catch(false),
-  })
-  .catch({ mode: "clock", running: false, startedAt: null, accumulatedMs: 0, showSeconds: false });
+// Coins are whole and never negative; a fractional or negative one is a corrupt value, not a debt.
+const coinSchema = z.number().int().nonnegative().catch(0);
 
-export function parseSessionClockState(raw: unknown): unknown {
-  return sessionClockSchema.parse(raw);
+const currencySchema = z
+  .object({
+    cp: coinSchema,
+    sp: coinSchema,
+    ep: coinSchema,
+    gp: coinSchema,
+    pp: coinSchema,
+  })
+  .catch({ cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 });
+
+const ITEM_KIND_VALUES = ["weapon", "armour", "consumable", "magic", "treasure", "gear"] as const;
+const RARITY_VALUES = ["common", "uncommon", "rare", "very-rare", "legendary", "artifact"] as const;
+
+// holderId null = the party stash. A holding with a garbage qty is dropped rather than defaulted,
+// since inventing a quantity is worse than losing an entry the ledger never showed correctly. The
+// quantity must be a positive integer: a zero or fractional one would leave a holding that the
+// holder labels and the row total disagree about (0.5 floors to 0 while the holder still reads as
+// carrying it), and a negative one would subtract from the party total.
+const holdingSchema = z.object({
+  holderId: z.string().nullable().catch(null),
+  qty: z.number().int().positive(),
+});
+
+// The dice may be empty. WidgetSlot re-parses widget state on every render, so a schema that
+// rejected a blank component would delete the row "+ Add damage" had just created, before the GM
+// could type a die into it - and delete an existing row the moment they cleared it to retype. A
+// blank part is a row mid-edit, not corruption; ItemCard filters them out when it prints a card.
+const damagePartSchema = z.object({
+  dice: z.string(),
+  type: z.string().optional().catch(undefined),
+});
+const damagePartsSchema = filterArr(damagePartSchema);
+// `damageType` sat beside `damage` in the old flat shape, but zod validates one field at a time, so
+// the type it labelled cannot be recovered here. The dice are the part worth saving.
+const legacyDamageSchema = z.string().min(1).transform((dice) => [{ dice }]);
+
+const catalogueItemSchema = z.object({
+  id: z.string(),
+  name: z.string().catch("Unnamed item"),
+  kind: z.enum(ITEM_KIND_VALUES).catch("gear"),
+  rarity: z.enum(RARITY_VALUES).optional().catch(undefined),
+  // Value is in whole copper, weight may be fractional (a 0.5 lb dagger); neither can be negative.
+  valueCp: z.number().int().nonnegative().optional().catch(undefined),
+  weightLb: z.number().nonnegative().finite().optional().catch(undefined),
+  description: z.string().optional().catch(undefined),
+  attuned: z.boolean().optional().catch(undefined),
+  // Weapon/armour detail. Mostly free text - the vocabulary is a <datalist> suggestion in the editor,
+  // not an enum, so these validate as strings and nothing more.
+  //
+  // `damage` also accepts the single-string shape it briefly had before becoming a list: the widget
+  // was never released that way, but a vault opened by a development build could hold it, and this
+  // is a strip-mode object, so anything undeclared is dropped on the very next render. A GM losing
+  // what they typed to a shape change we made is the worse failure, and the fallback costs a line.
+  // Legacy first: `filterArr` carries its own `.catch([])`, so it accepts a string by turning it
+  // into an empty list, and a union would never reach a branch placed after it.
+  damage: z.union([legacyDamageSchema, damagePartsSchema]).optional().catch(undefined),
+  versatileDice: z.string().optional().catch(undefined),
+  enchantment: z.number().int().optional().catch(undefined),
+  range: z.string().optional().catch(undefined),
+  armourClass: z.string().optional().catch(undefined),
+  // No `.catch` needed on top: filterArr already drops bad entries and falls back to [].
+  properties: filterArr(z.string()).optional(),
+  holdings: filterArr(holdingSchema),
+});
+
+const ITEMS_DEFAULT = {
+  items: [],
+  currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+  query: "",
+  kindFilter: null,
+  heldFilter: "all" as const,
+  showWeight: false,
+  carryLimitLb: null,
+};
+
+const itemsSchema = z
+  .object({
+    items: filterArr(catalogueItemSchema),
+    currency: currencySchema,
+    query: z.string().catch(""),
+    kindFilter: z.enum(ITEM_KIND_VALUES).nullable().catch(null),
+    // Must be declared, not left to passthrough: this is a strip-mode z.object and WidgetSlot
+    // re-parses every render, so an undeclared field would be dropped every frame.
+    heldFilter: z.enum(["all", "held", "catalogue"]).catch("all"),
+    showWeight: z.boolean().catch(false),
+    carryLimitLb: z.number().nonnegative().finite().nullable().catch(null),
+    pullVaultPath: z.string().optional().catch(undefined),
+  })
+  .catch(ITEMS_DEFAULT);
+
+export function parseItemsState(raw: unknown): unknown {
+  return itemsSchema.parse(raw);
 }
 
 // ---------------------------------------------------------------------------
@@ -525,18 +656,44 @@ export function parseRollTablesState(raw: unknown): unknown {
 // encounter-builder
 // ---------------------------------------------------------------------------
 
-const encounterMemberSchema = z.object({
+const encounterSourceSchema = z
+  .object({
+    kind: z.enum(["bestiary", "party", "npc"]).catch("bestiary"),
+    id: z.string().catch(""),
+  })
+  // A row whose source is unreadable survives as a "missing source" row rather than vanishing,
+  // exactly as `creatureId: z.string().catch("")` used to do.
+  .catch({ kind: "bestiary", id: "" });
+
+const encounterMemberFields = z.object({
   id: z.string(),
-  creatureId: z.string().catch(""),
+  source: encounterSourceSchema,
   name: z.string().catch(""),
   count: z.number().catch(1),
   groupInit: z.boolean().optional().catch(undefined),
+  rollHp: z.boolean().optional().catch(undefined),
+  sharedHp: z.boolean().optional().catch(undefined),
+  included: z.boolean().optional().catch(undefined),
+  kind: z.enum(["pc", "foe", "ally"]).optional().catch(undefined),
 });
+
+// `creatureId` (always a Bestiary entry id) became a tagged `source`, so party and NPC rows can
+// share the same row shape. Old rows are lifted on read; the new shape reaches disk the first time
+// the widget saves, and z.object's default strip drops the dead creatureId with it. Idempotent,
+// which matters because WidgetSlot re-parses on every render.
+const encounterMemberSchema = z.preprocess((raw) => {
+  if (raw && typeof raw === "object" && !("source" in raw) && "creatureId" in raw) {
+    const { creatureId, ...rest } = raw as Record<string, unknown>;
+    return { ...rest, source: { kind: "bestiary", id: creatureId } };
+  }
+  return raw;
+}, encounterMemberFields);
 
 const encounterSchema = z.object({
   id: z.string(),
   name: z.string().catch("Untitled"),
   notes: z.string().optional().catch(undefined),
+  rewardXp: z.number().optional().catch(undefined),
   members: filterArr(encounterMemberSchema),
 });
 
@@ -597,6 +754,65 @@ export function parseCardDecksState(raw: unknown): unknown {
 }
 
 // ---------------------------------------------------------------------------
+// merchants
+// ---------------------------------------------------------------------------
+
+const MERCHANT_KIND_VALUES = ["general", "blacksmith", "apothecary", "magic", "tavern", "fence", "temple"] as const;
+
+const merchantStockSchema = z.object({
+  // No .catch: a stock row with no item reference points at nothing and cannot be priced or bought.
+  itemId: z.string(),
+  // null means unlimited, so nullable rather than defaulted - a row that lost its count is corrupt,
+  // and inventing "1" would silently sell out a general store.
+  qty: z.number().int().nonnegative().nullable().catch(null),
+  priceCpOverride: z.number().int().nonnegative().optional().catch(undefined),
+  name: z.string().optional().catch(undefined),
+});
+
+// What a merchant created before rarities existed gets, and what a corrupt list resets to. Not
+// filterArr: that would hand a merchant with no `rarities` an empty list, which reads as "generate
+// nothing" - a silent, confusing default. Falling back to a real preset is the kinder failure.
+const DEFAULT_RARITIES = ["common", "uncommon"] as const;
+
+const merchantSchema = z.object({
+  id: z.string(),
+  name: z.string().catch("Unnamed merchant"),
+  kind: z.enum(MERCHANT_KIND_VALUES).catch("general"),
+  owner: z.string().optional().catch(undefined),
+  ownerRef: z.string().optional().catch(undefined),
+  location: z.string().optional().catch(undefined),
+  locationRef: z.string().optional().catch(undefined),
+  description: z.string().optional().catch(undefined),
+  // A zero, negative or non-finite modifier would price the whole shelf at 0 or NaN.
+  priceModifier: z.number().positive().finite().catch(1),
+  buybackModifier: z.number().nonnegative().finite().catch(0.5),
+  rarities: z.array(z.enum(RARITY_VALUES)).catch([...DEFAULT_RARITIES]),
+  stock: filterArr(merchantStockSchema),
+});
+
+const MERCHANTS_DEFAULT = {
+  merchants: [],
+  selectedId: null,
+  query: "",
+  kindFilter: null,
+};
+
+const merchantsSchema = z
+  .object({
+    merchants: filterArr(merchantSchema),
+    selectedId: z.string().nullable().catch(null),
+    query: z.string().catch(""),
+    kindFilter: z.enum(MERCHANT_KIND_VALUES).nullable().catch(null),
+    pullVaultPath: z.string().optional().catch(undefined),
+    autoCast: z.boolean().optional().catch(undefined),
+  })
+  .catch(MERCHANTS_DEFAULT);
+
+export function parseMerchantsState(raw: unknown): unknown {
+  return merchantsSchema.parse(raw);
+}
+
+// ---------------------------------------------------------------------------
 // progress-clocks
 // ---------------------------------------------------------------------------
 
@@ -638,8 +854,8 @@ const timelineEntrySchema = z.object({
 });
 
 const campaignTimelineSchema = z
-  .object({ entries: filterArr(timelineEntrySchema) })
-  .catch({ entries: [] });
+  .object({ entries: filterArr(timelineEntrySchema), sortDirection: z.enum(["asc", "desc"]).catch("asc") })
+  .catch({ entries: [], sortDirection: "asc" });
 
 export function parseCampaignTimelineState(raw: unknown): unknown {
   return campaignTimelineSchema.parse(raw);

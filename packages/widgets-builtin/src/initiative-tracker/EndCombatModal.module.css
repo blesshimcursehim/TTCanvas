@@ -1,0 +1,81 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+
+/* The overlay div is gone - ModalDialog centres and dims this. */
+
+.modal {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  width: 440px;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  /* Focused programmatically for keyboard entry (tabIndex -1); no ring on the container itself,
+     its interactive children keep their own focus styles. */
+  outline: none;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line-soft);
+  flex-shrink: 0;
+}
+.title { font-size: 15px; font-weight: 600; color: var(--ink); }
+.round { font-size: 12px; color: var(--ink-4); font-family: var(--font-mono); }
+
+.body { padding: 12px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+
+.section { display: flex; flex-direction: column; gap: 4px; }
+.sectionTitle {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-4);
+  margin-bottom: 2px;
+}
+
+.row {
+  display: flex; align-items: center; gap: 10px; padding: 6px 4px;
+  border-bottom: 1px solid var(--line-soft); cursor: pointer;
+}
+.rowWarn { color: oklch(0.72 0.14 60); }
+.check { accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.name { font-size: 13px; color: var(--ink); min-width: 84px; }
+.hp { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); }
+.arrow { color: var(--ink-4); }
+.unchanged { color: var(--ink-4); }
+.note { margin-left: auto; font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+.rowWarn .note { color: oklch(0.72 0.14 60); }
+
+.unlinked { font-size: 12px; color: var(--ink-3); }
+.empty { font-size: 12.5px; color: var(--ink-4); }
+
+.xpRow { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.xpInput {
+  width: 90px; padding: 6px 8px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 6px; color: var(--ink); font-family: var(--font-mono); font-size: 13px;
+}
+.xpInput:focus { border-color: var(--accent); outline: none; }
+.xpPreview { font-size: 12px; color: var(--ink-3); }
+.xpRecipients { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 4px 0 2px; }
+.xpChip {
+  display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-2); cursor: pointer;
+}
+.xpChip input { accent-color: var(--accent); cursor: pointer; }
+
+.footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 18px; border-top: 1px solid var(--line-soft); flex-shrink: 0;
+}
+.cancelBtn {
+  padding: 8px 14px; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 7px; color: var(--ink-2); font-size: 12.5px; cursor: pointer;
+}
+.cancelBtn:hover { background: var(--surface-3); }
+.endBtn {
+  padding: 8px 16px; background: var(--accent); border: none; border-radius: 7px;
+  color: oklch(0.12 0.01 258); font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.endBtn:hover { filter: brightness(1.08); }

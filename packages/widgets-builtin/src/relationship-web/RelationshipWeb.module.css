@@ -8,21 +8,14 @@
 }
 
 /* Full-screen expand */
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  background: oklch(0.1 0.01 258 / 0.72);
-  backdrop-filter: blur(3px);
-  display: flex;
-  padding: 3vh 3vw;
-  box-sizing: border-box;
-}
+/* The scrim is gone - ModalDialog's <dialog> dims and centres this. The 3vh/3vw inset the scrim's
+   padding used to give is now the wrap's own size. */
 
 .fullWrap {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  width: 94vw;
+  height: 94vh;
   min-height: 0;
   background: var(--bg);
   border: 1px solid var(--line);
@@ -255,6 +248,20 @@
 
 .pickRow:hover { background: var(--surface-2); color: var(--ink); }
 .pickEmpty { margin: 2px 0; font-size: 11px; color: var(--ink-4); }
+
+.suggestHint { margin: 0; font-size: 11px; color: var(--ink-4); line-height: 1.4; }
+
+.suggestRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.suggestRow:hover { background: var(--surface-2); }
+.suggestText { font-size: 12px; color: var(--ink-2); }
+.suggestText strong { color: var(--ink); font-weight: 600; }
 
 .newForm { display: flex; flex-direction: column; gap: 8px; }
 .kindRow { display: flex; gap: 4px; }

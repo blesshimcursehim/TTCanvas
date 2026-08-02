@@ -5,16 +5,14 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { createPortal } from "react-dom";
-import { getAllWidgets } from "../registry";
-import type { AppTheme, AppAccent, AppDensity, AppConfig } from "../appConfig";
-import { useToast, type AIProvider } from "@ttcanvas/core";
+import { ModalDialog } from "@ttcanvas/widgets-builtin";
+import { getAddableWidgets } from "../registry";
+import type { AppTheme, AppAccent, AppDensity, AppClockFormat, AppInterfaceScale, AppConfig } from "../appConfig";
+import { useToast, redact, logError, type AIProvider } from "@ttcanvas/core";
 import {
   revealLogFile, readLogTail, clearLog, exportDiagnostics,
   type DiagnosticsMeta,
 } from "../diagnostics/diagnostics";
-import { redact } from "../diagnostics/redact";
-import { logError } from "../diagnostics/log";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import styles from "./PreferencesModal.module.css";
 
@@ -58,6 +56,18 @@ const DENSITIES: { id: AppDensity; label: string }[] = [
   { id: "spacious",    label: "Spacious"    },
 ];
 
+const INTERFACE_SCALES: { id: AppInterfaceScale; label: string; hint: string }[] = [
+  { id: "normal", label: "Normal", hint: "100%" },
+  { id: "large",  label: "Large",  hint: "115%" },
+  { id: "larger", label: "Larger", hint: "130%" },
+];
+
+const CLOCK_FORMATS: { id: AppClockFormat; label: string; hint: string }[] = [
+  { id: "system", label: "System", hint: "Follow this app's locale" },
+  { id: "24h",    label: "24-hour", hint: "16:07" },
+  { id: "12h",    label: "12-hour", hint: "4:07 PM" },
+];
+
 interface AIConfigPatch {
   aiProvider?: AIProvider;
   aiBaseUrl?: string;
@@ -68,6 +78,12 @@ interface AIConfigPatch {
 interface Props {
   config: AppConfig;
   version: string;
+  /** The `version` the open workspace file claims, or null if absent or non-numeric. */
+  workspaceVersion: number | null;
+  /** The workspace schema version this build supports. */
+  supportedWorkspaceVersion: number;
+  /** True when the open workspace was written by a newer build and so opened read-only. */
+  workspaceReadOnly: boolean;
   disabledWidgetTypes: string[];
   modWidgetTypes: string[];
   onClose: () => void;
@@ -175,21 +191,17 @@ function DiagnosticsPane({ meta, apiKey }: { meta: DiagnosticsMeta; apiKey: stri
 }
 
 export function PreferencesModal({
-  config, version,
+  config, version, workspaceVersion, supportedWorkspaceVersion, workspaceReadOnly,
   disabledWidgetTypes, modWidgetTypes,
   onClose, onChange, onAIChange,
   onWidgetToggle, onModUninstall,
 }: Props) {
   const [pane, setPane] = useState<Pane>("appearance");
-  const allWidgets = getAllWidgets();
+  const addableWidgets = getAddableWidgets();
 
-  function handleBackdrop(e: React.MouseEvent) {
-    if (e.target === e.currentTarget) onClose();
-  }
-
-  return createPortal(
-    <div className={styles.scrim} onMouseDown={handleBackdrop}>
-      <div className={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
+  return (
+    <ModalDialog label="Preferences" onClose={onClose}>
+      <div className={styles.modal}>
 
         {/* Left rail */}
         <div className={styles.rail}>
@@ -274,13 +286,72 @@ export function PreferencesModal({
                 ))}
               </div>
 
+              <div className={styles.sectionHead}>Interface size</div>
+              <div className={styles.segmented}>
+                {INTERFACE_SCALES.map((s) => (
+                  <button
+                    key={s.id}
+                    className={`${styles.segBtn} ${config.interfaceScale === s.id ? styles.segBtnActive : ""}`}
+                    onClick={() => onChange({ interfaceScale: s.id })}
+                    title={s.hint}
+                    aria-pressed={config.interfaceScale === s.id}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.sectionNote}>
+                Scales the whole interface, text included, the way a browser's zoom does. Density
+                only changes spacing, so this is the one to reach for if the type is too small to
+                read comfortably. The player window has its own size setting.
+              </div>
+
+              <div className={styles.sectionHead}>Player window text</div>
+              <div className={styles.segmented}>
+                {INTERFACE_SCALES.map((s) => (
+                  <button
+                    key={s.id}
+                    className={`${styles.segBtn} ${config.playerTextScale === s.id ? styles.segBtnActive : ""}`}
+                    onClick={() => onChange({ playerTextScale: s.id })}
+                    title={s.hint}
+                    aria-pressed={config.playerTextScale === s.id}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.sectionNote}>
+                Sized separately because that window gets read from across a table or off a
+                projector. Text only here, so cast maps and handouts keep their full size.
+              </div>
+
+              <div className={styles.sectionHead}>Clock</div>
+              <div className={styles.segmented}>
+                {CLOCK_FORMATS.map((c) => (
+                  <button
+                    key={c.id}
+                    className={`${styles.segBtn} ${config.clockFormat === c.id ? styles.segBtnActive : ""}`}
+                    onClick={() => onChange({ clockFormat: c.id })}
+                    title={c.hint}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.sectionNote}>
+                How the title bar shows the real-world time. System follows this app's locale,
+                which on Linux can differ from a desktop's own 24-hour toggle - pick 24-hour or
+                12-hour directly if System doesn't match.
+              </div>
+
               <div className={styles.toggleRow}>
-                <span className={styles.toggleLabel}>Reduce motion</span>
+                <span className={styles.toggleLabel} id="pref-reduce-motion">Reduce motion</span>
                 <button
                   className={`${styles.toggle} ${config.reduceMotion ? styles.toggleOn : ""}`}
                   onClick={() => onChange({ reduceMotion: !config.reduceMotion })}
                   role="switch"
                   aria-checked={config.reduceMotion}
+                  aria-labelledby="pref-reduce-motion"
                 >
                   <span className={styles.toggleThumb} />
                 </button>
@@ -293,7 +364,7 @@ export function PreferencesModal({
           {pane === "canvas" && (
             <div className={styles.pane}>
               <div className={styles.sectionHead}>Widgets</div>
-              {allWidgets.filter((w) => !modWidgetTypes.includes(w.type)).map((w) => (
+              {addableWidgets.filter((w) => !modWidgetTypes.includes(w.type)).map((w) => (
                 <label key={w.type} className={styles.checkRow}>
                   <input
                     type="checkbox"
@@ -382,8 +453,11 @@ export function PreferencesModal({
               apiKey={config.aiApiKey}
               meta={{
                 version,
+                workspaceVersion,
+                supportedWorkspaceVersion,
+                workspaceReadOnly,
                 aiProvider: config.aiProvider,
-                enabledWidgets: allWidgets.filter((w) => !disabledWidgetTypes.includes(w.type)).map((w) => w.type),
+                enabledWidgets: addableWidgets.filter((w) => !disabledWidgetTypes.includes(w.type)).map((w) => w.type),
                 disabledWidgets: disabledWidgetTypes,
                 mods: modWidgetTypes,
               }}
@@ -441,7 +515,6 @@ export function PreferencesModal({
           )}
         </div>
       </div>
-    </div>,
-    document.body,
+    </ModalDialog>
   );
 }

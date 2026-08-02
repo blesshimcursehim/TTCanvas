@@ -351,6 +351,77 @@
   text-align: center;
 }
 
+/* ── Save name-collision warning ──────────────────────── */
+
+.collisionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.collisionText {
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+.collisionConfirm {
+  flex-shrink: 0;
+  padding: 5px 9px;
+  border: none;
+  border-radius: 5px;
+  background: var(--accent);
+  color: oklch(0.12 0.01 258);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.collisionConfirm:hover { filter: brightness(1.1); }
+
+.collisionCancel {
+  flex-shrink: 0;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.collisionCancel:hover { background: var(--surface-2); }
+
+/* ── Post-save follow-up ──────────────────────────────── */
+
+.postSaveRow {
+  display: flex;
+  gap: 8px;
+}
+
+.postSaveBtn {
+  flex: 1;
+  padding: 7px 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.postSaveBtn:hover {
+  background: var(--surface-2);
+  border-color: var(--accent-line, var(--accent));
+}
+
 /* ── Action buttons ───────────────────────────────────── */
 
 .actions {
@@ -570,4 +641,12 @@
 
 .contextTextarea::placeholder {
   color: var(--ink-4);
+}
+
+/* These suppress the browser's outline but put nothing back, so keyboard focus was invisible on
+   them. The app-wide :focus-visible ring in App.css ties with them on specificity and loses on
+   source order, hence the explicit rule. */
+.nameInput:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }

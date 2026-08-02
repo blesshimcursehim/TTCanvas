@@ -20,6 +20,8 @@ import {
   advanceTimeSeconds,
   formatDateOverlay,
   eventsOnDay,
+  eventsStartingBetween,
+  describeCrossedEvents,
   validateCalendarDef,
 } from "./utils";
 
@@ -272,6 +274,24 @@ describe("advanceTimeSeconds", () => {
     expect(a.minute).toBe(b.minute);
     expect(b.second).toBe(0);
   });
+
+  it("clamps to the epoch floor when rewinding past the start of day 1", () => {
+    // One hour before day 1 00:30 has no valid date - pin the whole timestamp at day 1 00:00:00,
+    // not day 1 23:30 (which an earlier separate date/time clamp produced).
+    const r = advanceTimeSeconds({ year: 1, month: 0, day: 1 }, 0, 30, 0, -3600, UNIFORM);
+    expect(calDateEq(r.date, { year: 1, month: 0, day: 1 })).toBe(true);
+    expect(r.hour).toBe(0);
+    expect(r.minute).toBe(0);
+    expect(r.second).toBe(0);
+  });
+
+  it("clamps a large rewind that overshoots the epoch to the floor", () => {
+    const r = advanceTimeSeconds({ year: 1, month: 0, day: 3 }, 12, 0, 0, -100 * 86400, UNIFORM);
+    expect(calDateEq(r.date, { year: 1, month: 0, day: 1 })).toBe(true);
+    expect(r.hour).toBe(0);
+    expect(r.minute).toBe(0);
+    expect(r.second).toBe(0);
+  });
 });
 
 describe("formatTime with seconds", () => {
@@ -394,5 +414,54 @@ describe("validateCalendarDef", () => {
     const bad = { ...UNIFORM, weekLength: 5, months: [] };
     const errs = validateCalendarDef(bad);
     expect(errs.length).toBeGreaterThan(1);
+  });
+});
+
+// UNIFORM: month is 0-based, day 1-based, 30 days/month, so absDay of {month:0, day:N} === N.
+function d(day: number): CalDate {
+  return { year: 1, month: 0, day };
+}
+function ev(title: string, startDay: number, duration?: number): CalEvent {
+  return { id: title, title, start: d(startDay), duration };
+}
+
+describe("eventsStartingBetween", () => {
+  const festival = ev("Festival", 12);
+  const market = ev("Market", 15);
+  const events = [festival, market, ev("Later", 20)];
+
+  it("includes an event starting on the day just landed on", () => {
+    expect(eventsStartingBetween(d(10), d(12), events, UNIFORM)).toEqual([festival]);
+  });
+
+  it("excludes an event that started on the day already occupied before the advance", () => {
+    expect(eventsStartingBetween(d(12), d(14), events, UNIFORM)).toEqual([]);
+  });
+
+  it("catches every start a long jump skips over, sorted by day", () => {
+    expect(eventsStartingBetween(d(10), d(17), events, UNIFORM)).toEqual([festival, market]);
+  });
+
+  it("returns nothing for an hours-only advance (same day) or an undo (backwards)", () => {
+    expect(eventsStartingBetween(d(12), d(12), events, UNIFORM)).toEqual([]);
+    expect(eventsStartingBetween(d(17), d(10), events, UNIFORM)).toEqual([]);
+  });
+});
+
+describe("describeCrossedEvents", () => {
+  it("says 'begins today' when the single event starts on the landed-on day", () => {
+    expect(describeCrossedEvents([ev("Festival", 12)], d(12), UNIFORM)).toBe("Festival begins today");
+  });
+
+  it("gives the dated form when a jump passed the event's start", () => {
+    expect(describeCrossedEvents([ev("Festival", 12)], d(17), UNIFORM)).toBe(
+      `Festival begins ${formatCalDate(d(12), UNIFORM)}`,
+    );
+  });
+
+  it("lists titles when several begin at once", () => {
+    expect(describeCrossedEvents([ev("A", 12), ev("B", 13)], d(13), UNIFORM)).toBe(
+      "2 calendar events begin: A, B",
+    );
   });
 });

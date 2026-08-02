@@ -17,15 +17,14 @@ use commands::ollama::{
     openai_list_models,
 };
 use commands::player_window::{
-    close_player_window, confirm_close, get_player_window_bounds, open_player_window,
-    player_window_exists, set_player_decorations, set_player_fullscreen, CloseConfirmed,
-    ClosePending,
+    CloseConfirmed, ClosePending, close_player_window, confirm_close, get_player_window_bounds,
+    open_player_window, player_window_exists, set_player_decorations, set_player_fullscreen,
 };
 use commands::vault::{
-    copy_to_vault_maps, copy_to_vault_portraits, delete_vault_file, list_folder_images,
-    list_mod_files, list_vault_files, open_vault, pick_audio_file, pick_image_file,
-    read_file_base64, read_player_image_base64, read_vault_file, save_text_file, watch_vault,
-    write_file_base64, write_vault_file, CurrentVaultPath, VaultWatcherState,
+    CurrentVaultPath, VaultWatcherState, copy_to_vault_maps, copy_to_vault_portraits,
+    delete_vault_file, list_folder_images, list_mod_files, list_vault_files, open_vault,
+    pick_audio_file, pick_image_file, read_file_base64, read_player_image_base64, read_vault_file,
+    save_text_file, watch_vault, write_file_base64, write_vault_file,
 };
 use commands::workspace::{load_workspace, save_workspace};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -74,8 +73,8 @@ pub fn run() {
             let main_window = app
                 .get_webview_window("main")
                 .expect("main window must exist at setup");
-            main_window.on_window_event(move |event| {
-                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            main_window.on_window_event(move |event| match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
                     let confirmed = app_handle.state::<CloseConfirmed>();
                     if confirmed.0.load(Ordering::SeqCst) {
                         return; // confirm_close() already called - let it through
@@ -88,6 +87,18 @@ pub fn run() {
                     api.prevent_close();
                     app_handle.emit("main-close-requested", ()).ok();
                 }
+                tauri::WindowEvent::Destroyed => {
+                    // Main is gone one way or another - normal quit (the frontend already closed
+                    // the player window, so this is a no-op), the force-close path above (which
+                    // returns without ever giving the frontend a chance to), or a stale
+                    // frontend playerWindowOpen ref after a main-webview reload. None of those
+                    // should leave the player window behind, so close it here regardless of
+                    // whether the frontend handler ran.
+                    if let Some(player) = app_handle.get_webview_window("player") {
+                        player.close().ok();
+                    }
+                }
+                _ => {}
             });
             Ok(())
         })

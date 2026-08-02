@@ -17,12 +17,40 @@ export interface Combatant {
   ac: number;
   kind: CombatantKind;
   conditions?: string[];
-  /** Origin of this combatant, e.g. a Bestiary entry id (set by the Encounter Builder). Back-compat: absent on old saves. */
+  /**
+   * Individual-source identity for map-token dedup (e.g. a lone NPC or party member), set by the
+   * Encounter Builder. Deliberately unset for Bestiary-sourced foes even at count 1 - one Bestiary
+   * entry can spawn many independent instances, and sharing an id across them breaks map dedup and
+   * the initiative spotlight. Use `templateId` instead to link repeated instances back to their
+   * shared Bestiary origin. Back-compat: absent on old saves.
+   */
   sourceId?: string;
+  /**
+   * Non-exclusive link back to the Bestiary entry this combatant was created from. Unlike `sourceId`,
+   * every copy of a repeated creature (e.g. "Goblin 1", "Goblin 2") shares the same `templateId` - it
+   * identifies the shared template, not a single instance, mirroring `DrawnCard.cardId` in Card Decks.
+   * Only ever set for Bestiary-sourced foes; absent for party members and NPCs.
+   */
+  templateId?: string;
   /** Portrait to carry onto a map token: a vault file path (party) or an inline data URL (Bestiary). */
   portraitPath?: string;
   /** Group-initiative membership, if any - see InitiativeGroup. Absent = not grouped. */
   groupId?: string;
+}
+
+export type StartCombatMode = "replace" | "append";
+
+/**
+ * Snapshot of the encounter a combat was started from - stored on InitiativeTrackerState so the
+ * end-combat review can offer the encounter's reward without reaching back into Encounter Builder
+ * state. A snapshot, not a live link: editing the encounter mid-combat must not change a pending
+ * award. Absent = an ad-hoc combat (hand-added combatants, or Bestiary's quick-add).
+ */
+export interface CombatEncounterRef {
+  id: string;
+  name: string;
+  /** XP reward to route to the XP Tracker after combat, if the encounter set one. */
+  rewardXp?: number;
 }
 
 /** A shared initiative roll for two or more combatants (group initiative). */
@@ -56,6 +84,9 @@ export interface InitiativeTrackerState {
   groups?: InitiativeGroup[];
   /** Toast a GM-facing nudge each time a round wraps ("lair actions"). Absent = false. */
   lairActionReminder?: boolean;
+  /** The encounter this combat was started from, for the end-combat review's reward hand-off.
+   *  Absent = an ad-hoc combat. Cleared when combat ends. */
+  encounter?: CombatEncounterRef;
 }
 
 /** One row of the player-facing initiative overlay. */
@@ -92,11 +123,26 @@ export interface InitiativeOverlay {
 export interface ITContextValue {
   addCombatant: (c: Omit<Combatant, "id">) => void;
   /**
-   * Add several combatants in one state update - used by the Encounter Builder's "Start combat".
-   * `groups` carries any pre-formed group-initiative groups (e.g. a count>1 monster stack added
-   * with "Roll as group" on) to merge into state alongside the new combatants.
+   * Push a built encounter into the tracker and reveal it - the Encounter Builder's "Start combat".
+   * "replace" wipes the live combat first (combatants, groups, round, current turn, round advances);
+   * "append" merges, skipping any combatant whose sourceId is already present so a party member or
+   * lone NPC can't be added twice. `groups` carries any pre-formed group-initiative groups, and
+   * `encounter` is the snapshot stored for the end-combat review. Replaces the old always-additive
+   * addCombatants. Returns how many combatants were actually added - fewer than built when append
+   * drops duplicates - so the caller can report the accepted count rather than the built count.
    */
-  addCombatants: (cs: Omit<Combatant, "id">[], groups?: InitiativeGroup[]) => void;
+  startCombat: (
+    cs: Omit<Combatant, "id">[],
+    groups: InitiativeGroup[],
+    mode: StartCombatMode,
+    encounter?: CombatEncounterRef,
+  ) => number;
+  /**
+   * How many combatants are in the tracker right now - lets the Encounter Builder warn before
+   * replacing a live combat. Deliberately a count, not the list: exposing combatants[] would bounce
+   * this context on every HP tick and re-render every useIT() consumer, Map Display included.
+   */
+  combatantCount: number;
   /**
    * sourceId (falling back to id) of every combatant whose turn it currently is - lets Map Display
    * spotlight the linked token(s) on the GM's own map (the player-window equivalent travels via
@@ -106,7 +152,9 @@ export interface ITContextValue {
   activeSourceIds: string[];
 }
 
-const defaultValue: ITContextValue = { addCombatant: () => {}, addCombatants: () => {}, activeSourceIds: [] };
+const defaultValue: ITContextValue = {
+  addCombatant: () => {}, startCombat: () => 0, combatantCount: 0, activeSourceIds: [],
+};
 
 export const ITContext = createContext<ITContextValue>(defaultValue);
 export function useIT(): ITContextValue { return useContext(ITContext); }

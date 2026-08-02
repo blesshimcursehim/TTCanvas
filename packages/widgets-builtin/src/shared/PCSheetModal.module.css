@@ -92,6 +92,8 @@
 }
 .saveBonus { font-family: var(--font-mono); font-size: 11px; color: var(--accent); margin-left: auto; }
 .saveThrowText { font-size: 12.5px; color: var(--ink-2); margin: 0; }
+.saveThrowChips { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.saveChip { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--accent); }
 
 .skillsGrid {
   display: grid;
@@ -246,6 +248,49 @@
 .currencyValue { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--ink); }
 .currencyName { font-size: 9px; color: var(--ink-3); }
 .currencyInput { width: 48px; text-align: center; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; font-size: 13px; font-weight: 700; color: var(--ink); font-family: var(--font-mono); padding: 2px 4px; }
+
+/* Read-only items assigned by the Inventory widget. Two-column like the equipment list above, with
+   the quantity in mono so the two lists read as one section. */
+.ledgerList { display: flex; flex-direction: column; gap: 4px; }
+/* A button wearing the row's old grid: chrome reset only, so the columns line up exactly as before
+   and the only new signal is the hover tint. */
+.ledgerRow {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.ledgerRow:hover .ledgerName { color: var(--ink); }
+.ledgerRow:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+.ledgerCard { margin: 4px 0 6px 34px; }
+.ledgerQty {
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 12px;
+  color: var(--ink-3);
+  text-align: right;
+}
+.ledgerName { font-size: 12.5px; color: var(--ink-2); }
+.ledgerMeta {
+  display: block;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 10px;
+  color: var(--ink-4);
+}
+.ledgerValue {
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
 
 .equipList { display: flex; flex-direction: column; gap: 4px; }
 .equipRow { display: flex; align-items: center; gap: 6px; }

@@ -102,9 +102,15 @@ export function CombatantRow({
     >
       {/* Drag handle + kind pip, or a selection checkbox while grouping */}
       {selectMode ? (
-        <label className={styles.selectHandle} title="Select for grouping">
-          <input type="checkbox" checked={selected} onChange={onToggleSelect} />
-        </label>
+        <span className={styles.selectHandle}>
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            aria-label={`Select ${combatant.name} for grouping`}
+            title="Select for grouping"
+          />
+        </span>
       ) : (
         <div
           className={styles.dragHandle}
@@ -146,6 +152,21 @@ export function CombatantRow({
             placeholder="Name"
           />
           {isCurrent && <span className={styles.nowBadge}>NOW</span>}
+          {combatant.templateId && (
+            <button
+              className={styles.templateBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent("ttcanvas:open-creature", { detail: { ref: combatant.templateId } }));
+              }}
+              title="View in Bestiary"
+            >
+              <svg width="10" height="9" viewBox="0 0 10 9" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 1.3C4.2 0.8 2.8 0.6 1 0.8v6.6c1.8-0.2 3.2 0 4 0.5" />
+                <path d="M5 1.3C5.8 0.8 7.2 0.6 9 0.8v6.6c-1.8-0.2-3.2 0-4 0.5V1.3z" />
+              </svg>
+            </button>
+          )}
           {groupLabel && showGroupBadge && (
             <span className={styles.groupBadge}>
               <button

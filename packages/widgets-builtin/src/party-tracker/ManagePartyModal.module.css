@@ -1,12 +1,4 @@
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: oklch(0 0 0 / 0.65);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
+/* The overlay div is gone - ModalDialog's <dialog> centres this and dims behind it. */
 
 .modal {
   background: var(--bg-2);
@@ -286,17 +278,15 @@
   border-color: var(--accent);
 }
 
-.importBtn {
-  padding: 8px 12px;
-  border: 1px dashed var(--line-soft);
+.importError {
+  margin: 0 16px 10px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--ink-4);
-  font-size: 12px;
-  font-family: inherit;
-  cursor: not-allowed;
-  opacity: 0.5;
-  white-space: nowrap;
+  background: oklch(0.38 0.14 22 / 0.18);
+  border: 1px solid oklch(0.38 0.14 22 / 0.35);
+  color: oklch(0.80 0.12 22);
+  font-size: 11px;
+  cursor: pointer;
 }
 
 .footer {
@@ -429,3 +419,11 @@
   margin-top: 2px;
 }
 .addFieldBtn:hover { background: var(--surface); color: var(--ink); border-color: var(--line); }
+
+/* These suppress the browser's outline but put nothing back, so keyboard focus was invisible on
+   them. The app-wide :focus-visible ring in App.css ties with them on specificity and loses on
+   source order, hence the explicit rule. */
+.nameInput:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

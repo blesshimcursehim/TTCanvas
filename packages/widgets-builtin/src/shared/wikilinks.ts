@@ -9,9 +9,29 @@
 // *sources* of links can be notes, NPC Library notes, or Gazetteer place bodies - so opening a note
 // shows everything across the vault that mentions it.
 
+import type { MouseEvent } from "react";
+
 // Same shape the markdown renderer matches for rendering; kept here for the reverse index. Global so
 // a line with several links yields them all.
 const WIKILINK_RE = /\[\[([^\]]+)\]\]/g;
+
+/**
+ * Click handler for a rendered-Markdown block that is an *entity* body - an NPC, a place, a merchant,
+ * an item. Its [[links]] go through the cross-entity channel, so [[Vex]] resolves to that NPC and
+ * [[A Note]] still opens the note. Session Notes deliberately does not use this: its links stay
+ * note-only so a vault keeps working in Obsidian.
+ *
+ * Delegated from the container rather than bound per link, because the Markdown arrives as injected
+ * HTML with no React elements to attach to; `closest` walks up so a click on a nested `<em>` inside
+ * the link still resolves. `WikilinkResolver` listens for the event.
+ */
+export function handleEntityWikilinkClick(e: MouseEvent): void {
+  const link = (e.target as HTMLElement).closest("[data-wikilink]") as HTMLElement | null;
+  if (!link) return;
+  e.preventDefault();
+  const name = link.dataset.wikilink;
+  if (name) window.dispatchEvent(new CustomEvent("ttcanvas:open-entity-link", { detail: { name } }));
+}
 
 /** The target names referenced by `[[...]]` in a body, in order, honouring `[[target|alias]]`. */
 export function extractWikilinkTargets(text: string): string[] {
@@ -86,8 +106,15 @@ export function buildBacklinkIndex(docs: SourceDoc[]): Map<string, Backlink[]> {
   return index;
 }
 
-export interface LinkGraphNode { id: string; label: string; kind: SourceKind }
+/** `id` is unique across the whole graph; `ref` is the original source ref, kept so a click can open
+ *  the thing the node came from. The two differ because refs only collide-free *within* a kind. */
+export interface LinkGraphNode { id: string; ref: string; label: string; kind: SourceKind }
 export interface LinkGraphEdge { from: string; to: string }
+
+/** Graph identity for a source. A note and a Rules Reference file are both folder-relative paths, so
+ *  two files called `Grappling.md` in different folders would otherwise collapse into one node (and
+ *  route clicks to the wrong widget). Namespacing by kind keeps them distinct. */
+const nodeIdOf = (d: SourceDoc): string => `${d.kind}\n${d.ref}`;
 
 /** Sources and the notes they link to, as a graph. An edge is a resolved `[[link]]` (target must be a
  * note); dangling and self-links are dropped, duplicate edges collapsed. Only refs that take part in
@@ -95,25 +122,28 @@ export interface LinkGraphEdge { from: string; to: string }
 export function linkGraph(docs: SourceDoc[]): { nodes: LinkGraphNode[]; edges: LinkGraphEdge[] } {
   const noteByKey = new Map<string, SourceDoc>();
   for (const d of docs) if (d.targetKey) noteByKey.set(d.targetKey, d);
-  const metaByRef = new Map(docs.map((d) => [d.ref, d]));
+  const metaById = new Map(docs.map((d) => [nodeIdOf(d), d]));
   const seen = new Set<string>();
-  const usedRefs = new Set<string>();
+  const usedIds = new Set<string>();
   const edges: LinkGraphEdge[] = [];
   for (const doc of docs) {
+    const from = nodeIdOf(doc);
     for (const target of extractWikilinkTargets(doc.text)) {
       const dest = noteByKey.get(linkKey(target));
-      if (!dest || dest.ref === doc.ref) continue; // dangling or self-link
-      const id = `${doc.ref}\n${dest.ref}`;
+      if (!dest) continue; // dangling
+      const to = nodeIdOf(dest);
+      if (to === from) continue; // self-link
+      const id = `${from}\t${to}`;
       if (seen.has(id)) continue;
       seen.add(id);
-      edges.push({ from: doc.ref, to: dest.ref });
-      usedRefs.add(doc.ref);
-      usedRefs.add(dest.ref);
+      edges.push({ from, to });
+      usedIds.add(from);
+      usedIds.add(to);
     }
   }
-  const nodes = [...usedRefs].map((ref) => {
-    const d = metaByRef.get(ref);
-    return { id: ref, label: d?.label ?? ref, kind: d?.kind ?? "note" };
+  const nodes = [...usedIds].map((id) => {
+    const d = metaById.get(id);
+    return { id, ref: d?.ref ?? id, label: d?.label ?? id, kind: d?.kind ?? "note" };
   });
   return { nodes, edges };
 }
@@ -121,6 +151,27 @@ export function linkGraph(docs: SourceDoc[]): { nodes: LinkGraphNode[]; edges: L
 /** The display label for a note path: its basename without the `.md`. */
 export function basenameLabel(path: string): string {
   return (path.split("/").pop() ?? path).replace(/\.md$/i, "");
+}
+
+/** The subset of the vault seam this file's vault reads need - just enough to stay decoupled from
+ *  the concrete VaultContext shape. */
+export interface VaultReader {
+  readFile(path: string): Promise<string>;
+}
+
+/** Read one entity's free-text body (an NPC's notes or a Gazetteer place's body) as a `SourceDoc`
+ *  for wikilink extraction, or null if unreadable/empty. Shared by Session Notes' backlinks corpus
+ *  and Relationship Web's wikilink-mention suggestions, which both read vault JSON this same way. */
+export async function readEntitySource(
+  vault: VaultReader, ref: string, kind: SourceKind, field: "notes" | "body",
+): Promise<SourceDoc | null> {
+  try {
+    const obj = JSON.parse(await vault.readFile(ref));
+    const text = typeof obj?.[field] === "string" ? obj[field] as string : "";
+    if (!text.trim()) return null;
+    const label = typeof obj?.name === "string" && obj.name.trim() ? obj.name as string : basenameLabel(ref);
+    return { kind, ref, label, text };
+  } catch { return null; }
 }
 
 /** A linkable target: a note, a Gazetteer place, or an NPC, named for `[[wikilink]]` resolution. */

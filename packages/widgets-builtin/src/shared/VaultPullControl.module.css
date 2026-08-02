@@ -1,0 +1,85 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 blesshimcursehim
+ *
+ * Plugins loaded via the official Plugin SDK are not considered
+ * derivative works; see the Plugin Exception in LICENSE. */
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+/* Cog layout: the control gets its own line under a hairline that separates it from the
+ * Import/Export row above. Dropped via `flush` for inline use (Party Tracker's row). */
+.section {
+  width: 100%;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.section .label {
+  margin-right: auto;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-3);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.select {
+  max-width: 120px;
+  padding: 2px 4px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink-2);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+/* Accent-tinted so Pull reads as the primary action here, distinct from the ghost
+ * Import/Export buttons above it. Uses the theme's accent tokens, so it recolours
+ * with the user's accent choice. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.hint,
+.note {
+  color: var(--ink-3);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  opacity: 0.75;
+}

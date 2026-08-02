@@ -21,3 +21,11 @@ let active: TokenDragData | null = null;
 export function setActiveTokenDrag(data: TokenDragData): void { active = data; }
 export function getActiveTokenDrag(): TokenDragData | null { return active; }
 export function clearActiveTokenDrag(): void { active = null; }
+
+// The keyboard-reachable alternative to dragging a card onto the map: place it dead-centre on the
+// active scene instead. MapDisplay listens for this window event and adds/moves a token exactly as
+// it would from a drop, deduping by sourceId the same way. One shared dispatcher (rather than each
+// caller building its own CustomEvent) keeps the event's shape defined in exactly one place.
+export function placeTokenAtCenter(data: TokenDragData): void {
+  window.dispatchEvent(new CustomEvent("ttcanvas:place-token", { detail: data }));
+}

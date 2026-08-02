@@ -93,8 +93,27 @@ export interface LocationPayload {
   imgSrc?: string;   // data URL of the establishing image, or absent
 }
 
+/** One line of a cast price list. Prices arrive pre-formatted as a coin string, because the coin
+ *  maths and the merchant's modifiers are the GM window's business - the player window only prints
+ *  what it is handed. */
+export interface ShopLine {
+  name: string;
+  price: string;
+  /** null for unlimited stock; 0 renders as sold out. Absent is treated as unlimited. */
+  qty?: number | null;
+  rarity?: string;
+}
+
+/** A merchant's shelves, cast as a player-facing price list. Everything GM-only - buyback rates,
+ *  the party purse, the merchant's notes - stays behind. */
+export interface ShopPayload {
+  name: string;
+  subtitle?: string; // e.g. "Blacksmith - Citadel of Thorns"
+  lines: ShopLine[];
+}
+
 export interface PlayerScene {
-  type: "idle" | "map" | "handout" | "character" | "text" | "location";
+  type: "idle" | "map" | "handout" | "character" | "text" | "location" | "shop";
   inWorldDate?: string; // formatted string; present only when Time Tracker showOnPlayer is true
   map?: {
     mapFolder: string;
@@ -119,6 +138,7 @@ export interface PlayerScene {
   text?: { title?: string; body: string }; // routed generator result cast to players
   character?: CharacterPayload;
   location?: LocationPayload; // Gazetteer establishing card
+  shop?: ShopPayload;         // Merchants price list
 }
 
 export interface AbilityScores {
@@ -131,9 +151,56 @@ export function abilityModifier(score: number): number {
   return Math.floor((score - 10) / 2);
 }
 
+/**
+ * SRD 5.2.1 proficiency bonus for a character level: +2 at levels 1-4, then +1 every four levels up
+ * to +6 at 17-20 (`2 + floor((level - 1) / 4)`), clamped to that range. Unlike the always-on ability
+ * modifier, it is added only where a character is proficient - a trained saving throw, skill or
+ * attack - which is the difference between the two.
+ */
+export function proficiencyBonus(level: number): number {
+  const clamped = Math.min(20, Math.max(1, Math.floor(level)));
+  return 2 + Math.floor((clamped - 1) / 4);
+}
+
+/**
+ * SRD 5.2.1 proficiency bonus for a monster/NPC Challenge Rating: +2 up to CR 4, then +1 every four
+ * CR (`2 + floor((CR - 1) / 4)` for CR >= 1), reaching +9 at CR 30. Fractional and CR 0 creatures all
+ * sit at +2. Statblock NPCs are rated by CR rather than level, so their proficient saves derive from
+ * this. `cr` is a string ("1/2", "5", ...); an unparseable value falls back to the +2 baseline every
+ * creature has.
+ */
+export function proficiencyBonusForCr(cr: string): number {
+  const t = cr.trim();
+  const slash = t.indexOf("/");
+  // A CR like "1/2" is a fraction; anything below 1 stays in the +2 tier, so exact value is moot.
+  const value = slash === -1 ? Number(t) : Number(t.slice(0, slash)) / Number(t.slice(slash + 1));
+  if (!Number.isFinite(value)) return 2;
+  return 2 + Math.floor((Math.max(1, value) - 1) / 4);
+}
+
 export interface NamedEntry {
   name: string;
   description: string;
+}
+
+/** How an NPC stands towards the party. Lives here rather than in npc-library/types.ts because
+ *  NpcContext exposes it to widgets, and core cannot import from widgets-builtin. */
+export type NpcRelationship = "ally" | "neutral" | "wary" | "hostile";
+
+/** The kind of place a Gazetteer location represents. Lives here rather than in gazetteer/types.ts
+ *  for the same reason as NpcRelationship: GazetteerContext exposes it to widgets. */
+export type LocationKind = "region" | "settlement" | "landmark" | "dungeon" | "wilderness" | "poi" | "custom";
+
+/** A link from a Gazetteer place to an NPC or a faction. NPCs mirror an NPC Library file and cache
+ *  the name so the chip still reads if the file is missing; factions are free-standing labels (ref
+ *  null) as factions are not first-class entities in the vault. Lives here for the same reason as
+ *  LocationKind. */
+export interface LinkedEntity {
+  kind: "npc" | "faction";
+  /** NPC Library filename ("npcs/vex.json") for kind "npc"; null for a free-standing faction. */
+  ref: string | null;
+  /** Cached display name - kept fresh from the source for linked NPCs, owned outright for factions. */
+  label: string;
 }
 
 export interface SpellSlots {
@@ -148,6 +215,70 @@ export interface SpellcastingBlock {
   spells?: { level: number; name: string; prepared?: boolean }[];
 }
 
+/** Coin purse. Lives here rather than in party-tracker/types.ts because both the PC sheet and the
+ *  Inventory widget hold one, and PartyMemberPatch carries deltas of it. */
+export interface PCCurrency {
+  cp: number;
+  sp: number;
+  ep: number;
+  gp: number;
+  pp: number;
+}
+
+/** Low denomination first, so display and rollup code iterate in a predictable order. `as const`
+ *  keeps the tuple's literal element types, which is what makes `PCCurrency[k]` index cleanly. */
+export const CURRENCY_KEYS = ["cp", "sp", "ep", "gp", "pp"] as const;
+
+export const DEFAULT_CURRENCY: PCCurrency = { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
+
+/**
+ * Add a signed delta onto a purse. Absent coins count as 0, results are floored at 0 and rounded, so
+ * a fractional share from an even split can never persist "12.5 gp". Additive rather than absolute so
+ * callers hand back "+3 gp" and the sum happens inside the state updater, where it cannot race a
+ * concurrent edit of the same purse.
+ */
+export function applyCurrencyDelta(base: PCCurrency | undefined, delta: Partial<PCCurrency>): PCCurrency {
+  const cur = base ?? DEFAULT_CURRENCY;
+  const next = { ...DEFAULT_CURRENCY };
+  for (const k of CURRENCY_KEYS) {
+    next[k] = Math.max(0, Math.round((cur[k] ?? 0) + (delta[k] ?? 0)));
+  }
+  return next;
+}
+
+/** SRD 5.2.1 coin values in copper. Electrum sits at 50cp even though most tables ignore it. */
+export const COIN_IN_CP: Record<keyof PCCurrency, number> = { cp: 1, sp: 10, ep: 50, gp: 100, pp: 1000 };
+
+/**
+ * Render a copper amount as the largest single denomination that divides it cleanly, falling back to
+ * gp with two decimals. Item prices are stored in copper so a 5sp torch never becomes 0.5gp and drifts
+ * through float arithmetic; this is the display half of that.
+ */
+export function formatCoin(cp: number): string {
+  if (!Number.isFinite(cp)) return "-";
+  if (cp === 0) return "0 cp";
+  for (const k of ["pp", "gp", "ep", "sp"] as const) {
+    const unit = COIN_IN_CP[k];
+    if (cp >= unit && cp % unit === 0) return `${cp / unit} ${k}`;
+  }
+  if (cp < COIN_IN_CP.gp) return `${cp} cp`;
+  return `${(cp / COIN_IN_CP.gp).toFixed(2)} gp`;
+}
+
+/**
+ * The title bar's real-world session timer. Distinct from the in-game calendar clock, which
+ * lives in the Time Tracker widget and flows through CalendarContext.
+ *
+ * `running` is deliberately not a field: the timer runs exactly when `startedAt` is non-null,
+ * so the illegal "running with no start time" state cannot be represented at all.
+ */
+export interface SessionTimerState {
+  /** Epoch ms the current run started, or null when paused or stopped. */
+  startedAt: number | null;
+  /** Time banked from previous runs. The live span is added at display time, never persisted per tick. */
+  accumulatedMs: number;
+}
+
 export interface WorkspaceState {
   version: 2;
   activeLayout: string;
@@ -156,4 +287,5 @@ export interface WorkspaceState {
   showVignette?: boolean;
   singletonStates?: Record<string, unknown>;
   disabledWidgetTypes?: string[];
+  sessionTimer?: SessionTimerState;
 }

@@ -26,6 +26,11 @@ export function parseNpcJson(filename: string, raw: string): ParsedNpc {
       delete obj.customLabel;
       delete obj.customValue;
     }
+    // a hand-edited or imported file can carry a malformed locationRef; treat it as unlinked rather
+    // than pass a non-string/blank value on to consumers that dispatch it as a vault filename
+    if (obj.locationRef !== undefined && (typeof obj.locationRef !== "string" || !obj.locationRef.trim())) {
+      delete obj.locationRef;
+    }
     return { ...obj, filename };
   } catch {
     return makeBlankNpc(filename);
@@ -35,6 +40,27 @@ export function parseNpcJson(filename: string, raw: string): ParsedNpc {
 export function serializeNpcJson(npc: ParsedNpc): string {
   const { filename: _f, ...rest } = npc;
   return JSON.stringify(rest, null, 2);
+}
+
+/**
+ * The effective faction/location for an NPC. Either can live on the field itself or - after the
+ * legacy migration in parseNpcJson, which moves a bare `faction` into a "Faction" custom field and
+ * deletes the field - inside customFields under a same-named label. A reader that checks only the
+ * field misses most existing data, so callers (e.g. the Relationship Web link suggester) use this.
+ * The field wins when both are present, since a fresh edit writes the field.
+ *
+ * Reads defensively: `npc` is spread from unvalidated vault JSON (parseNpcJson), so the static types
+ * are not guarantees - a hand-edited file can carry a non-string field or a malformed customFields
+ * entry. A throw here would drop the whole NPC from shared consumers (see NpcProvider), so anything
+ * not a usable string is simply ignored.
+ */
+export function npcMetaValue(npc: ParsedNpc, key: "faction" | "location"): string | undefined {
+  const raw = npc[key];
+  const direct = typeof raw === "string" ? raw.trim() : "";
+  if (direct) return direct;
+  const fields = Array.isArray(npc.customFields) ? npc.customFields : [];
+  const match = fields.find((c) => typeof c?.label === "string" && c.label.trim().toLowerCase() === key);
+  return typeof match?.value === "string" ? match.value.trim() || undefined : undefined;
 }
 
 // ── .md migration (legacy format) ─────────────────────────────────────────
@@ -90,6 +116,21 @@ export function mdFilenameToJson(mdFilename: string): string {
 
 export function slugFromFilename(filename: string): string {
   return filename.split("/").pop()?.replace(/\.(json|md)$/, "") ?? filename;
+}
+
+/** Name-derived filename, suffixed (-1, -2, …) until it avoids every path in `existing`. */
+export function uniqueNpcFilename(name: string, existing: Iterable<string>): string {
+  const taken = existing instanceof Set ? existing : new Set(existing);
+  const base = nameToFilename(name);
+  if (!taken.has(base)) return base;
+  const slug = slugFromFilename(base);
+  let suffix = 1;
+  let candidate = `npcs/${slug}-${suffix}.json`;
+  while (taken.has(candidate)) {
+    suffix += 1;
+    candidate = `npcs/${slug}-${suffix}.json`;
+  }
+  return candidate;
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────

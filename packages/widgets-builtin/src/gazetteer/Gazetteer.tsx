@@ -5,12 +5,16 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
-import { useVault, pushLocationScene } from "@ttcanvas/core";
+import { useVault, useNpcs, useMapPins, pushLocationScene, logWarn, logError, type NpcRef } from "@ttcanvas/core";
 import { autoAccentColor, npcInitials } from "../npc-library/npcFormat";
 import { renderMarkdown } from "../shared/markdownRenderer";
+import { handleEntityWikilinkClick } from "../shared/wikilinks";
 import { mimeForImageExt } from "../shared/mime";
-import { dedupe, exportCollection, parseImportFile, hashContent, type DedupeResult } from "../shared/importExport";
+import { dedupe, exportCollection, readBundle, buildBundle, hashContent, importFailure, type DedupeResult } from "../shared/importExport";
+import { copyPulledAssets, type PullAssets } from "../shared/crossVaultPull";
+import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import { ConfirmDeleteButton as SharedConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import type { GazetteerState, GazetteerLocation, LinkedEntity, LocationKind } from "./types";
@@ -23,8 +27,6 @@ interface Props {
   state: GazetteerState;
   onChange: (state: GazetteerState) => void;
 }
-
-interface NpcRef { filename: string; name: string }
 
 /** Structural key for import dedupe: the location minus its transient filename. */
 function locationContentKey(loc: GazetteerLocation): string {
@@ -42,8 +44,9 @@ function validateGazetteerBundle(parsed: unknown): GazetteerLocation[] | null {
 
 export function Gazetteer({ state, onChange }: Props) {
   const vault = useVault();
+  const { npcs } = useNpcs();
+  const { pinnedLocationRefs } = useMapPins();
   const [locations, setLocations] = useState<GazetteerLocation[]>([]);
-  const [npcs, setNpcs] = useState<NpcRef[]>([]);
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState(false);
@@ -55,41 +58,32 @@ export function Gazetteer({ state, onChange }: Props) {
   const [linkQuery, setLinkQuery] = useState("");
   const [images, setImages] = useState<Record<string, string>>({});
   const [pendingImport, setPendingImport] = useState<DedupeResult<GazetteerLocation> | null>(null);
+  // Held with pendingImport so the conflict dialog copies images only for the places the
+  // user accepts; null for a plain file import (no cross-vault assets to copy).
+  const [pendingPull, setPendingPull] = useState<PullAssets<GazetteerLocation> | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const importFileRef = useRef<HTMLInputElement>(null);
 
-  // ── Load places + NPC names (for link labels and the picker) ──
+  // ── Load places (NPC names for link labels and the picker come from useNpcs) ──
   const loadAll = useCallback(async () => {
     if (!vault.vaultPath) { setLocations([]); return; }
     try {
       const files = (await vault.listFiles("json")).filter((f) => f.startsWith("locations/"));
       const loaded = await Promise.all(files.map(async (f) => {
         try { return parseLocationJson(f, await vault.readFile(f)); }
-        catch { return parseLocationJson(f, "{}"); }
+        catch (err) {
+          logWarn(`Gazetteer: could not read place "${f}", showing a blank entry`, err);
+          return parseLocationJson(f, "{}");
+        }
       }));
       loaded.sort((a, b) => a.name.localeCompare(b.name));
       setLocations(loaded);
-    } catch { setLocations([]); }
+    } catch (err) {
+      logError("Gazetteer: could not scan the locations folder", err);
+      setLocations([]);
+    }
   }, [vault]);
 
   useEffect(() => { void loadAll(); }, [loadAll, vault.vaultVersion]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const files = (await vault.listFiles("json")).filter((f) => f.startsWith("npcs/"));
-        const refs = await Promise.all(files.map(async (filename): Promise<NpcRef | null> => {
-          try {
-            const obj = JSON.parse(await vault.readFile(filename));
-            return { filename, name: typeof obj?.name === "string" && obj.name.trim() ? obj.name : filename };
-          } catch { return null; }
-        }));
-        if (!cancelled) setNpcs(refs.filter((r): r is NpcRef => r !== null));
-      } catch { if (!cancelled) setNpcs([]); }
-    })();
-    return () => { cancelled = true; };
-  }, [vault, vault.vaultVersion]);
 
   const npcByFile = useMemo(() => new Map(npcs.map((n) => [n.filename, n])), [npcs]);
 
@@ -111,7 +105,10 @@ export function Gazetteer({ state, onChange }: Props) {
       const fileName = path.split("/").pop()!;
       const b64 = await vault.readFileBase64(`${vault.vaultPath}/portraits`, fileName);
       return `data:${mimeForImageExt(fileName)};base64,${b64}`;
-    } catch { return null; }
+    } catch (err) {
+      logWarn(`Gazetteer: could not load image "${path}"`, err);
+      return null;
+    }
   }, [vault]);
 
   useEffect(() => {
@@ -219,42 +216,83 @@ export function Gazetteer({ state, onChange }: Props) {
 
   // ── Import / export ──
   async function handleExportAll() {
-    await exportCollection(vault.saveTextFile, { type: "ttcanvas-gazetteer", version: 1, items: locations }, "gazetteer.json");
+    await exportCollection(vault.saveTextFile, buildBundle("ttcanvas-gazetteer", { items: locations }), "gazetteer.json");
   }
 
-  async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
+  async function handleImportFile(file: File) {
     setImportError(null);
     let text: string;
-    try { text = await file.text(); } catch { setImportError("Could not read that file."); return; }
-    const incoming = parseImportFile(text, validateGazetteerBundle);
-    if (!incoming) { setImportError("That is not a Gazetteer export."); return; }
-    const result = dedupe(incoming, locations, { idOf: (l) => l.id, contentKeyOf: locationContentKey });
-    if (result.idConflicts.length || result.contentDuplicates.length) setPendingImport(result);
-    else await applyImport(result, "skip");
+    try { text = await file.text(); } catch (err) {
+      logError("Gazetteer: could not read the import file", err);
+      setImportError("Could not read that file.");
+      return;
+    }
+    await handleImportText(text);
   }
 
-  async function applyImport(result: DedupeResult<GazetteerLocation>, mode: "skip" | "replace") {
-    setPendingImport(null);
-    if (!vault.vaultPath) return;
-    if (mode === "replace") {
-      for (const loc of result.idConflicts) {
-        const existing = locations.find((l) => l.id === loc.id);
-        if (existing) await vault.writeFile(existing.filename, serializeLocationJson({ ...loc, filename: existing.filename }));
+  // Pull places from another vault: read its locations/*.json, then merge through the
+  // same import path as a file (one json per place). Images are copied by applyImport for
+  // the accepted places only, so a skipped/cancelled conflict never clobbers current art.
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    const files = (await vault.listFolderFiles(sourceVault, "json")).filter((f) => f.startsWith("locations/"));
+    const foreign: GazetteerLocation[] = [];
+    for (const f of files) {
+      try {
+        foreign.push(parseLocationJson(f, await vault.readFolderFile(sourceVault, f)));
+      } catch (err) {
+        logWarn(`Gazetteer: skipping unreadable place "${f}" during pull`, err);
       }
     }
-    const used = new Set(locations.map((l) => l.filename));
-    for (const loc of result.clean) {
-      let filename = nameToFilename(loc.name);
-      let suffix = 1;
-      const slug = slugFromFilename(filename);
-      while (used.has(filename)) filename = `locations/${slug}-${suffix++}.json`;
-      used.add(filename);
-      await vault.writeFile(filename, serializeLocationJson({ ...loc, filename }));
+    if (foreign.length === 0) return false;
+    await handleImportText(JSON.stringify(buildBundle("ttcanvas-gazetteer", { items: foreign })), {
+      sourceVault,
+      assetsOf: (l) => [l.imagePath],
+    });
+    return true;
+  }
+
+  async function handleImportText(text: string, pull?: PullAssets<GazetteerLocation>) {
+    setImportError(null);
+    const incoming = readBundle(text, "ttcanvas-gazetteer", validateGazetteerBundle);
+    if (!incoming) { setImportError("That is not a Gazetteer export."); return; }
+    const result = dedupe(incoming, locations, { idOf: (l) => l.id, contentKeyOf: locationContentKey });
+    if (result.idConflicts.length || result.contentDuplicates.length) {
+      setPendingImport(result);
+      setPendingPull(pull ?? null);
+    } else {
+      await applyImport(result, "skip", pull);
     }
-    await loadAll();
+  }
+
+  async function applyImport(result: DedupeResult<GazetteerLocation>, mode: "skip" | "replace", pull?: PullAssets<GazetteerLocation> | null) {
+    setPendingImport(null);
+    setPendingPull(null);
+    if (!vault.vaultPath) return;
+    try {
+      if (pull) await copyPulledAssets(pull, result, mode, vault.readFileBase64, vault.writeFileBase64);
+      if (mode === "replace") {
+        for (const loc of result.idConflicts) {
+          const existing = locations.find((l) => l.id === loc.id);
+          if (existing) await vault.writeFile(existing.filename, serializeLocationJson({ ...loc, filename: existing.filename }));
+        }
+      }
+      const used = new Set(locations.map((l) => l.filename));
+      for (const loc of result.clean) {
+        let filename = nameToFilename(loc.name);
+        let suffix = 1;
+        const slug = slugFromFilename(filename);
+        while (used.has(filename)) filename = `locations/${slug}-${suffix++}.json`;
+        used.add(filename);
+        await vault.writeFile(filename, serializeLocationJson({ ...loc, filename }));
+      }
+      await loadAll();
+    } catch (err) {
+      // Surface a failed apply - matters most on the conflict path, where Skip/Replace
+      // call this detached from the pull's own error handling (an unhandled rejection).
+      logError("Gazetteer: import failed", err);
+      setImportError(importFailure(err));
+    }
   }
 
   // ── Derived view data ──
@@ -313,13 +351,12 @@ export function Gazetteer({ state, onChange }: Props) {
 
         <div className={styles.footer}>
           <span>{locations.length} place{locations.length === 1 ? "" : "s"}</span>
-          <span className={styles.footerBtns}>
-            <button className={styles.fbtn} onClick={() => { setImportError(null); importFileRef.current?.click(); }}>Import</button>
-            <button className={styles.fbtn} onClick={handleExportAll} disabled={locations.length === 0}>Export</button>
-          </span>
         </div>
-        {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
-        <input ref={importFileRef} type="file" accept="application/json,.json" hidden onChange={handleImportFile} />
+        <WidgetSettingsCog>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={locations.length === 0} onError={setImportError} />
+          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
+          {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
+        </WidgetSettingsCog>
       </div>
 
       {/* ── Right: detail / add ── */}
@@ -385,7 +422,7 @@ export function Gazetteer({ state, onChange }: Props) {
             {/* Establishing image + cast */}
             <div className={styles.estab}>
               {displayLoc.imagePath && images[displayLoc.imagePath]
-                ? <img className={styles.estabImg} src={images[displayLoc.imagePath]} alt={`${displayLoc.name} establishing image`} />
+                ? <img className={styles.estabImg} src={images[displayLoc.imagePath]} alt={`Establishing shot of ${displayLoc.name}`} />
                 : <button className={styles.estabEmpty} onClick={handleImagePick}>+ Establishing image</button>}
               {displayLoc.imagePath && (
                 <div className={styles.estabActions}>
@@ -463,14 +500,22 @@ export function Gazetteer({ state, onChange }: Props) {
               {editing
                 ? <textarea className={styles.textarea} rows={6} value={displayLoc.body ?? ""} onChange={(e) => patchDraft({ body: e.target.value })} placeholder="GM notes. Markdown and [[wikilinks]] work." />
                 : displayLoc.body?.trim()
-                  ? <div className={styles.prose} dangerouslySetInnerHTML={{ __html: renderMarkdown(displayLoc.body) }} onClick={onWikilinkClick} />
+                  ? <div className={styles.prose} dangerouslySetInnerHTML={{ __html: renderMarkdown(displayLoc.body) }} onClick={handleEntityWikilinkClick} />
                   : <p className={styles.emptyVal}>No notes yet.</p>}
             </div>
 
             {/* Jumps to Map Display: an existing pin for this place is located and panned to, or
-                (if none exists yet) the tool arms so the next map click drops one. */}
-            <button type="button" className={styles.mapHook} onClick={() => pinLocation(displayLoc.filename, displayLoc.name)}>
-              Pin this place on a map
+                (if none exists yet) the tool arms so the next map click drops one. The label reflects
+                whether a pin already exists anywhere, read live from MapPinsContext. */}
+            <button
+              type="button"
+              className={`${styles.mapHook} ${pinnedLocationRefs.has(displayLoc.filename) ? styles.mapHookPinned : ""}`}
+              onClick={() => pinLocation(displayLoc.filename, displayLoc.name)}
+              title={pinnedLocationRefs.has(displayLoc.filename)
+                ? "This place already has a pin - jumps to it on the map"
+                : "Arms Map Display so your next click drops a pin for this place"}
+            >
+              {pinnedLocationRefs.has(displayLoc.filename) ? "Pinned on a map - show me" : "Pin this place on a map"}
             </button>
 
             <div className={styles.detailFooter}>
@@ -486,9 +531,9 @@ export function Gazetteer({ state, onChange }: Props) {
           totalCount={pendingImport.idConflicts.length + pendingImport.contentDuplicates.length + pendingImport.clean.length}
           idConflicts={pendingImport.idConflicts.map((l) => ({ id: l.id, label: l.name }))}
           contentDuplicates={pendingImport.contentDuplicates.map((l) => ({ id: l.id, label: l.name }))}
-          onCancel={() => setPendingImport(null)}
-          onSkip={() => applyImport(pendingImport, "skip")}
-          onReplace={() => applyImport(pendingImport, "replace")}
+          onCancel={() => { setPendingImport(null); setPendingPull(null); }}
+          onSkip={() => applyImport(pendingImport, "skip", pendingPull)}
+          onReplace={() => applyImport(pendingImport, "replace", pendingPull)}
         />
       )}
     </div>
@@ -504,17 +549,6 @@ function openNpc(filename: string) {
 // Map Display owns that decision (it holds the token data); Gazetteer never needs to know the answer.
 function pinLocation(filename: string, name: string) {
   window.dispatchEvent(new CustomEvent("ttcanvas:pin-location", { detail: { filename, name } }));
-}
-
-// Wikilink clicks in a place's notes go through the cross-entity channel, so [[Another Place]] or
-// [[Vex]] resolves to that place / NPC (and [[A Note]] still opens the note). This is an entity body,
-// so unlike Session Notes it is allowed to link out to other entities.
-function onWikilinkClick(e: React.MouseEvent) {
-  const link = (e.target as HTMLElement).closest("[data-wikilink]") as HTMLElement | null;
-  if (!link) return;
-  e.preventDefault();
-  const name = link.dataset.wikilink;
-  if (name) window.dispatchEvent(new CustomEvent("ttcanvas:open-entity-link", { detail: { name } }));
 }
 
 function KindGlyph({ kind }: { kind: LocationKind }) {

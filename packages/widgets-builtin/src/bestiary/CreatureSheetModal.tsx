@@ -11,6 +11,7 @@ import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { SheetChrome } from "../shared/sheet-primitives/SheetChrome";
 import { SectionHead } from "../shared/sheet-primitives/SectionHead";
 import { AbilityGrid } from "../shared/sheet-primitives/AbilityGrid";
+import { RollableStat } from "../shared/sheet-primitives/RollableStat";
 import { NamedEntryList } from "../shared/sheet-primitives/NamedEntryList";
 import { CropModal } from "../party-tracker/CropModal";
 import { renderMarkdown } from "../shared/markdownRenderer";
@@ -265,9 +266,10 @@ export function CreatureSheetModal({ entry, isNew, folders, onSave, onDelete, on
             {editing && (
               <>
                 <div className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>Tags</label>
+                  <span className={styles.fieldLabel}>Tags</span>
                   <input
                     className={styles.fieldInput}
+                    aria-label="Tags"
                     value={tagsText}
                     placeholder="Comma-separated tags"
                     onChange={(e) => {
@@ -277,9 +279,10 @@ export function CreatureSheetModal({ entry, isNew, folders, onSave, onDelete, on
                   />
                 </div>
                 <div className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>Folder</label>
+                  <span className={styles.fieldLabel}>Folder</span>
                   <select
                     className={styles.select}
+                    aria-label="Folder"
                     value={draft.folderId ?? ""}
                     onChange={(e) => patch({ folderId: e.target.value || null })}
                   >
@@ -327,6 +330,7 @@ export function CreatureSheetModal({ entry, isNew, folders, onSave, onDelete, on
               scores={draft.abilityScores ?? DEFAULT_SCORES}
               editing={editing}
               onChange={(scores) => patch({ abilityScores: scores })}
+              subject={draft.name}
             />
 
             <SectionHead style={{ marginTop: 14 }}>Saving Throws</SectionHead>
@@ -342,10 +346,15 @@ export function CreatureSheetModal({ entry, isNew, folders, onSave, onDelete, on
                       value={draft.savingThrows?.[k] !== undefined ? draft.savingThrows[k] : ""}
                       onChange={(e) => patchSave(k, e.target.value)}
                     />
+                  ) : draft.savingThrows?.[k] !== undefined ? (
+                    <RollableStat
+                      className={styles.saveValue}
+                      bonus={draft.savingThrows[k]!}
+                      label={`${ABILITY_LABELS[k]} save`}
+                      subject={draft.name}
+                    />
                   ) : (
-                    <span className={styles.saveValue}>
-                      {draft.savingThrows?.[k] !== undefined ? fmtBonus(draft.savingThrows[k]!) : "-"}
-                    </span>
+                    <span className={styles.saveValue}>-</span>
                   )}
                 </div>
               ))}
@@ -366,12 +375,16 @@ export function CreatureSheetModal({ entry, isNew, folders, onSave, onDelete, on
                 />
                 <span className={styles.hint}>Comma-separated: Skill +bonus</span>
               </div>
+            ) : draft.skillBonuses && Object.keys(draft.skillBonuses).length > 0 ? (
+              <div className={styles.skillList}>
+                {Object.entries(draft.skillBonuses).map(([s, b]) => (
+                  <RollableStat key={s} className={styles.fieldValue} bonus={b} label={s} subject={draft.name}>
+                    {s} {fmtBonus(b)}
+                  </RollableStat>
+                ))}
+              </div>
             ) : (
-              <p className={styles.fieldValue}>
-                {draft.skillBonuses && Object.keys(draft.skillBonuses).length > 0
-                  ? Object.entries(draft.skillBonuses).map(([s, b]) => `${s} ${fmtBonus(b)}`).join(", ")
-                  : "-"}
-              </p>
+              <p className={styles.fieldValue}>-</p>
             )}
 
             <SectionHead style={{ marginTop: 14 }}>Resistances &amp; Immunities</SectionHead>
@@ -427,12 +440,13 @@ export function CreatureSheetModal({ entry, isNew, folders, onSave, onDelete, on
           <div className={styles.pane}>
             <SectionHead>Legendary Resistance</SectionHead>
             <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Uses per day</label>
+              <span className={styles.fieldLabel}>Uses per day</span>
               {editing ? (
                 <input
                   className={styles.statInput}
                   type="number"
                   min={0}
+                  aria-label="Legendary resistance uses per day"
                   value={draft.legendaryResistances ?? ""}
                   placeholder="-"
                   onChange={(e) => patch({ legendaryResistances: parseInt(e.target.value, 10) || undefined })}
@@ -468,10 +482,11 @@ export function CreatureSheetModal({ entry, isNew, folders, onSave, onDelete, on
             <SectionHead>Spellcasting</SectionHead>
             <div className={styles.spellHeader}>
               <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>Ability</label>
+                <span className={styles.fieldLabel}>Ability</span>
                 {editing ? (
                   <select
                     className={styles.select}
+                    aria-label="Spellcasting ability"
                     value={draft.spellcasting?.ability ?? "int"}
                     onChange={(e) => patch({ spellcasting: { ...draft.spellcasting, ability: e.target.value as keyof AbilityScores } })}
                   >
@@ -482,12 +497,13 @@ export function CreatureSheetModal({ entry, isNew, folders, onSave, onDelete, on
                 )}
               </div>
               <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>Save DC</label>
+                <span className={styles.fieldLabel}>Save DC</span>
                 {editing ? (
                   <input
                     className={styles.statInput}
                     type="number"
                     min={0}
+                    aria-label="Spell save DC"
                     value={draft.spellcasting?.saveDC ?? ""}
                     placeholder="-"
                     onChange={(e) => patch({ spellcasting: { ...draft.spellcasting, ability: draft.spellcasting?.ability ?? "int", saveDC: parseInt(e.target.value, 10) || undefined } })}
@@ -497,11 +513,12 @@ export function CreatureSheetModal({ entry, isNew, folders, onSave, onDelete, on
                 )}
               </div>
               <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>Atk Bonus</label>
+                <span className={styles.fieldLabel}>Atk Bonus</span>
                 {editing ? (
                   <input
                     className={styles.statInput}
                     type="number"
+                    aria-label="Spell attack bonus"
                     value={draft.spellcasting?.attackBonus ?? ""}
                     placeholder="-"
                     onChange={(e) => patch({ spellcasting: { ...draft.spellcasting, ability: draft.spellcasting?.ability ?? "int", attackBonus: parseInt(e.target.value, 10) || undefined } })}

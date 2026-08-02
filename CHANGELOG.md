@@ -2,6 +2,439 @@
 
 All notable changes are documented here.
 
+## v0.16.0 - 2026-08-01
+
+### Features
+
+- **Weapons and armour can carry their actual detail, and a shop finally shows it.** An item could
+  only record a name, a kind, a rarity, a price and a weight, which is fine for a ledger and useless
+  for describing a sword. Items now take damage, a range, an armour class, a versatile die, an
+  enchantment bonus and free-text properties like light or versatile. All of it, plus the description
+  that was already there, reads as one card wherever the item appears: in the Items editor whilst you
+  write it, under a row on a merchant's shelf, and under a line in a character's own kit. Running a
+  shop no longer means leaving the merchant to go and look something up.
+
+  None of it is limited to weapons and armour, because plenty of things that hurt people are neither.
+  A wand, a flask of acid and a poisoned trap all take damage, and a ring or a cloak takes an armour
+  class. The fields sit behind a "Damage and defence" line that opens on its own for anything that
+  already uses them, so a coil of rope still has a short, quiet editor.
+
+  Damage is a list rather than a single figure, because a magic weapon routinely deals several kinds
+  at once. A trident dealing 1d8+8 piercing plus 1d6 thunder plus 1d4 necrotic is three rows, each
+  labelled, and the card works out what the whole lot comes to and headlines it as "11~26 Damage"
+  before you have to do the arithmetic. Click the dice to roll every component together into the Dice
+  Roller, holding Shift for advantage or Alt for disadvantage, the same as any stat on a character
+  sheet. Damage types and properties are free text with suggestions rather than a fixed list, because
+  TTCanvas is not a rules engine and your game may not have radiant damage in it. Nothing about the
+  price list your players see has changed.
+
+- **The canvas itself is now keyboard-reachable, and pans with the arrow keys.** Tab to it, or just
+  click an empty part of it (Shift for a bigger step) - the same convention widget move/resize
+  already used. Its rail in the sidebar also
+  gained keyboard reordering, which had silently gone missing from an otherwise-unrelated change.
+  Initiative Tracker's condition picker is quicker to use from the keyboard too: arrow keys now step
+  between the condition chips instead of needing a Tab press for each one.
+
+- **Shift+scroll pans the canvas sideways.** Some trackpads never produce a horizontal delta for a
+  two-finger left/right swipe, which made side-to-side panning impossible without the mouse. Holding
+  Shift while scrolling (a trackpad's two-finger swipe or a plain wheel) now pans horizontally instead,
+  the usual fallback other desktop apps use for the same limitation.
+
+- **Repeated creatures in the Initiative Tracker link back to their Bestiary entry.** Add "Goblin" to
+  a fight three times and each one is its own combatant, as it should be for map placement - but
+  there was no way to tell they'd all come from the same creature. A small book icon now appears on
+  any foe added from the Bestiary; clicking it opens that entry directly.
+
+- **Move and resize widgets from the keyboard.** Every widget's drag handle and resize corner are now
+  real, Tab-reachable controls: Tab to one, arrow keys move or resize it, Shift for a bigger step.
+  Tabbing to a handle also pans the canvas to bring that widget into view, since panning here is a
+  transform rather than a scrollbar the browser can scroll-into-view on its own. Undo (Ctrl/Cmd+Z)
+  works the same as it does after a mouse drag. Party Tracker, Bestiary and NPC Library also gained a
+  "place at map center" button next to each portrait - the same one-click placement Initiative Tracker
+  already had - so getting a character or creature onto the map no longer requires a drag.
+
+- **Show the players what's on the shelves.** Merchants gained a cast button that puts a merchant's
+  price list on the player window - names, prices and rarity, laid out to be read from across the
+  table. Everything that's yours alone stays yours: your markup, the buyback rate, the party purse,
+  your notes on the shopkeeper. Beside it, live sync keeps that list following the selected merchant,
+  so a purchase updates the shelf the players are reading without you casting again. Purchases and
+  sales are also written to the Session Logger with the merchant and the price, so at the end of the
+  night you can see where the money went.
+
+- **Merchants restock themselves.** Hit **Generate** and a merchant fills its own shelves from your
+  Items catalogue. What it deals in comes from its kind, so a blacksmith reaches for weapons and
+  armour whilst an apothecary reaches for potions. How good its stock gets is entirely your call: tick
+  the rarities each merchant is allowed, with one-click presets from Squalid to Fabled as a starting
+  point. Nothing caps you, because a slum in a great city is still a slum and a back-alley fence might
+  genuinely have something legendary under the counter. Within whatever you allow, ordinary things
+  still turn up more often, so a shelf doesn't read as all treasure. Generating adds to the shelves
+  rather than replacing them, so a merchant the party keeps revisiting keeps its character and any
+  prices you set by hand. You can also stock from a Roll Table: results are matched to your catalogue
+  by name, and anything that doesn't match is listed for you to add rather than silently invented.
+
+- **Merchants.** A new widget holding the shops, traders and fences your party keeps going back to.
+  Give one an owner and a place (linked to your NPC Library and Gazetteer, so they open with a
+  click), then stock its shelves from your Items catalogue. Stock is held by reference, so repricing
+  a longsword in Items updates every merchant selling one, and leaving a count blank means unlimited.
+  **Buy** moves an item into the party stash and pays for it out of the shared purse; **Sell** does
+  the reverse at the merchant's buyback rate. If the party can't afford something you get a warning
+  rather than a refusal, because the ledger doesn't overrule you. Price and buyback multipliers are
+  per merchant, so a gouging port town and a friendly village smith can sit side by side. Merchants
+  import, export and pull from another vault like every other collection.
+
+- **Inventory is now Items, and it's a catalogue.** The rename is the point, not decoration: an item
+  is a *definition* first, so a new one starts with nobody holding it, which is what lets a merchant
+  stock something the party has never owned. A new **All / Held / Catalogue** toggle filters by that
+  distinction. Your existing items, holdings and party purse carry across untouched. One behaviour
+  change worth knowing: typing a name and pressing Enter no longer means the party owns one, so use
+  the steppers (or Roll loot, which still lands in the stash) to say who has some.
+
+- **Move, resize and delete a placed map token from the keyboard.** Tab to a token (or click it) to
+  select it, then arrow keys nudge it, +/- resizes it and Delete/Backspace removes it - the same
+  conventions as widget move/resize and canvas panning above, now extended to tokens already on the
+  board.
+
+- **Inventory.** A new widget holding one ledger of everything the party owns. Each item carries a
+  kind, rarity, value, weight and a Markdown description, and quantities are tracked per holder, so a
+  stack of rations split between three characters is still one row rather than three. Items you assign
+  to a character also show up on that character's sheet with all of those fields intact, which the old
+  equipment list couldn't do because it stored bare strings. That list is untouched and still works.
+  Along the bottom sits the shared party purse: **Split coin** divides it evenly between everyone in
+  the Party Tracker and adds each share to their sheet, leaving anything that won't divide behind, and
+  **Tidy** rolls loose copper up into larger coins. **Roll loot** runs one of your own Roll Tables and
+  drops the results straight in, recording the pull in that widget's history so you can read it back.
+  Weight and a carry limit are off by default, under the cog. Item libraries export, import and pull
+  across vaults like the other collection widgets, though holders stay behind since they belong to the
+  campaign you pulled from. No item or loot tables ship with the app.
+
+- **Pull a widget's content from another vault.** If you run the same campaign for two groups, you keep
+  two vaults, and there was no way to copy world data from one into the other without re-typing it.
+  Seven collection widgets - Bestiary, NPC Library, Gazetteer, Card Decks, Roll Tables, Rule Cards and
+  Party Tracker - now have a "Pull from <vault>" control in their settings cog (Party's is in its
+  Manage-party window). Pick another vault you've opened recently and it brings that widget's contents
+  in, reusing the same duplicate detection and conflict prompt as importing a file, so re-pulling never
+  makes duplicates. Referenced art comes across too: card art, character and NPC portraits, and place
+  images. It's entirely local - nothing leaves your machine, and each vault stays a self-contained
+  folder you can still copy elsewhere. (Calendar sharing is not in yet.)
+
+- **Mods can write to the diagnostics log.** A mod widget now gets `window.ttcanvas.log`, with
+  `info`, `warn` and `error`, going to the same local redacted log as everything else, so a mod's
+  failures show up in Preferences → Diagnostics instead of vanishing. Crashes and uncaught errors
+  from mods were already logged; this covers the common case of a mod catching its own error and
+  quietly degrading. Lines from mods are tagged so a bug report shows what came from third-party
+  code. TypeScript authors can copy `src/mods/ttcanvas-mod-api.d.ts` for the types, and the README's
+  mod-authoring section documents the conventions. This grants a mod nothing it didn't already have:
+  mods run unsandboxed with full access, as the trust prompt says.
+
+- **Creatures, rule cards and rules files now show up in backlinks and the link graph.** Session Notes
+  could already see `[[links]]` written in notes, NPC notes and Gazetteer places, but anything you
+  wrote in a Bestiary creature's notes, a Rule Card or a Rules Reference file was invisible to it. All
+  three now count as sources, so a note's Linked mentions shows everything that actually points at it,
+  and clicking one opens the creature, card or rules file it came from. A creature contributes only its
+  notes field, not its stat block, so you don't get backlinks from ability scores and skill names.
+- **Gazetteer tells you when a place is already pinned.** The "Pin this place on a map" button now
+  reads "Pinned on a map - show me" when the place already has a pin on any scene, so you can tell at a
+  glance instead of clicking to find out. Pressing it still jumps to the existing pin as before.
+- **Unlink a map pin from the map side.** A pin linked to a Gazetteer place used to be unlinkable only
+  from Gazetteer. Its row in the Visibility panel now has a chain button that names the linked place on
+  hover and unlinks it on click, leaving the pin itself where it is. The name is looked up live, so a
+  place you renamed in Gazetteer shows its current name.
+- **Roll Tables count expressions understand the full dice notation.** A table's "how many results per
+  roll" box used to run on its own small parser that only handled forms like `3`, `2d6` and `1d6+2`. It
+  now uses the same engine as the Dice Roller, so keep-highest, exploding dice and multi-term
+  expressions (`4d6kh3`, `d6!`, `2d6-1d4+3`) all work there too, and the app has one dice grammar
+  instead of two.
+- **Send an AI session summary straight to the Chronicle.** The Session Logger's AI Summary now has an
+  "Add to Chronicle" button that drops the summary into the Campaign Timeline as a dated entry, using
+  the current in-game date, so a session's record lands on the timeline without retyping it. It needs
+  an in-game date to pin to, and the entry is yours to rename or edit in the Timeline afterwards.
+- **Multi-day events read as multi-day on the Campaign Timeline.** A festival or siege that runs
+  several days on the Calendar used to appear on the Timeline as if it lasted a single day. Its card
+  now carries a small "4d" badge, and hovering it spells out the last day, so a span reads at a glance
+  without cluttering the stream with a copy for every day it covers.
+- **Pin a Chronicle entry to a festival or intercalary day.** The entry editor's date picker only
+  offered the ordinary months, so a plot beat could never land on one of your calendar's intercalary
+  days. Those days now show up in the picker alongside the months, including leap-style ones that only
+  occur in some years, and the day count follows whichever you pick.
+- **Send a Chronicle entry to the Calendar.** An entry you have written can now push a one-way copy of
+  itself into the Calendar widget as a dated event, so a plot beat you noted in the Chronicle can also
+  sit on the calendar. The copy is independent once made, so editing or deleting one leaves the other
+  alone.
+- **Campaign Timeline can sort newest-first.** The Chronicle only ever read oldest-first, which gets
+  awkward once a campaign's timeline is long and the entries you care about are the recent ones, not
+  January. A direction control in the widget's settings cog flips between oldest-first and
+  newest-first, and your choice is remembered.
+
+- **Party members and NPCs can be added to an encounter properly.** Encounter Builder used to be a
+  Bestiary-only tool, with the whole party riding along on a single "Also add party" checkbox and NPC
+  Library entries not available at all. Now all three go in as rows with live name, HP and AC that
+  follow the original record. An NPC can join as a foe or an ally, since NPCs are sometimes on your
+  side. Only Bestiary creatures stack, with a count and a shared-initiative option, because they are
+  templates: party members and NPCs are named individuals, so they show a fixed count of 1 rather than
+  a stepper (no "Agnes Holk 2").
+- **Leave a row out without deleting it.** Each row has a tickbox, so the ogres asleep in the next
+  room can stay in the encounter as prep and stay out of the fight. The tick is saved with the
+  encounter rather than reset each session, so it survives a reload.
+- **Roll a creature's HP instead of using the average.** A Bestiary creature with a hit-dice formula
+  gets a "Roll HP" tick on its encounter row, so a stack of four goblins lands in the Initiative
+  Tracker with four different totals rather than four identical ones. Each copy rolls its own by
+  default, or tick "shared" to roll once for the whole stack. It reuses the Dice Roller's own
+  evaluator, and falls back to the static average if a formula is missing or not valid dice notation.
+  Party HP is left alone, since that is real and already tracked; an NPC only offers the roll when its
+  HP has not already been decided on its sheet, since a named individual's HP is specific, not an
+  average to re-roll.
+- **"Start combat" is now safe to press twice.** It used to pile a fresh copy of the whole encounter
+  onto whatever was already in the Initiative Tracker every time, and never brought the tracker into
+  view. Now, with a fight already running, it asks first: replace it, append, or cancel. Replace wipes
+  the current combat and starts clean at round 1, append merges without duplicating any party member or
+  named NPC already in the fight (repeated monsters still stack, since those are reinforcements). Either
+  way it reveals and raises the Initiative Tracker, so the combatants never land offscreen. There is
+  also a separate "Add to current combat" button for when appending is what you actually meant.
+- **End a combat and hand the damage back to the party.** The Initiative Tracker's old "Clear" button
+  is now "End combat", and instead of just wiping the fight it opens a review first. It lists each
+  party member's HP change ("Aria: 24 to 9"), leaves the unchanged ones unticked, and shows any
+  conditions still on them so you can note them down before they're gone. Tick the ones you want and
+  the new HP is written straight back to the Party Tracker, so the damage from the fight sticks. Only
+  party members come back this way, since foes and NPCs live elsewhere. Conditions are shown for your
+  reference but not applied, since party sheets don't track them. Cancel closes the review and leaves
+  the combat exactly as it was.
+- **Give an encounter an XP reward and hand it to the XP Tracker.** An encounter now has a Reward XP
+  field. Start that encounter and, when you end the combat, the review offers to split the reward
+  across the party (you pick who was in on it), routing it through the XP Tracker exactly as a manual
+  award would, undo history and all. The amount is always yours to type, never guessed from a
+  creature's challenge rating. When an award pushes a character past a level threshold, the XP Tracker
+  shows a banner offering to bump their sheet level on the Party Tracker to match. This replaces the
+  old level-up flash, which vanished after a few seconds and couldn't actually change the sheet.
+
+- **Pick a 12-hour or 24-hour clock** - Preferences, under Appearance, now has a Clock setting with
+  System, 24-hour and 12-hour. System follows this app's locale, which is what the title bar has
+  always done, so nothing changes unless you choose otherwise. On Linux, System can land on a
+  different format than your desktop's own 24-hour toggle, since that's a separate setting the
+  app has no reliable way to read - pick 24-hour or 12-hour directly if that happens.
+- **NPC Generator now offers to open what you just saved, or roll another.** Saving used to just
+  flash "Saved" and stop there. It now also offers "Open in NPC Library" and "Generate another", the
+  second re-rolling the same way "Re-roll all" does, so anything you've locked (race, class, and so
+  on) carries over if you're rolling a few similar NPCs in a row. Either option disappears the moment
+  you touch the form again.
+- **Relationship Web's link suggestions now also come from Gazetteer and NPC notes.** "Suggest"
+  already proposed links from an NPC's own faction and location fields. It now also reads a Gazetteer
+  place's linked NPCs, and any `[[wikilink]]` in an NPC's notes that points at another NPC or place,
+  offering that pair as a "mentions" link. Everything still goes through the same review step,
+  nothing is added to the graph until you tick it and confirm.
+- **An NPC's Location can now link to a real Gazetteer place.** It's always been free text. You can
+  now search for an actual entry and link it instead, and the name shown on the sheet stays live from
+  there, so renaming the place in Gazetteer updates every NPC linked to it. Unlink at any point to go
+  back to plain text.
+- **Name your own time jumps, and rewind as well as advance.** The clock's fixed +1h / +8h / +1d / +1w
+  buttons are now a set you own. Hit Edit to rename them, change the amount and unit, reorder them, or
+  add your own, so a "Long Rest" that jumps eight hours, or a "Rewind a day" that goes back one, is a
+  button you make rather than a fixed choice. Any jump can run backwards, and so can the custom amount,
+  with a +/- toggle beside it. Your existing four carry over as the starting set, so nothing changes
+  unless you want it to.
+- **Your party roster can now be exported and imported.** Party Tracker gained Import and Export all in
+  Manage Party, so a party can be moved between vaults or shared, the same as the Bestiary, NPC Library
+  and the rest. Portraits aren't bundled in the file, so an imported character keeps a colour avatar
+  until you set a portrait (or shows straight away if that portrait file already exists in the target
+  vault). The Bestiary also gained an "Export all" for the whole library, alongside its existing
+  per-creature and per-folder exports.
+- **Interface size, and a separate size for the player window.** Appearance had no way to make the
+  type bigger. Density only ever changed spacing, so a GM reading a dense screen at arm's length was
+  stuck with 12px text. There are now two controls. **Interface size** (Normal, Large, Larger) scales
+  the whole GM window the way a browser's zoom does, text, spacing and icons together. **Player window
+  text** sizes that window separately, since it gets read from across a table or off a projector, and
+  it scales text only so cast maps and handouts keep their full size. Both are per machine rather than
+  per campaign, because your eyes don't change between vaults.
+
+### Changes
+
+- **Muted text is easier to read.** The two faintest text shades failed the WCAG AA contrast minimum
+  against the lighter panel backgrounds, some of them badly, which covered most of the app's small
+  print: toolbar titles, hints, timestamps and field labels. All four text shades were re-spread so
+  every one of them now clears the minimum on every surface in both themes. Muted text is noticeably
+  brighter than before, and the contrast between the boldest and faintest text is gentler. The accent
+  colours were measured too and all four already passed everywhere, so they are unchanged.
+
+- **Keyboard focus is always visible now.** Tabbing through the app showed whatever the system chose,
+  and on a couple of dozen fields (the command palette's search, sticky notes, most inline rename and
+  stat boxes) it showed nothing at all, so you could type into a box with no idea it was selected.
+  Every focusable thing now gets the same accent ring, and only when you are navigating by keyboard,
+  so nothing changes for mouse users.
+
+- **Escape closes windows, and a screen reader can follow them.** Every panel that opens over the
+  canvas - Preferences, the keyboard shortcuts card, character and creature sheets, Manage Party,
+  calendar setup, the portrait cropper and the add-creature form - is now a real dialog rather than a
+  panel painted on top. Escape closes it, keyboard focus moves into it when it opens and returns to
+  where you were when it shuts, Tab stays inside it instead of wandering off into the canvas behind,
+  and a screen reader announces it by name and ignores the page underneath. Sheet tabs move with the
+  arrow keys. Forms with something half-typed in them still ignore a stray click outside, as before.
+  Notifications are announced when they appear, and errors interrupt rather than queue. The Initiative
+  Tracker announces whose turn it is, which until now was shown only by a highlighted row, and the
+  condition picker closes on Escape, takes keyboard focus when it opens, hands it back when it shuts,
+  and reads out full condition names rather than the abbreviations on its chips.
+
+- **A character's gold is now one number.** The GP box on a character's card and the Gold field in
+  their sheet's Inventory tab were separate values that nothing kept in step, so the same character
+  could show 10 gold on the card and 50 on the sheet. They are now the same number, read and written
+  in one place. If yours currently disagree, the sheet's figure is the one that survives, and if a
+  character has never had a sheet purse the card's gold carries into it rather than resetting.
+
+- **Widget failures now leave a trace in the log.** Until now every log entry came from the app shell,
+  and the widgets themselves wrote nothing at all, so a map that wouldn't load, a sound pad that
+  wouldn't play, an AI summary that failed or a whole NPC library that came back empty all just looked
+  like nothing had happened. Those failures are now recorded in the local log with the widget and the
+  file that caused them, so Preferences > Diagnostics can actually tell you why. Nothing changes on
+  screen, nothing new is collected, and it all stays on your machine as before. Things that fail
+  routinely, like checking for Ollama when it isn't running, stay quiet on purpose. The diagnostics
+  report also now names the workspace schema version and says when a workspace opened read-only,
+  which is the state behind "my changes aren't saving".
+
+- **Encounters you saved before this release start with no party.** The old "Also add party" tickbox
+  was never saved, it just defaulted to on every time, so there's nothing to carry over into the new
+  party rows. Your existing encounters keep their creatures and counts, but the party has to be added
+  once per encounter. Encounter Builder says so and offers an "+ Add party" button when an encounter
+  has no party in it, so it should be a single click rather than a puzzle. Worth doing before a
+  session rather than during one.
+
+- **The session timer moved into the title bar, and the Session Clock widget is gone.** The title bar
+  now shows the real-world clock and, once you start a session, how long you've been playing, both at
+  the same time rather than one or the other. Click it for Start, Pause and Reset, plus the elapsed
+  time down to the second. This replaces the Session Clock widget, which did the same job on the
+  canvas and is no longer available. Any Session Clock you had open is removed cleanly the next time
+  the vault opens, and you don't need to do anything. Its count doesn't come with it, so the new timer
+  starts fresh.
+
+- **The Calendar and Time Tracker are now one widget, the Almanac.** They already shared the same
+  dates and events, so they've been folded into a single widget with a Clock tab and a Calendar tab,
+  still in the World category. Anything you already have on the canvas keeps working, and a Time
+  Tracker on its own still runs as it did, you just add the Almanac now instead of the two separately.
+  Searching a calendar event in the Command Palette opens the Almanac straight to that month on the
+  Calendar tab.
+- **Import and Export look and behave the same across every widget now.** The collection widgets used
+  to each hand-roll their own import and export buttons, so the labels had drifted ("Export" in one
+  place, "Export all" in another). They now share one control, so the buttons, labels and file handling
+  match across the Bestiary, NPC Library, Gazetteer, Card Decks, Roll Tables, Rule Cards and Party
+  Tracker. Files exported by older versions still import.
+- **Per-widget setup controls moved into a settings cog.** A gear now sits in the widget's title bar,
+  next to the help (i). The collection widgets' Import and Export buttons live behind it, as do the
+  Initiative Tracker's round-timing options (advance the clock when a round completes, seconds per
+  round, and the lair-action reminder). These are things you set once and forget, so moving them out of
+  the widget body keeps it focused on what you actually touch during play. Nothing changed about what
+  they do.
+- **The settings-cog panel now opens next to the gear, not in the middle of the screen.** Clicking a
+  widget's settings cog used to pop its panel up centred over the canvas, away from the button you just
+  pressed. It now opens anchored just under the gear (flipping above it near the bottom edge), so the
+  controls appear where you're looking. The Pull-from-another-vault control in that panel also got a
+  tidy-up: it sits on its own line under a divider, with a clearer, labelled Pull button.
+
+### Fixes
+
+- **A new damage row disappeared before you could type in it.** "+ Add damage" adds an empty row, and
+  the validation that runs over an item on every frame threw it away for having no dice in it yet, so
+  the row vanished the moment it appeared. Clearing an existing row's dice to retype them deleted that
+  row the same way. A row is allowed to be blank whilst you are working on it now, and a blank one is
+  simply left off the card.
+
+- **Deleting something on a map no longer closes a widget as well.** Pressing Delete with a token or
+  a drawn shape selected removed it and also hid whichever widget was on top, which was often not the
+  map. Delete now leaves a widget alone whenever you are working inside one, or whilst a dialog is
+  open, and still closes the widget you are pointed at from the canvas or its title bar. Nudging a
+  token with the arrow keys also stops at the edge of the map instead of walking it off into space,
+  where it could not be selected again to bring it back.
+
+- **Clicking the canvas works on a layout with a background image.** The image sat over the canvas as
+  far as the mouse was concerned, so clicking empty space never actually reached the canvas: no focus,
+  which meant the arrow keys would not pan it, and no drag-select.
+
+- **A merchant's shelf remembers what an item was called.** Adding an item to a merchant by hand
+  stored only a reference to it, so deleting that item from your catalogue later left the shelf
+  reading "Unknown item". It now keeps the name alongside the reference, the way generated and rolled
+  stock already did.
+
+- **Uncommon and rare items were the same colour.** The little rarity bar beside an item drew both
+  from the same blue, so two of the six rarities were impossible to tell apart at a glance. Uncommon
+  is now green, matching the ramp the player-facing price list already used. Legendary also stopped
+  following your accent colour, which made it identical to uncommon under the moss theme.
+
+- **Several Merchants controls had lost their amber highlight.** The pressed kind filter, the selected
+  merchant, the live-sync button and a couple of hover states were all reaching for a colour that
+  doesn't exist, so they quietly drew nothing at all.
+
+- **Dropdown lists are dark like the rest of the app.** Opening a dropdown - a location's parent in
+  the Gazetteer, and every other one in the app - popped up a bright white list with amber text on it,
+  near enough unreadable. Scrollbars, checkboxes and number spinners now follow the dark theme too.
+
+- **Modals no longer close themselves the instant they open.** Preferences, the end-of-combat review,
+  creature sheets and full character sheets would all appear and then vanish about a second later,
+  untouched, leaving no way to use them. A dialog reports its own closing through an event that the
+  browser delivers a moment after the fact, and one left over from setting the dialog up was being
+  read as though you had dismissed it. Map Display's expanded view was never affected.
+
+- **Stray middle-click paste on Linux (X11) is fixed properly this time.** The earlier fix guarded
+  against a paste landing shortly after a middle-click *press*, but WebKitGTK actually performs the
+  primary-selection paste on *release* - so panning the canvas (the middle button's job here) for
+  more than a fraction of a second, which is normal, let it through into whatever field the cursor
+  ended up over. The guard now also re-arms on release, closing the gap regardless of how long the
+  drag lasted.
+
+- **A failed NPC library scan now tells you, instead of just looking empty.** If the vault couldn't
+  be read (a permissions problem, a missing folder), the NPC list silently showed nothing, with no
+  hint that anything had gone wrong rather than there being no NPCs. It now shows an error toast as
+  well.
+
+- **`[[wikilinks]]` now work in an NPC's Last Seen and custom fields.** Those short fields printed
+  the raw `[[place:...]]` bracket text with no link at all, while the exact same syntax in Notes
+  resolved and opened fine - so a link typed into Last Seen looked broken right next to a working
+  one. Both now render and click the same way Notes does.
+
+- **Map tokens can now be renamed, and placing one no longer pops open a shape's editor by
+  mistake.** A plain token dropped on the map had no way to be named beyond an auto-generated
+  "Token 1", "Token 2", and no way to fix that afterwards. Double-click any token (a fresh one
+  auto-opens this the moment it's placed) to rename it in place. Separately, placing a token right
+  after drawing and selecting a shape (a ring, box, arrow or highlight) used to reopen that shape's
+  colour/stroke editor instead of showing anything about the new token - a leftover selection
+  bleeding across the tool switch. Fixed alongside the rename work.
+
+- **The monospace font now actually shows up everywhere it's used.** A missing `--font-mono` token
+  meant stat blocks, dice notation and other mono-styled text across the Bestiary, NPC Library, Roll
+  Tables, Encounter Builder and several other widgets silently fell back to the regular body font.
+  Nothing to configure, it just renders correctly now.
+
+- **Bestiary's "Add to Initiative" now brings the tracker into view.** Adding a creature straight from
+  the Bestiary dropped it into the Initiative Tracker without surfacing the widget, so it looked like
+  nothing had happened if the tracker was hidden or buried. It now reveals and raises the tracker, the
+  same as starting a combat does.
+
+- **The title bar's session timer now survives quitting the app.** It kept its count in memory only,
+  so quitting, or even tapping the peek toggle, silently reset it to zero. It also had no way to reset
+  on purpose, and no way back to a stopped state once started. All of that is fixed by the move above:
+  quit normally and the timer comes back paused with its full time. The one case that still loses the
+  current stretch is a crash or a force-quit, because there's then no way to tell how long the app was
+  gone (it would otherwise count an overnight close as play time). Pause before closing if you want to
+  be certain.
+- **NPC Generator no longer overwrites an existing NPC with the same name** - saving used to write straight to a name-derived filename, so a second NPC sharing a name silently clobbered the first one's file. Saving now checks the library first and, on a collision, offers "Save as new copy" or "Cancel" instead of overwriting.
+- **NPC Library - deleting an NPC now asks for confirmation** - the Remove button used to delete on a single click. It now behaves like every other delete action in the app, needing a second "Yes, delete" click before anything is removed.
+- **A disabled widget now stays off the canvas everywhere, not just the Add Widget picker.**
+  Unchecking a widget in Preferences → Canvas used to only remove it from that one picker. The
+  Command Palette would still offer it, and things like Bestiary's "Add to Initiative" or Encounter
+  Builder's "Start combat" would silently put it back the moment you used them. Both now respect the
+  setting. An instance already on the canvas keeps working, and anything sent to a disabled widget
+  while it's hidden is still recorded, waiting for you to re-enable it.
+
+### Security
+
+- **Local-security hardening across the vault, player window and AI paths.** Vault reads and writes now
+  reject a symlink planted at the exact destination name, so a shared or synced vault can no longer
+  redirect them to a file outside the vault. The player window's permissions were narrowed to only what
+  it needs, so a compromised player view can no longer emit privileged events back to the main window.
+  Recovery paths that fall back to defaults, such as an unreadable config or a workspace written by a
+  newer build, no longer autosave over the original, so a transient read error or opening a vault in an
+  older build can't quietly discard your data. The AI stream reader is now bounded and gives up on an
+  endpoint that never responds.
+- **An AI API key is no longer sent over plaintext HTTP to a remote provider.** Pointing an
+  OpenAI-compatible endpoint at a plain `http://` address that isn't local now refuses to send the key
+  rather than sending it after only a warning. An `https://` endpoint, or a local one such as
+  `http://localhost`, still works exactly as before.
+
 ## v0.15.0 - 2026-07-15
 
 ### Features

@@ -4,19 +4,27 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import type { ReactNode } from "react";
-import { VaultContext, type VaultContextValue } from "@ttcanvas/core";
+import { VaultContext, logWarn, type VaultContextValue, type OtherVault } from "@ttcanvas/core";
 import * as vault from "./vault";
-import { logWarn } from "./diagnostics/log";
+import { loadWorkspace } from "./workspace";
 
 interface Props {
   vaultPath: string | null;
+  /** Recent vaults from AppConfig; the source list for cross-vault pull, minus the open one. */
+  recentVaults: string[];
   onVaultPathChange: (path: string) => void | Promise<void>;
   children: ReactNode;
 }
 
-export function VaultProvider({ vaultPath, onVaultPathChange, children }: Props) {
+/** Last path segment of a vault folder, for display. Handles both separators. */
+function basename(path: string): string {
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  return parts[parts.length - 1] ?? path;
+}
+
+export function VaultProvider({ vaultPath, recentVaults, onVaultPathChange, children }: Props) {
   const [vaultVersion, setVaultVersion] = useState(0);
   const vaultDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -118,9 +126,11 @@ export function VaultProvider({ vaultPath, onVaultPathChange, children }: Props)
   }, []);
 
   const writeFileBase64 = useCallback(
-    (folderPath: string, fileName: string, base64Content: string) =>
-      vault.writeFileBase64(folderPath, fileName, base64Content),
-    [],
+    (relativePath: string, base64Content: string) => {
+      if (!vaultPath) return Promise.reject(new Error("No vault is open"));
+      return vault.writeFileBase64(vaultPath, relativePath, base64Content);
+    },
+    [vaultPath],
   );
 
   const saveImageToVaultMaps = useCallback(
@@ -146,9 +156,25 @@ export function VaultProvider({ vaultPath, onVaultPathChange, children }: Props)
     [vaultPath],
   );
 
+  // Recent vaults minus the one open now - the pull sources a widget can offer.
+  const otherVaults = useMemo<OtherVault[]>(
+    () => recentVaults.filter((p) => p !== vaultPath).map((p) => ({ path: p, name: basename(p) })),
+    [recentVaults, vaultPath],
+  );
+
+  const readForeignSingleton = useCallback(
+    async (sourceVault: string, widgetType: string) => {
+      const { state } = await loadWorkspace(sourceVault);
+      return state.singletonStates?.[widgetType];
+    },
+    [],
+  );
+
   const value: VaultContextValue = {
     vaultPath,
     vaultVersion,
+    otherVaults,
+    readForeignSingleton,
     openVault,
     readFile,
     writeFile,

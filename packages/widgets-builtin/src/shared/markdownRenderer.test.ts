@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { describe, it, expect } from "vitest";
-import { renderMarkdown } from "./markdownRenderer";
+import { renderMarkdown, applyInline } from "./markdownRenderer";
 
 describe("renderMarkdown - headings", () => {
   it("renders H1", () => {
@@ -178,6 +178,25 @@ describe("renderMarkdown - wikilinks", () => {
     const result = renderMarkdown("[[npc:Agnes Holk|the clerk]]");
     expect(result).toContain('data-wikilink="npc:Agnes Holk"');
     expect(result).toContain(">the clerk<");
+  });
+});
+
+describe("applyInline - one-line meta fields (Last Seen, custom fields)", () => {
+  it("renders a wikilink with no block wrapper, unlike renderMarkdown", () => {
+    const result = applyInline("Last seen in [[place:The Gilded Keel]]");
+    expect(result).toContain('data-wikilink="place:The Gilded Keel"');
+    expect(result).toContain(">The Gilded Keel<");
+    expect(result).not.toContain("<p>");
+  });
+
+  it("still renders bold/italic/code inline", () => {
+    expect(applyInline("**bold**")).toContain("<strong>bold</strong>");
+    expect(applyInline("*italic*")).toContain("<em>italic</em>");
+    expect(applyInline("`code`")).toContain("<code>code</code>");
+  });
+
+  it("escapes plain text safely", () => {
+    expect(applyInline("Tom & Jerry")).toContain("Tom &amp; Jerry");
   });
 });
 

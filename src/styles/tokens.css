@@ -1,4 +1,11 @@
 :root {
+  /* Tells the browser to render everything it draws itself - <select> popup lists, scrollbars,
+     checkboxes, date/number spinners - in its dark variant. Without it the UA assumes light and a
+     native <select> popup opens as a white panel in the middle of a dark app, which CSS on <option>
+     cannot fix: that popup is an OS-drawn widget (a GTK menu under WebKitGTK), not part of the page.
+     Unconditional because both themes here are dark; it would need to track [data-theme] otherwise. */
+  color-scheme: dark;
+
   /* Surfaces */
   --bg:          oklch(0.155 0.012 258);
   --bg-2:        oklch(0.185 0.014 258);
@@ -10,11 +17,14 @@
   --line:        oklch(0.32 0.014 258 / 0.55);
   --line-soft:   oklch(0.32 0.014 258 / 0.28);
 
-  /* Ink */
+  /* Ink. Re-spread 2026-07-26 for WCAG AA: the old scale (0.94 / 0.78 / 0.58 / 0.42) put --ink-3
+     at 3.35 and --ink-4 at 1.70 against --surface-3, well under the 4.5 needed for body text, so
+     every muted label in the app failed on a raised surface. Clearing 4.5 there needs L >= 0.655,
+     which is why the bottom two moved so far. Four distinct steps are kept, in a narrower range. */
   --ink:         oklch(0.94 0.005 258);
-  --ink-2:       oklch(0.78 0.008 258);
-  --ink-3:       oklch(0.58 0.010 258);
-  --ink-4:       oklch(0.42 0.012 258);
+  --ink-2:       oklch(0.82 0.008 258);
+  --ink-3:       oklch(0.74 0.010 258);
+  --ink-4:       oklch(0.66 0.012 258);
 
   /* Accent (muted amber - fixed, no hue slider) */
   --accent:      oklch(0.80 0.115 78);
@@ -31,6 +41,29 @@
   --kind-pc:     var(--accent);
   --kind-foe:    oklch(0.70 0.13 22);
   --kind-ally:   oklch(0.74 0.10 200);
+
+  /* Item rarity. Drawn as a 2px bar beside an item, never as text, and always redundant with the
+     rarity spelled out nearby - so this is an at-a-glance aid, not the only way to read a rarity.
+     Four of the six alias an existing stat tone rather than widening the palette; the two that do
+     not are fixing collisions:
+       - uncommon used to borrow --kind-ally, which is the same value as --sp (rare), so the two
+         rarities rendered identically;
+       - legendary used to follow --accent, which under the moss theme lands on the same green as
+         uncommon. Rarity is semantic, so it does not follow the user's chrome colour.
+     Hues match the player window's ramp; the chroma there stays higher because that screen is read
+     from across a table rather than in a small pane. */
+  --rarity-common:    var(--line);
+  --rarity-uncommon:  oklch(0.72 0.12 150);
+  --rarity-rare:      var(--sp);
+  --rarity-very-rare: var(--pp);
+  --rarity-legendary: oklch(0.78 0.12 68);
+  --rarity-artifact:  var(--hp);
+
+  /* Keyboard focus ring. One token so every surface rings the same way, and so a component that
+     has to suppress the browser's default outline has something to put back. Follows the accent,
+     which is the one colour guaranteed to contrast with every theme's background. */
+  --focus-ring: 2px solid var(--accent);
+  --focus-ring-offset: 1px;
 
   /* Effects */
   --shadow:
@@ -83,10 +116,11 @@
   --surface-3:   oklch(0.285 0.025 60);
   --line:        oklch(0.35 0.018 60 / 0.55);
   --line-soft:   oklch(0.35 0.018 60 / 0.28);
+  /* Same AA re-spread as :root above. */
   --ink:         oklch(0.94 0.010 70);
-  --ink-2:       oklch(0.78 0.014 70);
-  --ink-3:       oklch(0.58 0.014 70);
-  --ink-4:       oklch(0.42 0.016 70);
+  --ink-2:       oklch(0.82 0.014 70);
+  --ink-3:       oklch(0.74 0.014 70);
+  --ink-4:       oklch(0.66 0.016 70);
 }
 
 /* ── Density overrides ────────────────────────────── */

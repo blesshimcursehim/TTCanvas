@@ -32,6 +32,18 @@ const MIN_SCALE = 0.1;
 const MAX_SCALE = 4;
 const GRID_SIZE = 24;
 const ZOOM_SENSITIVITY = 0.002;
+const PAN_STEP = 40;
+const PAN_STEP_LARGE = 200;
+
+function arrowDelta(key: string): { dx: number; dy: number } | null {
+  switch (key) {
+    case "ArrowUp":    return { dx: 0, dy: -1 };
+    case "ArrowDown":  return { dx: 0, dy: 1 };
+    case "ArrowLeft":  return { dx: -1, dy: 0 };
+    case "ArrowRight": return { dx: 1, dy: 0 };
+    default:           return null;
+  }
+}
 
 export function Canvas({
   children,
@@ -89,10 +101,46 @@ export function Canvas({
     containerRef.current?.classList.add(styles.panning);
   }, []);
 
+  // Keyboard equivalent of the mouse/wheel pan, mirroring WidgetFrame's Tab-to-a-handle-then-arrow-
+  // keys idiom: Tab reaches the canvas itself, then arrow keys pan it (Shift for a bigger step).
+  // Guarded on e.target === containerRef.current (not just e.currentTarget) so a keydown bubbling up
+  // from a focused widget's own input/textarea - which also lands on this handler, since React's
+  // onKeyDown delegates via bubbling - never hijacks the cursor keys typing depends on.
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.target !== containerRef.current) return;
+      const delta = arrowDelta(e.key);
+      if (!delta) return;
+      e.preventDefault();
+      const step = e.shiftKey ? PAN_STEP_LARGE : PAN_STEP;
+      // Matches the wheel handler's sign convention just below (scroll-style: Right/Down reveals
+      // more content to that side, panning the view rather than moving an object across it).
+      transform.current.x -= delta.dx * step;
+      transform.current.y -= delta.dy * step;
+      applyTransform();
+    },
+    [applyTransform],
+  );
+
   const onMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const isMiddleClick = e.button === 1;
       const isLeftClick = e.button === 0;
+      // Both branches below call preventDefault(), which also suppresses the browser's own
+      // focus-on-mousedown for this tabIndex={0} container - so without this line, clicking the
+      // canvas never focuses it and the arrow-key pan (guarded on the container being the focus
+      // target) silently does nothing until the user happens to find Tab. Only when the press
+      // actually lands on the canvas itself: a click on a widget belongs to that widget.
+      //
+      // data-pointer-focus marks this as a *mouse* focus so the CSS can suppress the focus ring.
+      // :focus-visible would normally do that itself, but it only skips the ring for the browser's
+      // own pointer-driven focus - a programmatic focus() like this one still matches it, which
+      // would put a 2px accent outline around the entire viewport on every background click.
+      // Cleared on blur below, so a later Tab back to the canvas rings normally.
+      if (e.target === containerRef.current) {
+        containerRef.current.dataset.pointerFocus = "";
+        containerRef.current.focus();
+      }
       if (isMiddleClick || (isLeftClick && spaceDown.current)) {
         e.preventDefault();
         startPan(e.clientX, e.clientY);
@@ -177,6 +225,14 @@ export function Canvas({
         transform.current.x = cursorX - r * (cursorX - transform.current.x);
         transform.current.y = cursorY - r * (cursorY - transform.current.y);
         transform.current.scale = newScale;
+      } else if (e.shiftKey) {
+        // Shift+scroll swaps the axis: a plain mouse wheel and a two-finger vertical trackpad swipe
+        // both reliably produce deltaY and nothing on deltaX, and some Linux/libinput touchpad setups
+        // never report a horizontal two-finger swipe as deltaX either - not something fixable by
+        // reading the wheel event differently, since the driver just never sends it. Shift+scroll is
+        // the standard desktop-app fallback for horizontal panning that works off deltaY regardless.
+        transform.current.x -= e.deltaY;
+        transform.current.y -= e.deltaX;
       } else {
         // Two-finger scroll (trackpad) or plain wheel (mouse) → pan
         transform.current.x -= e.deltaX;
@@ -242,7 +298,27 @@ export function Canvas({
 
   return (
     <CanvasContext.Provider value={transform}>
-      <div ref={containerRef} className={containerClass} onMouseDown={onMouseDown}>
+      <div
+        ref={containerRef}
+        className={containerClass}
+        onMouseDown={onMouseDown}
+        onKeyDown={onKeyDown}
+        // Guarded on the container itself: onBlur is focusout, which also bubbles up from a widget's
+        // own fields losing focus, and those have nothing to do with how the canvas got focused.
+        onBlur={(e) => {
+          if (e.target === containerRef.current) delete containerRef.current.dataset.pointerFocus;
+        }}
+        // Deliberately focusable so arrow keys can pan it, but there is no ARIA role for "pannable
+        // 2D surface" to make it interactive in the rule's eyes. Suppressed here rather than
+        // repo-wide (unlike the static-element-interaction family in eslint.config.js, which fires
+        // in ~99 places) so an accidental non-interactive tab stop anywhere else still gets caught.
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+        tabIndex={0}
+        aria-label="Canvas"
+        // Deliberately no `title`: this element is the whole viewport, so a tooltip on it fires
+        // wherever the pointer rests on empty canvas rather than over a small control the way a
+        // tooltip is meant to. The hint lives in the keyboard help overlay (?) instead.
+      >
         {backgroundSrc && (
           <div className={styles.backdrop} style={{ backgroundImage: `url(${backgroundSrc})` }} />
         )}

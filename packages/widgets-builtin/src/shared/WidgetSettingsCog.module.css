@@ -1,0 +1,52 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2026 blesshimcursehim
+ *
+ * Plugins loaded via the official Plugin SDK are not considered
+ * derivative works; see the Plugin Exception in LICENSE. */
+
+/* Matches the frame's header buttons (.headBtn) so the cog sits in line with
+ * the help and close buttons. */
+.cog {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-4);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cog:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.cog:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Popover panel - promoted to the top layer, so it clears the canvas transform.
+ * WidgetSettingsCog positions it under the cog button in JS on open; the `inset:auto`
+ * plus the fallback top/left here just keep it sane in the frame before that runs. */
+.panel {
+  position: fixed;
+  inset: auto;
+  top: 12px;
+  left: 12px;
+  width: min(320px, calc(100vw - 16px));
+  max-height: min(70vh, calc(100vh - 32px));
+  margin: 0;
+  padding: 14px 16px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  color: var(--ink-2);
+  box-shadow: 0 16px 40px oklch(0 0 0 / 0.45);
+}

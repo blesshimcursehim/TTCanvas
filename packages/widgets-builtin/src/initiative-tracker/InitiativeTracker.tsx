@@ -5,11 +5,14 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useEffect, useState } from "react";
-import { useParty, useGameTime, useToast, pushInitiativeOverlay, abilityModifier } from "@ttcanvas/core";
+import { useParty, useGameTime, useXp, useToast, pushInitiativeOverlay, abilityModifier } from "@ttcanvas/core";
 import { portraitColor } from "../party-tracker/CharacterCard";
 import type { Combatant, CombatantKind, InitiativeGroup, InitiativeTrackerState } from "./types";
 import { CombatantRow } from "./CombatantRow";
 import { GroupRow } from "./GroupRow";
+import { EndCombatModal } from "./EndCombatModal";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
+import { placeTokenAtCenter } from "../shared/tokenDrag";
 import { wrapForward, wrapBack } from "./roundClock";
 import { buildTurnOrder, syncGroupInitiative, createGroup, dissolveGroup, pruneEmptyGroups } from "./groups";
 import styles from "./InitiativeTracker.module.css";
@@ -32,12 +35,13 @@ function sorted(combatants: Combatant[]): Combatant[] {
 const EMPTY_FORM = { name: "", initiative: "10", hp: "10", ac: "10", kind: "foe" as CombatantKind };
 
 export function InitiativeTracker({ state, onChange }: Props) {
-  const { members: partyMembers } = useParty();
+  const { members: partyMembers, patchMembers } = useParty();
   const { advanceGameTime } = useGameTime();
+  const { mode: xpMode, awardEncounterXp } = useXp();
   const { showToast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [confirmClear, setConfirmClear] = useState(false);
+  const [ending, setEnding] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [groupForm, setGroupForm] = useState<{ label: string; initiative: string; combined: boolean } | null>(null);
@@ -215,10 +219,21 @@ export function InitiativeTracker({ state, onChange }: Props) {
 
   const sortByInit = () => patch({ combatants: [...sorted(state.combatants)] });
 
-  // Wipe the encounter to start fresh: drop every combatant, clear the current turn, back to round 1.
-  const clearAll = () => {
-    patch({ combatants: [], currentId: null, round: 1, roundAdvances: [] });
-    setConfirmClear(false);
+  // Wipe the encounter to start fresh: drop every combatant and the groups they belonged to, clear
+  // the current turn, back to round 1, and forget the source encounter. Dropping `groups` is the fix
+  // that pruneEmptyGroups would compute here anyway (no combatants left, so no group has members);
+  // leaving them behind orphaned every group's record.
+  const clearCombat = () => {
+    patch({ combatants: [], groups: [], currentId: null, round: 1, roundAdvances: [], encounter: undefined });
+  };
+
+  // End-combat review committed: hand the ticked HP changes back to the party, route any XP reward,
+  // then clear (the order the plan specifies - hand-back and award before the wipe).
+  const endCombat = (result: import("./EndCombatModal").EndCombatResult) => {
+    patchMembers(result.hpPatches);
+    if (result.xpAward) awardEncounterXp(result.xpAward.total, result.xpAward.recipientIds, result.xpAward.label);
+    clearCombat();
+    setEnding(false);
   };
 
   const addPartyMembers = () => {
@@ -259,18 +274,26 @@ export function InitiativeTracker({ state, onChange }: Props) {
   const placeCombatantAtCenter = (c: Combatant) => {
     const kind = c.kind ?? "foe";
     const tokenColor = kind === "pc" ? portraitColor(c.id) : KIND_TOKEN_COLORS[kind];
-    window.dispatchEvent(
-      new CustomEvent("ttcanvas:place-token", {
-        // Prefer the origin entity's id (party member / bestiary creature) so the map can
-        // dedupe against the same character dragged in directly, instead of making a
-        // portraitless duplicate. Falls back to the combatant id for ad-hoc combatants.
-        detail: { sourceId: c.sourceId ?? c.id, label: c.name, color: tokenColor, portraitPath: c.portraitPath },
-      }),
-    );
+    // Prefer the origin entity's id (party member / bestiary creature) so the map can dedupe
+    // against the same character dragged in directly, instead of making a portraitless duplicate.
+    // Falls back to the combatant id for ad-hoc combatants.
+    placeTokenAtCenter({ sourceId: c.sourceId ?? c.id, label: c.name, color: tokenColor, portraitPath: c.portraitPath });
   };
+
+  // Whose turn it is, for the live region below. The turn order is a mix of single combatants and
+  // combined groups, so the label follows the same rule as the player overlay's.
+  const currentEntry = ordered.find((e) => e.id === state.currentId);
+  const currentName = currentEntry
+    ? (currentEntry.kind === "group" ? currentEntry.group.label : currentEntry.combatant.name)
+    : null;
 
   return (
     <div className={styles.root}>
+      {/* Whose turn it is is conveyed only by a highlighted row, which a screen reader can't see.
+          Same live region the player window already carries, so both surfaces announce a turn. */}
+      <span className={styles.visuallyHidden} aria-live="polite">
+        {currentName ? `Current turn: ${currentName}, round ${state.round}` : ""}
+      </span>
       {/* Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.roundGroup}>
@@ -473,6 +496,8 @@ export function InitiativeTracker({ state, onChange }: Props) {
         </div>
       )}
 
+      {/* Round-timing options - set-once config, tucked into the settings cog. */}
+      <WidgetSettingsCog>
       {/* Auto-advance in-game time */}
       <div className={styles.timeRow}>
         <button
@@ -522,45 +547,48 @@ export function InitiativeTracker({ state, onChange }: Props) {
           Lair action reminder
         </button>
       </div>
+      </WidgetSettingsCog>
 
       {/* Bottom bar */}
       <div className={styles.bottom}>
-        {confirmClear ? (
-          <>
-            <span className={styles.confirmText}>Clear all combatants?</span>
-            <button className={`${styles.bottomBtn} ${styles.dangerBtn}`} onClick={clearAll}>Yes, clear</button>
-            <button className={styles.bottomBtn} onClick={() => setConfirmClear(false)}>Cancel</button>
-          </>
-        ) : (
-          <>
-            <button className={styles.bottomBtn} onClick={() => setShowForm((v) => !v)}>
-              + Add combatant
-            </button>
-            <button
-              className={styles.bottomBtn}
-              onClick={addPartyMembers}
-              disabled={partyMembers.length === 0}
-              title={partyMembers.length === 0 ? "No party members" : "Add party members"}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              From party
-            </button>
-            <button
-              className={styles.bottomBtn}
-              onClick={() => setConfirmClear(true)}
-              disabled={state.combatants.length === 0}
-              title="Clear all combatants and reset to round 1"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6" />
-              </svg>
-              Clear
-            </button>
-          </>
-        )}
+        <button className={styles.bottomBtn} onClick={() => setShowForm((v) => !v)}>
+          + Add combatant
+        </button>
+        <button
+          className={styles.bottomBtn}
+          onClick={addPartyMembers}
+          disabled={partyMembers.length === 0}
+          title={partyMembers.length === 0 ? "No party members" : "Add party members"}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          From party
+        </button>
+        <button
+          className={styles.bottomBtn}
+          onClick={() => setEnding(true)}
+          disabled={state.combatants.length === 0}
+          title="Review HP changes, hand them back to the party, and clear combat"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6" />
+          </svg>
+          End combat
+        </button>
       </div>
+
+      {ending && (
+        <EndCombatModal
+          combatants={state.combatants}
+          party={partyMembers}
+          round={state.round}
+          encounter={state.encounter}
+          xpMode={xpMode}
+          onEnd={endCombat}
+          onCancel={() => setEnding(false)}
+        />
+      )}
     </div>
   );
 }

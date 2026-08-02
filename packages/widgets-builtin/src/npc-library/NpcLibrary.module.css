@@ -68,13 +68,19 @@
 
 .emptyList { padding: 20px 10px; color: var(--ink-4); font-size: 12px; text-align: center; }
 
-.listRow {
+/* The wrapper carries the row's chrome (padding, rule, hover, active marker) so that the select
+   button and the place-on-map button can sit inside it as siblings. */
+.listRowWrap {
   display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 6px 8px; background: transparent; border: none;
-  border-bottom: 1px solid var(--line-soft); text-align: left; cursor: pointer;
+  padding: 6px 8px; border-bottom: 1px solid var(--line-soft);
   position: relative;
 }
-.listRow:hover { background: var(--surface); }
+.listRowWrap:hover { background: var(--surface); }
+.listRow {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+  padding: 0; background: transparent; border: none;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
 .listRowActive {
   background: var(--bg-2);
 }
@@ -133,6 +139,18 @@
 .relBadge[data-rel="wary"]    { background: oklch(0.42 0.10 80  / 0.3); color: oklch(0.80 0.10 80);  border-color: oklch(0.58 0.12 80  / 0.5); }
 .relBadge[data-rel="hostile"] { background: oklch(0.38 0.14 22  / 0.3); color: oklch(0.80 0.12 22);  border-color: oklch(0.54 0.16 22  / 0.5); }
 
+.listMapBtn {
+  width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent; border-radius: 4px;
+  color: var(--ink-4); cursor: pointer; padding: 0; flex-shrink: 0;
+  opacity: 0; transition: opacity 0.1s, background 0.1s, color 0.1s, border-color 0.1s;
+}
+.listRowWrap:hover .listMapBtn,
+.listMapBtn:focus-visible {
+  opacity: 1;
+}
+.listMapBtn:hover { background: var(--surface-2); border-color: var(--line); color: var(--ink); }
+
 .listFooter {
   padding: 5px 6px 5px 10px; font-family: var(--font-mono); font-size: 10px; color: var(--ink-4);
   border-top: 1px solid var(--line-soft); flex-shrink: 0;
@@ -143,13 +161,6 @@
   background: oklch(0.38 0.14 22 / 0.18); border-top: 1px solid oklch(0.38 0.14 22 / 0.35);
   color: oklch(0.80 0.12 22);
 }
-.footerBtns { display: flex; gap: 3px; flex-shrink: 0; }
-.footerBtn {
-  padding: 2px 7px; background: transparent; border: 1px solid var(--line);
-  border-radius: 4px; color: var(--ink-3); font-size: 10px; cursor: pointer; font-family: var(--font-mono);
-}
-.footerBtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-.footerBtn:disabled { opacity: 0.4; cursor: default; }
 
 /* ── Right pane ───────────────────────────────────────────── */
 .right {
@@ -205,11 +216,43 @@
 }
 
 .metaVal { font-size: 12.5px; color: var(--ink-2); }
+/* Last Seen and custom fields render inline wikilinks (applyInline), same look as Notes' full
+   renderMarkdown - the two share the same [[link]] styling rather than one reading as broken. */
+.metaVal :global(.wikilink) { color: var(--accent); text-decoration: none; border-bottom: 1px dotted var(--accent-line); cursor: pointer; }
+.metaVal :global(.wikilink:hover) { border-bottom-style: solid; }
 .metaInput {
   background: var(--surface); border: 1px solid var(--line); border-radius: 5px;
   padding: 4px 8px; font-size: 12.5px; color: var(--ink); width: 100%; box-sizing: border-box;
 }
 .metaInput:focus { outline: none; border-color: var(--accent); }
+
+/* ── Location: linked-place chip + picker ─────────────────── */
+
+.locationChip {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 4px 0 8px;
+  border-radius: 12px; background: var(--surface); border: 1px solid var(--line);
+  font-size: 12.5px; color: var(--ink-2); width: fit-content;
+}
+.locationChipBody { background: none; border: none; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; }
+.locationChipBody:hover { color: var(--accent); }
+.locationChipRemove { background: none; border: none; padding: 0 4px; color: var(--ink-4); font-size: 11px; cursor: pointer; }
+.locationChipRemove:hover { color: oklch(0.70 0.13 22); }
+
+.locationEditRow { display: flex; gap: 4px; }
+.locationLinkBtn {
+  flex-shrink: 0; padding: 0 9px; border: 1px dashed var(--line); border-radius: 5px;
+  background: transparent; color: var(--ink-4); font-size: 11px; cursor: pointer;
+}
+.locationLinkBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.locationPicker {
+  display: flex; flex-direction: column; gap: 6px; padding: 8px; margin-top: 4px;
+  border: 1px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--surface);
+}
+.locationPickerList { max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; }
+.locationPickerRow { text-align: left; background: none; border: none; padding: 5px 6px; color: var(--ink-2); font-size: 12px; cursor: pointer; border-radius: 4px; }
+.locationPickerRow:hover { background: var(--surface-2); color: var(--ink); }
+.locationPickerEmpty { padding: 8px 6px; color: var(--ink-4); font-size: 11.5px; margin: 0; }
 
 .customFieldRow { display: flex; flex-direction: column; gap: 3px; margin-bottom: 6px; }
 
@@ -290,38 +333,57 @@
 
 .encounteredRow { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
 
-.detailFooter { padding-top: 6px; border-top: 1px solid var(--line-soft); }
+.detailFooter { padding-top: 6px; border-top: 1px solid var(--line-soft); display: flex; align-items: center; gap: 8px; }
 .removeBtn {
   background: transparent; border: none; color: var(--ink-3); font-size: 12px; cursor: pointer; padding: 0;
 }
 .removeBtn:hover { color: oklch(0.70 0.13 22); }
 
-/* ── Add form ─────────────────────────────────────────────── */
-.addForm { padding: 14px; display: flex; flex-direction: column; gap: 8px; }
-.addFormTitle {
-  font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
-  letter-spacing: 0.15em; color: var(--ink-3); margin-bottom: 4px;
-}
-.addLabel {
-  display: flex; flex-direction: column; gap: 3px;
-  font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase;
-  letter-spacing: 0.1em; color: var(--ink-3);
-}
-.addInput {
-  background: var(--surface); border: 1px solid var(--line); border-radius: 5px;
-  padding: 5px 8px; font-size: 13px; color: var(--ink); box-sizing: border-box;
-}
-.addInput:focus { outline: none; border-color: var(--accent); }
+/* Keeps the confirm row's children as direct flex items of .detailFooter, matching the
+   bare trigger button (no wrapper) that sits there otherwise. */
+.confirmRow { display: contents; }
 
-.addActions { display: flex; gap: 8px; margin-top: 4px; }
+.confirmText { font-size: 12px; color: var(--ink-3); flex: 1; }
+
+.confirmYes {
+  background: oklch(0.45 0.18 22);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.confirmYes:hover { filter: brightness(1.1); }
+
+.confirmNo {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--ink-3);
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.confirmNo:hover { background: var(--surface); }
+
+/* ── Add form (hosts the embedded NPC Generator) ─────────────── */
+.addForm { display: flex; flex-direction: column; height: 100%; }
+.addFormTitle {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.15em; color: var(--ink-3); border-bottom: 1px solid var(--line);
+}
 .cancelBtn {
-  flex: 1; padding: 7px 0; background: var(--surface-2); border: 1px solid var(--line);
-  border-radius: 5px; color: var(--ink-3); font-size: 13px; font-weight: 600; cursor: pointer;
+  padding: 5px 10px; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 5px; color: var(--ink-3); font-size: 11px; font-weight: 600; cursor: pointer;
 }
 .cancelBtn:hover { background: var(--surface-3, var(--surface-2)); }
-.saveBtn {
-  flex: 1; padding: 7px 0; background: var(--accent); border: none; border-radius: 5px;
-  color: oklch(0.12 0.01 258); font-size: 13px; font-weight: 600; cursor: pointer;
+
+/* These suppress the browser's outline but put nothing back, so keyboard focus was invisible on
+   them. The app-wide :focus-visible ring in App.css ties with them on specificity and loses on
+   source order, hence the explicit rule. */
+.customLabelInput:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
-.saveBtn:hover:not(:disabled) { filter: brightness(1.1); }
-.saveBtn:disabled { opacity: 0.4; cursor: default; }

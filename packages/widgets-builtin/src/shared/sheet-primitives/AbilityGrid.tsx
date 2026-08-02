@@ -5,6 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import type { AbilityScores } from "@ttcanvas/core";
+import { RollableStat } from "./RollableStat";
 import styles from "./AbilityGrid.module.css";
 
 const ABILITIES: { key: keyof AbilityScores; label: string }[] = [
@@ -16,18 +17,19 @@ const ABILITIES: { key: keyof AbilityScores; label: string }[] = [
   { key: "cha", label: "CHA" },
 ];
 
-function modifier(score: number) {
-  const mod = Math.floor((score - 10) / 2);
-  return mod >= 0 ? `+${mod}` : `${mod}`;
+function abilityMod(score: number) {
+  return Math.floor((score - 10) / 2);
 }
 
 interface Props {
   scores: AbilityScores;
   editing?: boolean;
   onChange?: (scores: AbilityScores) => void;
+  /** Owner name (PC / NPC / creature), prefixed onto the rolled-check label in the Dice Roller. */
+  subject?: string;
 }
 
-export function AbilityGrid({ scores, editing, onChange }: Props) {
+export function AbilityGrid({ scores, editing, onChange, subject }: Props) {
   return (
     <div className={styles.grid}>
       {ABILITIES.map(({ key, label }) => (
@@ -45,7 +47,12 @@ export function AbilityGrid({ scores, editing, onChange }: Props) {
           ) : (
             <span className={styles.score}>{scores[key]}</span>
           )}
-          <span className={styles.mod}>{modifier(scores[key])}</span>
+          <RollableStat
+            className={styles.mod}
+            bonus={abilityMod(scores[key])}
+            label={`${label} check`}
+            subject={subject}
+          />
         </div>
       ))}
     </div>

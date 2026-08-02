@@ -7,7 +7,8 @@
 import { useState } from "react";
 import { pushDiceOverlay } from "@ttcanvas/core";
 import type { DiceRollerState, RollEntry, RollMacro } from "./types";
-import { evaluate, parseExpression, formatBreakdown } from "./dice";
+import { parseExpression } from "./dice";
+import { buildRollEntry, MAX_HISTORY } from "./rollEntry";
 import styles from "./DiceRoller.module.css";
 
 interface Props {
@@ -16,7 +17,6 @@ interface Props {
 }
 
 const QUICK_DICE = [4, 6, 8, 10, 12, 20, 100] as const;
-const MAX_HISTORY = 30;
 
 // Shown in the "?" help panel so the expression syntax is discoverable without leaving the app.
 const SYNTAX_HELP: ReadonlyArray<{ code: string; desc: string }> = [
@@ -37,21 +37,8 @@ export function DiceRoller({ state, onChange }: Props) {
   const inputValid = parseExpression(state.input.trim()) !== null;
 
   function roll(expr: string, label: string) {
-    const outcome = evaluate(expr, state.adv);
-    if (!outcome) return;
-    const { breakdown, alt } = outcome;
-    const entry: RollEntry = {
-      id: crypto.randomUUID(),
-      label,
-      expr,
-      total: breakdown.total,
-      breakdown: formatBreakdown(breakdown),
-      altTotal: alt ? alt.total : null,
-      adv: outcome.adv,
-      crit: breakdown.crit,
-      fumble: breakdown.fumble,
-      at: Date.now(),
-    };
+    const entry = buildRollEntry(expr, state.adv, label);
+    if (!entry) return;
     onChange({ ...state, history: [entry, ...state.history].slice(0, MAX_HISTORY) });
   }
 

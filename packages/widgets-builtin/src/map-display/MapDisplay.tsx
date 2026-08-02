@@ -4,11 +4,11 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useVault, useIT, pushPlayerScene, pushMapPing, PING_LIFETIME_MS, drawFogCanvas, renderFogReveals, lastBrushPoint, fogModeOf } from "@ttcanvas/core";
+import { useState, useEffect, useRef, useCallback, type RefObject } from "react";
+import { useVault, useIT, useGazetteerLocations, logWarn, pushPlayerScene, pushMapPing, PING_LIFETIME_MS, drawFogCanvas, renderFogReveals, lastBrushPoint, fogModeOf } from "@ttcanvas/core";
 import type { FogReveal, MapToken, MapTokenKind, FogMode, BrushPoint, MapAnnotation, AnnotationColor } from "@ttcanvas/core";
 import type { MapDisplayState, MapScene, MarkupPreset } from "./types";
-import { getActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
+import { getActiveTokenDrag, clearActiveTokenDrag, type TokenDragData } from "../shared/tokenDrag";
 import { mimeForImageExt } from "../shared/mime";
 import { fitTransform, measureDistance, panToPoint } from "./utils";
 import { AnnotationLayer } from "./AnnotationLayer";
@@ -136,6 +136,22 @@ const TOKEN_SIZE_MIN = 0.5;
 const TOKEN_SIZE_MAX = 6;
 // Movement under this many pixels between a token's mousedown and mouseup counts as a click, not a drag.
 const TOKEN_CLICK_TOL_PX = 4;
+// Keyboard nudge step, in screen px equivalent - matches WidgetFrame's own move step (8 / 40 with
+// Shift) so the two keyboard-move affordances in the app feel the same. Converted to a normalized
+// x/y fraction the same way the mouse-drag path already does (deltaPx / (imgSize * scale)), so the
+// nudge covers the same screen distance regardless of zoom instead of a fixed fraction of the image.
+const TOKEN_NUDGE_STEP_PX = 8;
+const TOKEN_NUDGE_STEP_LARGE_PX = 40;
+
+function arrowKeyDelta(key: string): { dx: number; dy: number } | null {
+  switch (key) {
+    case "ArrowUp": return { dx: 0, dy: -1 };
+    case "ArrowDown": return { dx: 0, dy: 1 };
+    case "ArrowLeft": return { dx: -1, dy: 0 };
+    case "ArrowRight": return { dx: 1, dy: 0 };
+    default: return null;
+  }
+}
 
 interface TokenPinProps {
   token: MapToken;
@@ -143,12 +159,23 @@ interface TokenPinProps {
   imgH: number;
   ghost?: boolean; // on the board but hidden from players - GM-only "ghost" look
   spotlight?: boolean; // this token's combatant currently has the initiative turn
+  selected?: boolean; // keyboard-selected: arrow keys nudge it, +/- resizes it, Delete removes it
   onDragStart: (e: React.MouseEvent, id: string) => void;
+  onSelect: (id: string) => void;
   onRemove: (id: string) => void;
   onResize: (id: string, size: number) => void;
+  /** Nudge/resize/remove/deselect while this pin is selected; see onTokenKeyDown in MapDisplay. */
+  onKeyDown: (e: React.KeyboardEvent, id: string) => void;
+  renaming: boolean;
+  renameValue: string;
+  renameInputRef: RefObject<HTMLInputElement | null>;
+  onRenameChange: (value: string) => void;
+  onRenameCommit: () => void;
+  onRenameCancel: () => void;
+  onStartRename: (id: string, label: string) => void;
 }
 
-function TokenPin({ token, imgW, imgH, ghost, spotlight, onDragStart, onRemove, onResize }: TokenPinProps) {
+function TokenPin({ token, imgW, imgH, ghost, spotlight, selected, onDragStart, onSelect, onRemove, onResize, onKeyDown, renaming, renameValue, renameInputRef, onRenameChange, onRenameCommit, onRenameCancel, onStartRename }: TokenPinProps) {
   const vault = useVault();
   const size = token.size ?? 1;
   const px = TOKEN_BASE_PX * size;
@@ -172,7 +199,10 @@ function TokenPin({ token, imgW, imgH, ghost, spotlight, onDragStart, onRemove, 
     let cancelled = false;
     vault.readFileBase64(`${vault.vaultPath}/portraits`, fileName)
       .then((b64) => { if (!cancelled) setPortraitSrc(`data:${mime};base64,${b64}`); })
-      .catch(() => { if (!cancelled) setPortraitSrc(null); });
+      .catch((err: unknown) => {
+        logWarn(`Map Display: could not load token portrait "${fileName}"`, err);
+        if (!cancelled) setPortraitSrc(null);
+      });
     return () => { cancelled = true; };
     // vault's context value is a fresh object every render (tracked in
     // tracking/phase6-fixes.md) - depending on the whole object instead of
@@ -198,7 +228,7 @@ function TokenPin({ token, imgW, imgH, ghost, spotlight, onDragStart, onRemove, 
   return (
     <div
       ref={divRef}
-      className={`${styles.token} ${ghost ? styles.tokenGhost : ""} ${spotlight ? styles.tokenSpotlight : ""}`}
+      className={`${styles.token} ${ghost ? styles.tokenGhost : ""} ${spotlight ? styles.tokenSpotlight : ""} ${selected ? styles.tokenSelected : ""}`}
       style={{
         left: token.x * imgW,
         top: token.y * imgH,
@@ -206,14 +236,47 @@ function TokenPin({ token, imgW, imgH, ghost, spotlight, onDragStart, onRemove, 
         height: px,
         background: portraitSrc ? "transparent" : token.color,
       }}
+      title={renaming ? undefined : `${token.label} · Double-click to rename`}
+      // A group, not a button: it owns a real remove button (and an input while renaming), which
+      // a button may not contain - a button's descendants get flattened away in the accessibility
+      // tree - and Enter/Space do nothing here anyway. Focus is what arms the keys below, so it
+      // still needs to be a tab stop; aria-current carries the selection a button had as
+      // aria-pressed.
+      role="group"
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+      tabIndex={0}
+      aria-label={`${token.label} token - arrow keys to move, +/- to resize, Delete to remove`}
+      aria-current={selected}
+      onKeyDown={selected ? (e) => onKeyDown(e, token.id) : undefined}
+      onFocus={() => onSelect(token.id)}
       onMouseDown={(e) => { e.stopPropagation(); onDragStart(e, token.id); }}
+      // stopPropagation: the viewport itself treats a double-click as "fit map to screen"
+      // (MapDisplay's own onDoubleClick), which a rename here shouldn't also trigger.
+      onDoubleClick={(e) => { e.stopPropagation(); onStartRename(token.id, token.label); }}
     >
       {portraitSrc && (
         <img src={portraitSrc} className={styles.tokenPortrait} alt={token.label} />
       )}
       {ghost && <span className={styles.tokenGhostTag}>GM</span>}
       {token.locationRef && <span className={styles.tokenLinkedTag} title="Linked to a Gazetteer place" />}
-      <span className={styles.tokenLabel}>{token.label}</span>
+      {renaming ? (
+        <input
+          ref={renameInputRef}
+          className={styles.tokenRenameInput}
+          value={renameValue}
+          aria-label={`Rename token "${token.label}"`}
+          onChange={(e) => onRenameChange(e.target.value)}
+          onBlur={onRenameCommit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onRenameCommit();
+            if (e.key === "Escape") onRenameCancel();
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <span className={styles.tokenLabel}>{token.label}</span>
+      )}
       <button
         className={styles.tokenRemove}
         onMouseDown={(e) => e.stopPropagation()}
@@ -257,6 +320,9 @@ function VisToggle({ on, disabled, kind, onClick }: { on: boolean; disabled?: bo
 export function MapDisplay({ state: rawState, onChange }: Props) {
   const vault = useVault();
   const { activeSourceIds } = useIT();
+  // Only to name a linked pin's place in the Visibility panel - resolved live, so a place renamed in
+  // Gazetteer reads correctly here even though the token keeps its original label.
+  const { locations: gazetteerLocations } = useGazetteerLocations();
 
   // Migrate old flat state on first render
   const state = migrateState(rawState);
@@ -284,6 +350,9 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
   const [drawerCollapsed, setDrawerCollapsed] = useState(false);
   // Markup (annotations) - selection + the style applied to newly drawn shapes.
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
+  // Selected token - mirrors selectedAnnId (click/Tab to select, Escape/Delete act on it), kept
+  // mutually exclusive with it so only one keydown effect is ever "armed" at a time.
+  const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
   const [markupColor, setMarkupColor] = useState<AnnotationColor>("amber");
   const [markupStroke, setMarkupStroke] = useState<1 | 2 | 3>(2);
   const [liveAnn, setLiveAnn] = useState<MapAnnotation | null>(null);
@@ -303,6 +372,10 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState("");
+  // Inline token rename (double-click a pin, or straight after placing an empty one) - separate
+  // from the scene-tab rename above, which is keyed by scene id rather than token id.
+  const [renamingTokenId, setRenamingTokenId] = useState<string | null>(null);
+  const [tokenRenameVal, setTokenRenameVal] = useState("");
   const [pendingDrop, setPendingDrop] = useState<{
     draft: { sourceId?: string; label: string; color: string; portraitPath?: string; kind?: MapTokenKind };
     x: number;
@@ -314,6 +387,7 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
   // A located pin to pan/ping once its scene's map has actually finished loading.
   const [pendingJump, setPendingJump] = useState<{ sceneId: string; tokenId: string } | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const tokenRenameInputRef = useRef<HTMLInputElement>(null);
 
   const stateRef = useRef(state);
   useEffect(() => { stateRef.current = state; });
@@ -412,6 +486,14 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
     setSelectedAnnId((cur) => (cur === id ? null : cur));
   }, [setAnnotations]);
 
+  // useCallback (unlike the scene-rename equivalent below) because onMouseDown's own useCallback
+  // calls this directly and needs a stable reference for its dependency array.
+  const startTokenRename = useCallback((id: string, label: string) => {
+    setRenamingTokenId(id);
+    setTokenRenameVal(label);
+    setTimeout(() => tokenRenameInputRef.current?.select(), 0);
+  }, []);
+
   const setTokens = useCallback((updater: (tokens: MapToken[]) => MapToken[]) => {
     const s = stateRef.current;
     const scenes = s.scenes.map((sc) =>
@@ -419,6 +501,13 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
     );
     onChangeRef.current({ ...s, scenes });
   }, []);
+
+  function commitTokenRename() {
+    if (!renamingTokenId) return;
+    const label = tokenRenameVal.trim() || "Token";
+    setTokens((ts) => ts.map((t) => (t.id === renamingTokenId ? { ...t, label } : t)));
+    setRenamingTokenId(null);
+  }
 
   // Visibility toggles for a single item or a whole group (ids). value=true means
   // on-board / mirrored-to-players; we store the boolean explicitly.
@@ -429,6 +518,12 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
   // hand-placed token be reclassified into a different group.
   const setTokenKind = useCallback((id: string, kind: MapTokenKind) => {
     setTokens((ts) => ts.map((t) => (t.id === id ? { ...t, kind } : t)));
+  }, [setTokens]);
+  // Drop a pin's link to its Gazetteer place, leaving the pin itself on the map. The map side had no
+  // way to do this before - you had to go through Gazetteer. Matches NPC Library's unlink, which also
+  // clears the ref without a confirm step (re-linking is one click from Gazetteer).
+  const unlinkToken = useCallback((id: string) => {
+    setTokens((ts) => ts.map((t) => (t.id === id ? { ...t, locationRef: undefined } : t)));
   }, [setTokens]);
   const setAnnVis = useCallback((ids: Set<string>, field: "onBoard" | "showPlayers", value: boolean) => {
     setAnnotations((anns) => anns.map((a) => (ids.has(a.id) ? ({ ...a, [field]: value } as MapAnnotation) : a)));
@@ -484,7 +579,13 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
           setImgSize({ w: imgRef.current.naturalWidth, h: imgRef.current.naturalHeight });
         }
       })
-      .catch(() => { setImgSrc(null); setLoadedMap(loadingForMapRef.current); });
+      .catch((err: unknown) => {
+        // This catch is why the subfolder-path bug stayed invisible for months (bugs.md,
+        // 2026-07-11): a failed map read looks exactly like an empty map on screen.
+        logWarn(`Map Display: could not load map image "${activeScene.selectedMap}"`, err);
+        setImgSrc(null);
+        setLoadedMap(loadingForMapRef.current);
+      });
     // vault's context value is a fresh object every render (tracked in
     // tracking/phase6-fixes.md) - depending on the whole object instead of
     // its stable fields would re-run this on every render.
@@ -535,7 +636,10 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
 
   useEffect(() => {
     if (!state.mapsFolder) { setFiles([]); return; }
-    vault.listFolderImages(state.mapsFolder).then(setFiles).catch(() => setFiles([]));
+    vault.listFolderImages(state.mapsFolder).then(setFiles).catch((err: unknown) => {
+      logWarn(`Map Display: could not list maps folder "${state.mapsFolder}"`, err);
+      setFiles([]);
+    });
     // vault's context value is a fresh object every render (tracked in
     // tracking/phase6-fixes.md) - depending on the whole object instead of
     // its stable fields would re-run this on every render.
@@ -697,12 +801,14 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
           if (hitId) {
             const orig = anns.find((a) => a.id === hitId)!;
             setSelectedAnnId(hitId);
+            setSelectedTokenId(null);
             annMoveRef.current = { id: hitId, startNX: norm.nx, startNY: norm.ny, orig };
             return;
           }
         }
         // 3. Empty space: deselect and pan the map.
         setSelectedAnnId(null);
+        setSelectedTokenId(null);
         dragRef.current = { x: e.clientX, y: e.clientY, panX: sc.panX, panY: sc.panY };
         return;
       }
@@ -745,6 +851,15 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
         );
         onChangeRef.current({ ...s, scenes });
         setActiveTool("pan");
+        // Placing a token switches the tool back to "pan", and the drawer opens for
+        // selectedAnnId whenever pan + a selection are both true - a shape selected before
+        // switching to the token tool would otherwise resurface its own editor here instead of
+        // anything about the token just placed. Clearing it, then opening the token's own inline
+        // rename, is what gives the new token the "name it right away" affordance a drawn shape
+        // already gets from auto-selecting itself on creation.
+        setSelectedAnnId(null);
+        setSelectedTokenId(null);
+        startTokenRename(newToken.id, newToken.label);
         return;
       }
 
@@ -768,6 +883,9 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
         onChangeRef.current({ ...s, scenes });
         setActiveTool("pan");
         setPendingLocationPin(null);
+        // Same stale-selection guard as the plain-token case above.
+        setSelectedAnnId(null);
+        setSelectedTokenId(null);
         return;
       }
 
@@ -779,7 +897,7 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
         return;
       }
     },
-    [browserOpen, activeTool, toNorm, fogMode, selectedAnnId, markupColor, markupStroke, pendingLocationPin],
+    [browserOpen, activeTool, toNorm, fogMode, selectedAnnId, markupColor, markupStroke, pendingLocationPin, startTokenRename],
   );
 
   const onMouseMove = useCallback(
@@ -909,10 +1027,14 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
       const tokenDrag = tokenDragRef.current;
       tokenDragRef.current = null;
 
-      // A token mousedown+mouseup with negligible movement is a click, not a drag: if it landed on
-      // a Gazetteer-linked pin, jump back to that place. Gated to the pan tool so a GM mid fog-brush
-      // /measure/markup who happens to click a pin isn't yanked into another widget unexpectedly.
+      // A token mousedown+mouseup, click or drag, selects it - arms the keydown effect below for
+      // nudge/resize/delete, mirroring selectedAnnId. Negligible movement additionally counts as a
+      // click rather than a drag: if it landed on a Gazetteer-linked pin, jump back to that place.
+      // Gated to the pan tool so a GM mid fog-brush/measure/markup who happens to click a pin isn't
+      // yanked into another widget unexpectedly.
       if (tokenDrag) {
+        setSelectedAnnId(null);
+        setSelectedTokenId(tokenDrag.id);
         if (activeTool === "pan" && Math.hypot(e.clientX - tokenDrag.startX, e.clientY - tokenDrag.startY) < TOKEN_CLICK_TOL_PX) {
           const s = stateRef.current;
           const sc = s.scenes.find((sc2) => sc2.id === s.activeSceneId) ?? s.scenes[0];
@@ -936,6 +1058,7 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
           const a: MapAnnotation = { id: uid(), type: "highlight", color: markupColor, stroke: markupStroke, points: pts };
           setAnnotations((anns) => [...anns, a]);
           setSelectedAnnId(a.id);
+          setSelectedTokenId(null);
         }
         return;
       }
@@ -957,6 +1080,7 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
         // quick succession never race for the same label.
         setAnnotations((anns) => [...anns, type === "arrow" ? a : { ...a, label: nextAutoLabel(anns) }]);
         setSelectedAnnId(id);
+        setSelectedTokenId(null);
         return;
       }
 
@@ -1025,9 +1149,16 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
     setLiveAnn(null);
   }, []);
 
-  // Delete / Escape act on the selected annotation (ignored while typing in a field).
+  // Delete / Escape act on the selected annotation (ignored while typing in a field). Still a window
+  // listener, unlike the token's keys just below: a shape is painted on the map surface and has no
+  // element of its own to hang a handler on. Focusing the viewport is what keeps the canvas's own
+  // Delete ("remove the focused widget") off it - that shortcut stands down for anything focused
+  // inside a widget's body, which is what `data-widget-content` in WidgetFrame marks. The viewport's
+  // tabIndex is -1, so this focus is only ever programmatic, and preventScroll keeps the browser
+  // from scrolling the canvas to reveal it.
   useEffect(() => {
     if (!selectedAnnId) return;
+    viewportRef.current?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
@@ -1052,6 +1183,9 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
       sc.id === s.activeSceneId ? { ...sc, tokens: sc.tokens.filter((t) => t.id !== id) } : sc,
     );
     onChangeRef.current({ ...s, scenes });
+    // Covers both the keyboard Delete path below and the pin's own × button, so a removed token
+    // never leaves a dangling selection armed for a token that no longer exists.
+    setSelectedTokenId((cur) => (cur === id ? null : cur));
   }, []);
 
   const resizeToken = useCallback((id: string, size: number) => {
@@ -1063,6 +1197,70 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
     );
     onChangeRef.current({ ...s, scenes });
   }, []);
+
+  // Arrow keys nudge the selected token, +/- resizes it, Delete/Backspace removes it, Escape
+  // deselects (ignored while typing in a field) - the keyboard equivalents of drag/wheel-resize/the
+  // pin's own × button.
+  //
+  // Unlike the selectedAnnId effect above this hangs off the pin itself rather than window, because
+  // the canvas has a window-level Delete of its own ("remove the focused widget") and
+  // preventDefault() does nothing to a second listener: Delete used to remove the token *and* hide
+  // whichever widget was topmost. stopPropagation() on a React event also stops the native one, and
+  // React listens on the root container, so a key we handle never reaches window. An annotation has
+  // no focusable element to hang this on, which is why that one is still a window listener.
+  const onTokenKeyDown = useCallback((e: React.KeyboardEvent, id: string) => {
+    const t = e.target as HTMLElement;
+    if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) return;
+
+    const delta = arrowKeyDelta(e.key);
+    if (delta) {
+      e.preventDefault();
+      e.stopPropagation();
+      const sz = imgSizeRef.current;
+      if (!sz) return;
+      const s = stateRef.current;
+      const sc = s.scenes.find((sc2) => sc2.id === s.activeSceneId) ?? s.scenes[0];
+      const step = e.shiftKey ? TOKEN_NUDGE_STEP_LARGE_PX : TOKEN_NUDGE_STEP_PX;
+      const dnx = (delta.dx * step) / (sz.w * sc.scale);
+      const dny = (delta.dy * step) / (sz.h * sc.scale);
+      const scenes = s.scenes.map((sc2) =>
+        sc2.id === s.activeSceneId
+          ? { ...sc2, tokens: sc2.tokens.map((tok) => tok.id === id
+            // Clamped to the map: coordinates are fractions of the image, and holding an arrow key
+            // would otherwise persist a token past the edge, where it renders outside the viewport
+            // and can never be selected again to bring it back.
+            ? { ...tok, x: clamp(tok.x + dnx, 0, 1), y: clamp(tok.y + dny, 0, 1) }
+            : tok) }
+          : sc2,
+      );
+      onChangeRef.current({ ...s, scenes });
+      return;
+    }
+
+    if (e.key === "+" || e.key === "=" || e.key === "-" || e.key === "_") {
+      e.preventDefault();
+      e.stopPropagation();
+      const s = stateRef.current;
+      const sc = s.scenes.find((sc2) => sc2.id === s.activeSceneId) ?? s.scenes[0];
+      const tok = sc.tokens.find((tk) => tk.id === id);
+      if (!tok) return;
+      const cur = tok.size ?? 1;
+      // Same +/-0.1 step and rounding as TokenPin's own wheel-resize listener above.
+      const stepDelta = (e.key === "+" || e.key === "=") ? 0.1 : -0.1;
+      const next = Math.min(TOKEN_SIZE_MAX, Math.max(TOKEN_SIZE_MIN, Math.round((cur + stepDelta) * 10) / 10));
+      if (next !== cur) resizeToken(id, next);
+      return;
+    }
+
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      e.stopPropagation();
+      removeToken(id);
+    } else if (e.key === "Escape") {
+      e.stopPropagation();
+      setSelectedTokenId(null);
+    }
+  }, [removeToken, resizeToken]);
 
   const addOrMoveToken = useCallback(
     (draft: { sourceId?: string; label: string; color: string; portraitPath?: string; kind?: MapTokenKind }, x: number, y: number) => {
@@ -1118,9 +1316,7 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
 
   useEffect(() => {
     function handler(e: Event) {
-      const { sourceId, label, color, portraitPath, kind } = (
-        e as CustomEvent<{ sourceId: string; label: string; color: string; portraitPath?: string; kind?: MapTokenKind }>
-      ).detail;
+      const { sourceId, label, color, portraitPath, kind } = (e as CustomEvent<TokenDragData>).detail;
       addOrMoveToken({ sourceId, label, color, portraitPath, kind }, 0.5, 0.5);
     }
     window.addEventListener("ttcanvas:place-token", handler);
@@ -1716,6 +1912,8 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
       <div
         ref={viewportRef}
         className={`${styles.viewportWrap} ${cursorClass}`}
+        // Not a tab stop: focused only by selecting an annotation, so the widget can claim Delete.
+        tabIndex={-1}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
@@ -1847,9 +2045,19 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
               imgH={imgSize.h}
               ghost={!isPlayerVisible(t)}
               spotlight={!!t.sourceId && activeSourceIds.includes(t.sourceId)}
+              selected={selectedTokenId === t.id}
               onDragStart={startTokenDrag}
+              onSelect={(id) => { setSelectedAnnId(null); setSelectedTokenId(id); }}
               onRemove={removeToken}
               onResize={resizeToken}
+              onKeyDown={onTokenKeyDown}
+              renaming={renamingTokenId === t.id}
+              renameValue={tokenRenameVal}
+              renameInputRef={tokenRenameInputRef}
+              onRenameChange={setTokenRenameVal}
+              onRenameCommit={commitTokenRename}
+              onRenameCancel={() => setRenamingTokenId(null)}
+              onStartRename={startTokenRename}
             />
           ))}
         </div>
@@ -1979,6 +2187,20 @@ export function MapDisplay({ state: rawState, onChange }: Props) {
                                   {k.charAt(0).toUpperCase()}
                                 </button>
                                 <span className={styles.visRowName} title={t.label}>{t.label}</span>
+                                {t.locationRef && (() => {
+                                  const place = gazetteerLocations.find((l) => l.filename === t.locationRef);
+                                  const placeName = place?.name ?? t.locationRef;
+                                  return (
+                                    <button
+                                      className={styles.visUnlinkBtn}
+                                      onClick={(e) => { e.stopPropagation(); unlinkToken(t.id); }}
+                                      title={`Linked to ${placeName} - click to unlink (the pin stays)`}
+                                      aria-label={`Unlink ${t.label} from ${placeName}`}
+                                    >
+                                      ⛓
+                                    </button>
+                                  );
+                                })()}
                                 <VisToggle on={on} kind="board" onClick={() => setTokenVis(one, "onBoard", !on)} />
                                 <VisToggle on={players} disabled={!on} kind="players" onClick={() => setTokenVis(one, "showPlayers", !players)} />
                               </div>

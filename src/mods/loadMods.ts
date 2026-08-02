@@ -7,7 +7,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { registerModWidget, clearModWidgets } from "../registry";
 import type { WidgetDefinition } from "../registry";
-import { logWarn } from "../diagnostics/log";
+import { logWarn } from "@ttcanvas/core";
 
 interface ModExports {
   definition: Omit<WidgetDefinition, "component">;

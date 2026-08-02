@@ -1,0 +1,620 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* One visible focus ring for every control in the widget, so keyboard users never lose their place.
+   Inputs override this with a border tint of their own further down. */
+.root :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Search ─────────────────────────────────── */
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  font-size: 12.5px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.search:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+.count {
+  flex: none;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 10px;
+  color: var(--ink-4);
+}
+
+/* ── Kind chips ─────────────────────────────── */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.chip {
+  padding: 2px 8px;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 10px;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  color: var(--ink);
+  border-color: var(--accent-line);
+}
+
+.chip[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+
+/* ── Ledger ─────────────────────────────────── */
+.list {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.35 0.014 258 / 0.55) transparent;
+}
+
+.empty {
+  margin: 24px 12px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--ink-4);
+  text-align: center;
+}
+
+.item {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto 18px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--surface-2);
+}
+
+.row:focus-visible {
+  outline: 1px solid var(--accent-line);
+  outline-offset: -1px;
+}
+
+.qty {
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 13px;
+  color: var(--ink-3);
+  text-align: right;
+}
+
+.id {
+  min-width: 0;
+}
+
+.name {
+  display: block;
+  font-size: 12.5px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Rarity reads as a 2px bar on the meta line, from the shared --rarity-* ramp in tokens.css so the
+   ledger, the shop and the item card never drift apart. */
+.meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 1px;
+  padding-left: 6px;
+  border-left: 2px solid var(--line);
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+.meta[data-rarity="uncommon"] { border-left-color: var(--rarity-uncommon); }
+.meta[data-rarity="rare"] { border-left-color: var(--rarity-rare); }
+.meta[data-rarity="very-rare"] { border-left-color: var(--rarity-very-rare); }
+.meta[data-rarity="legendary"] { border-left-color: var(--rarity-legendary); }
+.meta[data-rarity="artifact"] { border-left-color: var(--rarity-artifact); }
+
+.holder {
+  flex: none;
+  color: var(--ink-4);
+}
+
+.value {
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.chev {
+  font-size: 10px;
+  color: var(--ink-4);
+}
+
+/* ── Expanded detail ────────────────────────── */
+.detail {
+  padding: 4px 10px 10px 44px;
+  background: var(--surface);
+  border-top: 1px solid var(--line-soft);
+}
+
+.fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.field,
+.checkField {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-4);
+}
+
+.checkField {
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-end;
+  padding-bottom: 5px;
+}
+
+/* Properties is a sentence, not a value: it takes the rest of the row so a few tags stay readable
+   instead of scrolling inside a 90px box. */
+.fieldWide {
+  flex: 1;
+  min-width: 140px;
+}
+
+/* Deliberately quiet. Most items never open it, so it reads as a line of text with a hit area rather
+   than a control competing with the fields above it. */
+.combatToggle {
+  display: block;
+  margin-top: 10px;
+  padding: 2px 0;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-4);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.combatToggle:hover {
+  color: var(--accent);
+}
+
+.combatToggle:focus-visible {
+  outline: 1px solid var(--accent-line);
+  outline-offset: 2px;
+}
+
+/* A list, so it gets its own block rather than a slot in the wrapping field grid: rows that reflowed
+   mid-list would break the dice/type/remove alignment that makes it readable. */
+.damageRows {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.damageHead {
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-4);
+}
+
+.damageRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 20px;
+  gap: 4px;
+  width: 100%;
+  align-items: center;
+}
+
+.damageRemove {
+  height: 20px;
+  padding: 0;
+  color: var(--ink-4);
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.damageRemove:hover { color: var(--hp); border-color: var(--hp); }
+
+.input {
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: 11.5px;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+.field .input {
+  width: 108px;
+}
+
+.valueEdit {
+  display: flex;
+  gap: 4px;
+}
+
+.valueEdit .input:first-child { width: 72px; }
+.valueEdit .input:last-child { width: 48px; }
+
+.descHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--line-soft);
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-3);
+}
+
+.descEditBtn {
+  padding: 1px 7px;
+  font-family: inherit;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.descEditBtn:hover {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+
+.descView,
+.desc {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.descView {
+  min-height: 30px;
+}
+
+.desc {
+  min-height: 64px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.descEmpty {
+  color: var(--ink-4);
+  font-style: italic;
+}
+
+/* ── Holdings ───────────────────────────────── */
+.holdings {
+  margin-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.holdRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.holdName {
+  flex: 1;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.holdWeight {
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 10px;
+  color: var(--ink-4);
+}
+
+.over {
+  color: var(--hp);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.stepper button {
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.stepper button:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+
+.stepper button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.stepQty {
+  min-width: 20px;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 11px;
+  color: var(--ink);
+  text-align: center;
+}
+
+.orphan {
+  flex: 1;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--ink-4);
+}
+
+.reassign {
+  padding: 2px 7px;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.detailFoot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+/* ── Party purse ────────────────────────────── */
+.purse {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.coin {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.coinKey {
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-4);
+}
+
+.coinInput {
+  width: 46px;
+  padding: 2px 4px;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 11.5px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.coin:nth-child(4) .coinInput {
+  color: var(--gp);
+}
+
+.coinInput:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+.tidyBtn {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.tidyBtn:hover {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+
+/* ── Footer ─────────────────────────────────── */
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--surface);
+}
+
+.addInput {
+  flex: 1;
+  min-width: 90px;
+  padding: 4px 7px;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.addInput:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+}
+
+.addBtn,
+.rollBtn,
+.splitBtn {
+  padding: 4px 9px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.addBtn {
+  color: oklch(0.12 0.01 258);
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.addBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.rollBtn:hover:not(:disabled),
+.splitBtn:hover {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+
+.rollBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.tableSelect {
+  max-width: 130px;
+  padding: 4px 5px;
+  font-size: 11px;
+  color: var(--ink-2);
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.total {
+  margin-left: auto;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", monospace);
+  font-size: 11px;
+  color: var(--gp);
+}
+
+/* ── Settings cog panel ─────────────────────── */
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.importError {
+  padding: 5px 7px;
+  font-size: 11.5px;
+  color: oklch(0.70 0.13 22);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}

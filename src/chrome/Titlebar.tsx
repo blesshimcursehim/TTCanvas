@@ -4,8 +4,12 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useState, useEffect } from "react";
+import { useRef, useState } from "react";
+import type { SessionTimerState } from "@ttcanvas/core";
+import type { AppClockFormat } from "../appConfig";
 import { Icon } from "../icons/Icon";
+import { SessionTime } from "./SessionTime";
+import { useDismissOnOutsideClick } from "../hooks/useDismissOnOutsideClick";
 import { version } from "../../package.json";
 import styles from "./Titlebar.module.css";
 
@@ -14,6 +18,9 @@ interface Props {
   recentVaults: string[];
   playerWindowOpen: boolean;
   playerFullscreen: boolean;
+  sessionTimer: SessionTimerState;
+  clockFormat: AppClockFormat;
+  onSessionTimerChange: (state: SessionTimerState) => void;
   onLayoutsClick: () => void;
   onOpenVault: () => void;
   onResumeVault: (path: string) => void;
@@ -24,46 +31,10 @@ interface Props {
   onSearchClick: () => void;
 }
 
-type TimerStatus = "stopped" | "running" | "paused";
-
-function formatElapsed(s: number): string {
-  const h = String(Math.floor(s / 3600)).padStart(2, "0");
-  const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
-  const sec = String(s % 60).padStart(2, "0");
-  return `${h}:${m}:${sec}`;
-}
-
-export function Titlebar({ vaultPath, recentVaults, playerWindowOpen, playerFullscreen, onLayoutsClick, onOpenVault, onResumeVault, onPlayerWindowToggle, onClearPlayerScreen, onPlayerFullscreenToggle, onSettingsClick, onSearchClick }: Props) {
-  const [timerStatus, setTimerStatus] = useState<TimerStatus>("stopped");
-  const [accumulated, setAccumulated] = useState(0);
-  const [startedAt, setStartedAt] = useState<number | null>(null);
-  const [displaySeconds, setDisplaySeconds] = useState(0);
+export function Titlebar({ vaultPath, recentVaults, playerWindowOpen, playerFullscreen, sessionTimer, clockFormat, onSessionTimerChange, onLayoutsClick, onOpenVault, onResumeVault, onPlayerWindowToggle, onClearPlayerScreen, onPlayerFullscreenToggle, onSettingsClick, onSearchClick }: Props) {
   const [vaultMenuOpen, setVaultMenuOpen] = useState(false);
-
-  useEffect(() => {
-    if (timerStatus !== "running" || startedAt === null) return;
-    const id = setInterval(() => {
-      setDisplaySeconds(accumulated + Math.floor((Date.now() - startedAt) / 1000));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [timerStatus, startedAt, accumulated]);
-
-  function handleTimerClick() {
-    if (timerStatus === "stopped") {
-      setStartedAt(Date.now());
-      setAccumulated(0);
-      setDisplaySeconds(0);
-      setTimerStatus("running");
-    } else if (timerStatus === "running") {
-      const now = Date.now();
-      setAccumulated((a) => a + Math.floor((now - startedAt!) / 1000));
-      setStartedAt(null);
-      setTimerStatus("paused");
-    } else {
-      setStartedAt(Date.now());
-      setTimerStatus("running");
-    }
-  }
+  const crumbRef = useRef<HTMLDivElement>(null);
+  useDismissOnOutsideClick(crumbRef, vaultMenuOpen, () => setVaultMenuOpen(false));
 
   const vaultName = vaultPath.split("/").filter(Boolean).pop() ?? vaultPath;
 
@@ -85,7 +56,7 @@ export function Titlebar({ vaultPath, recentVaults, playerWindowOpen, playerFull
       </div>
 
       {/* Vault crumb (centred) */}
-      <div className={styles.crumbWrap}>
+      <div className={styles.crumbWrap} ref={crumbRef}>
         <button
           className={styles.crumb}
           onClick={() => setVaultMenuOpen((o) => !o)}
@@ -97,58 +68,41 @@ export function Titlebar({ vaultPath, recentVaults, playerWindowOpen, playerFull
         </button>
 
         {vaultMenuOpen && (
-          <>
-            <div
-              className={styles.vaultOverlay}
-              onClick={() => setVaultMenuOpen(false)}
-            />
-            <div className={styles.vaultDropdown}>
-              {recentVaults.filter((p) => p !== vaultPath).length > 0 && (
-                <>
-                  <div className={styles.vaultDropdownLabel}>Recent vaults</div>
-                  {recentVaults
-                    .filter((p) => p !== vaultPath)
-                    .map((p) => {
-                      const name = p.split("/").filter(Boolean).pop() ?? p;
-                      return (
-                        <button
-                          key={p}
-                          className={styles.vaultItem}
-                          title={p}
-                          onClick={() => { onResumeVault(p); setVaultMenuOpen(false); }}
-                        >
-                          {name}
-                        </button>
-                      );
-                    })}
-                  <div className={styles.vaultDivider} />
-                </>
-              )}
-              <button
-                className={styles.vaultNewBtn}
-                onClick={() => { onOpenVault(); setVaultMenuOpen(false); }}
-              >
-                Open new vault…
-              </button>
-            </div>
-          </>
+          <div className={styles.vaultDropdown}>
+            {recentVaults.filter((p) => p !== vaultPath).length > 0 && (
+              <>
+                <div className={styles.vaultDropdownLabel}>Recent vaults</div>
+                {recentVaults
+                  .filter((p) => p !== vaultPath)
+                  .map((p) => {
+                    const name = p.split("/").filter(Boolean).pop() ?? p;
+                    return (
+                      <button
+                        key={p}
+                        className={styles.vaultItem}
+                        title={p}
+                        onClick={() => { onResumeVault(p); setVaultMenuOpen(false); }}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
+                <div className={styles.vaultDivider} />
+              </>
+            )}
+            <button
+              className={styles.vaultNewBtn}
+              onClick={() => { onOpenVault(); setVaultMenuOpen(false); }}
+            >
+              Open new vault…
+            </button>
+          </div>
         )}
       </div>
 
       {/* Right tools */}
       <div className={styles.tools}>
-        <button
-          className={`${styles.sessionPill} ${styles[`sessionPill_${timerStatus}`]}`}
-          onClick={handleTimerClick}
-          title={timerStatus === "stopped" ? "Start session timer" : timerStatus === "running" ? "Pause session timer" : "Resume session timer"}
-        >
-          {timerStatus === "running" && <span className={styles.pulsingDot} aria-hidden="true" />}
-          {timerStatus === "stopped"
-            ? "SESSION"
-            : timerStatus === "running"
-            ? `SESSION · ${formatElapsed(displaySeconds)}`
-            : `PAUSED · ${formatElapsed(displaySeconds)}`}
-        </button>
+        <SessionTime state={sessionTimer} clockFormat={clockFormat} onChange={onSessionTimerChange} />
         <button
           className={`${styles.playerBtn} ${playerWindowOpen ? styles.playerBtnActive : ""}`}
           onClick={onPlayerWindowToggle}

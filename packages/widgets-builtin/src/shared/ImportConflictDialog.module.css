@@ -1,8 +1,5 @@
-.overlay {
-  position: absolute; inset: 0; z-index: 100;
-  background: oklch(0 0 0 / 0.55);
-  display: flex; align-items: center; justify-content: center; padding: 16px;
-}
+/* The overlay is gone - ModalDialog centres this over the whole window rather than inside
+   whichever modal launched it. */
 .dialog {
   background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
   padding: 16px; max-width: 320px; width: 100%;

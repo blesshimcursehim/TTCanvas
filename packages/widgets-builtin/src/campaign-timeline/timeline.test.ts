@@ -60,8 +60,31 @@ describe("mergeTimeline", () => {
     expect(stream.map((s) => s.kind)).toEqual(["event", "entry"]);
   });
 
+  it("sorts newest-first when direction is desc", () => {
+    const entries = [entry("e2", d(1, 1, 5)), entry("e1", d(1, 0, 10))];
+    const events = [event("v1", d(1, 0, 20))];
+    const stream = mergeTimeline(entries, events, def, null, "desc");
+    expect(stream.map((s) => s.id)).toEqual(["e2", "v1", "e1"]);
+  });
+
+  it("keeps the event-before-entry tie-break even when sorting newest-first", () => {
+    const stream = mergeTimeline([entry("e1", d(1, 0, 7))], [event("v1", d(1, 0, 7))], def, null, "desc");
+    expect(stream.map((s) => s.kind)).toEqual(["event", "entry"]);
+  });
+
   it("sorts a later month after an earlier one regardless of day number", () => {
     const stream = mergeTimeline([entry("m1d28", d(1, 0, 28)), entry("m2d02", d(1, 1, 2))], [], def, null);
     expect(stream.map((s) => s.id)).toEqual(["m1d28", "m2d02"]);
+  });
+
+  it("carries a multi-day event's span and leaves single-day events and entries undefined", () => {
+    const events: CalEvent[] = [
+      { id: "single", title: "One day", start: d(1, 0, 5) },
+      { id: "explicit1", title: "Also one", start: d(1, 0, 6), duration: 1 },
+      { id: "festival", title: "Feast", start: d(1, 0, 10), duration: 4 },
+    ];
+    const stream = mergeTimeline([entry("beat", d(1, 0, 1))], events, def, null);
+    const span = Object.fromEntries(stream.map((s) => [s.id, s.durationDays]));
+    expect(span).toEqual({ beat: undefined, single: undefined, explicit1: undefined, festival: 4 });
   });
 });

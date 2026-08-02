@@ -14,7 +14,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 const { pushRecentVault, parentDir, loadAppConfig } = await import("./appConfig");
 type AppConfig = import("./appConfig").AppConfig;
 
-const AI_DEFAULTS = { aiProvider: "ollama" as const, aiBaseUrl: "", aiApiKey: "", aiModel: null, playerWindowX: null, playerWindowY: null, playerWindowW: null, playerWindowH: null, customConditions: [] as import("./appConfig").CustomCondition[], theme: "dark-vellum" as const, accent: "amber" as const, density: "comfortable" as const, reduceMotion: false, trustedModHashes: [] as string[] };
+const AI_DEFAULTS = { aiProvider: "ollama" as const, aiBaseUrl: "", aiApiKey: "", aiModel: null, playerWindowX: null, playerWindowY: null, playerWindowW: null, playerWindowH: null, customConditions: [] as import("./appConfig").CustomCondition[], theme: "dark-vellum" as const, accent: "amber" as const, density: "comfortable" as const, reduceMotion: false, clockFormat: "system" as const, interfaceScale: "normal" as const, playerTextScale: "normal" as const, trustedModHashes: [] as string[] };
 const empty: AppConfig = { recentVaults: [], lastBrowsePath: null, ...AI_DEFAULTS };
 
 describe("pushRecentVault", () => {

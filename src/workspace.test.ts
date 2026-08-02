@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { describe, it, expect } from "vitest";
-import { migrateWorkspace } from "./workspace";
+import { migrateWorkspace, isFutureWorkspaceVersion, workspaceDiskVersion, WORKSPACE_VERSION } from "./workspace";
 
 describe("migrateWorkspace", () => {
   it("returns safe default for null", () => {
@@ -145,5 +145,241 @@ describe("migrateWorkspace", () => {
     expect(result.version).toBe(2);
     expect(result.activeLayout).toBe("Default");
     expect(result.layouts).toEqual({ Default: { widgets: [] } });
+  });
+});
+
+// A file from a newer build (version > 2) must load read-only so autosave never
+// overwrites it (CR-014); everything we understand or already backed up is safe.
+describe("isFutureWorkspaceVersion", () => {
+  it("flags a numeric version above 2", () => {
+    expect(isFutureWorkspaceVersion({ version: 3 })).toBe(true);
+    expect(isFutureWorkspaceVersion({ version: 99 })).toBe(true);
+  });
+
+  it("does not flag versions we understand, or an absent/empty file", () => {
+    expect(isFutureWorkspaceVersion({ version: 2 })).toBe(false);
+    expect(isFutureWorkspaceVersion({ version: 1 })).toBe(false);
+    expect(isFutureWorkspaceVersion({})).toBe(false);
+    expect(isFutureWorkspaceVersion(null)).toBe(false);
+    expect(isFutureWorkspaceVersion(undefined)).toBe(false);
+  });
+
+  it("does not flag a non-numeric version", () => {
+    expect(isFutureWorkspaceVersion({ version: "3" })).toBe(false);
+  });
+});
+
+// The on-disk version has to survive loading separately from the migrated state, whose `version`
+// is always WORKSPACE_VERSION - otherwise a read-only v3 workspace reports itself as v2 in a
+// diagnostics report, which is precisely the case the report exists to explain.
+describe("workspaceDiskVersion", () => {
+  it("returns the version the file actually claims, including a future one", () => {
+    expect(workspaceDiskVersion({ version: 3 })).toBe(3);
+    expect(workspaceDiskVersion({ version: 2 })).toBe(2);
+    expect(workspaceDiskVersion({ version: 1 })).toBe(1);
+  });
+
+  it("returns null when there is no usable version to report", () => {
+    expect(workspaceDiskVersion({})).toBeNull();
+    expect(workspaceDiskVersion({ version: "3" })).toBeNull();
+    expect(workspaceDiskVersion(null)).toBeNull();
+    expect(workspaceDiskVersion(undefined)).toBeNull();
+  });
+
+  it("survives migration, which always normalises state.version to the supported one", () => {
+    const raw = { version: 3, activeLayout: "Default", layouts: {} };
+    expect(migrateWorkspace(raw).version).toBe(WORKSPACE_VERSION);
+    expect(workspaceDiskVersion(raw)).toBe(3);
+  });
+});
+
+// Retired widgets - App.tsx renders an unknown type as a live "Unknown widget type" frame
+// rather than dropping it, so these strips are what stop a removed widget haunting a layout.
+describe("migrateWorkspace - retired widgets", () => {
+  const clock = { id: "w1", type: "session-clock", x: 0, y: 0, width: 260, height: 200, state: {} };
+  const sticky = { id: "w2", type: "sticky-note", x: 10, y: 10, width: 200, height: 150, state: {} };
+
+  it("strips a retired widget from every layout, keeping others", () => {
+    const raw = {
+      version: 2, activeLayout: "Default",
+      layouts: { Default: { widgets: [clock, sticky] }, Combat: { widgets: [sticky, clock] } },
+    };
+    const result = migrateWorkspace(raw);
+    expect(result.layouts["Default"].widgets).toEqual([sticky]);
+    expect(result.layouts["Combat"].widgets).toEqual([sticky]);
+  });
+
+  it("strips the retired singletonStates key, keeping other keys", () => {
+    const raw = {
+      version: 2, activeLayout: "Default", layouts: { Default: { widgets: [] } },
+      singletonStates: { "session-clock": { accumulatedMs: 5000 }, "bestiary": { folders: [] } },
+    };
+    const result = migrateWorkspace(raw);
+    expect(result.singletonStates).toEqual({ "bestiary": { folders: [] } });
+  });
+
+  it("strips the retired type from disabledWidgetTypes, keeping other entries", () => {
+    const raw = {
+      version: 2, activeLayout: "Default", layouts: { Default: { widgets: [] } },
+      disabledWidgetTypes: ["session-clock", "dice-roller"],
+    };
+    expect(migrateWorkspace(raw).disabledWidgetTypes).toEqual(["dice-roller"]);
+  });
+
+  it("strips a retired widget from a v1 workspace (that path never reaches Zod)", () => {
+    const result = migrateWorkspace({ version: 1, widgets: [clock, sticky] });
+    expect(result.layouts["Default"].widgets).toEqual([sticky]);
+  });
+
+  it("is a no-op when no retired types are present", () => {
+    const raw = {
+      version: 2, activeLayout: "Default", layouts: { Default: { widgets: [sticky] } },
+      singletonStates: { "bestiary": { folders: [] } }, disabledWidgetTypes: ["dice-roller"],
+    };
+    const result = migrateWorkspace(raw);
+    expect(result.layouts["Default"].widgets).toEqual([sticky]);
+    expect(result.singletonStates).toEqual({ "bestiary": { folders: [] } });
+    expect(result.disabledWidgetTypes).toEqual(["dice-roller"]);
+  });
+
+  it("keeps version at 2 after a strip", () => {
+    // Pins the deliberate decision not to bump: an older build reading a bumped file would
+    // reset the whole workspace to defaults and save over it a second later.
+    const raw = { version: 2, activeLayout: "Default", layouts: { Default: { widgets: [clock] } } };
+    expect(migrateWorkspace(raw).version).toBe(2);
+  });
+});
+
+describe("migrateWorkspace - sessionTimer", () => {
+  const base = { version: 2, activeLayout: "Default", layouts: { Default: { widgets: [] } } };
+
+  it("defaults sessionTimer when absent (pre-existing saves)", () => {
+    expect(migrateWorkspace(base).sessionTimer).toEqual({ startedAt: null, accumulatedMs: 0 });
+  });
+
+  it("pauses a timer left running, dropping the untimed gap", () => {
+    const raw = { ...base, sessionTimer: { startedAt: 1000, accumulatedMs: 5000 } };
+    expect(migrateWorkspace(raw).sessionTimer).toEqual({ startedAt: null, accumulatedMs: 5000 });
+  });
+
+  it("leaves an already-paused timer untouched", () => {
+    const raw = { ...base, sessionTimer: { startedAt: null, accumulatedMs: 5000 } };
+    expect(migrateWorkspace(raw).sessionTimer).toEqual({ startedAt: null, accumulatedMs: 5000 });
+  });
+
+  it("recovers corrupt sessionTimer fields", () => {
+    const raw = { ...base, sessionTimer: { startedAt: "x", accumulatedMs: "corrupt" } };
+    expect(migrateWorkspace(raw).sessionTimer).toEqual({ startedAt: null, accumulatedMs: 0 });
+  });
+});
+
+describe("migrateWorkspace - npc generator draft", () => {
+  const base = { version: 2, activeLayout: "Default", layouts: { Default: { widgets: [] } } };
+  const draft = { name: "Vex", systemPrompt: "A grim coastal city", locked: { name: true } };
+
+  it("copies the old npc-generator singleton into npc-library's generatorDraft", () => {
+    const raw = { ...base, singletonStates: { "npc-generator": draft, "npc-library": { selectedFile: "npcs/vex.json" } } };
+    const result = migrateWorkspace(raw);
+    expect(result.singletonStates?.["npc-library"]).toEqual({ selectedFile: "npcs/vex.json", generatorDraft: draft });
+  });
+
+  it("falls back to an on-canvas npc-generator widget instance when there's no singleton", () => {
+    const gen = { id: "w1", type: "npc-generator", x: 0, y: 0, width: 320, height: 480, state: draft };
+    const raw = { ...base, layouts: { Default: { widgets: [gen] } } };
+    const result = migrateWorkspace(raw);
+    expect((result.singletonStates?.["npc-library"] as { generatorDraft?: unknown })?.generatorDraft).toEqual(draft);
+  });
+
+  it("does nothing when npc-library already has a draft", () => {
+    const raw = {
+      ...base,
+      singletonStates: { "npc-generator": draft, "npc-library": { generatorDraft: { name: "Bram" } } },
+    };
+    const result = migrateWorkspace(raw);
+    expect((result.singletonStates?.["npc-library"] as { generatorDraft?: unknown })?.generatorDraft).toEqual({ name: "Bram" });
+  });
+
+  it("does nothing when there is no old npc-generator state anywhere", () => {
+    const raw = { ...base, singletonStates: { "npc-library": { selectedFile: null } } };
+    const result = migrateWorkspace(raw);
+    expect(result.singletonStates?.["npc-library"]).toEqual({ selectedFile: null });
+  });
+
+  it("is a no-op when neither npc-generator nor npc-library have ever existed", () => {
+    const result = migrateWorkspace(base);
+    expect(result.singletonStates?.["npc-library"]).toBeUndefined();
+  });
+});
+
+// The rename is the only place in this feature where user data could be destroyed: following the
+// retire-a-widget recipe instead of migrating would delete every item, holding and coin silently.
+describe("migrateWorkspace - inventory renamed to items", () => {
+  const base = { version: 2, activeLayout: "Default", layouts: { Default: { widgets: [] } } };
+  const ledger = {
+    items: [{ id: "i1", name: "Sunblade", kind: "weapon", holdings: [{ holderId: null, qty: 1 }] }],
+    currency: { cp: 0, sp: 0, ep: 0, gp: 12, pp: 0 },
+  };
+
+  it("moves the ledger to the items key and drops the old one", () => {
+    const raw = { ...base, singletonStates: { inventory: ledger } };
+    const result = migrateWorkspace(raw);
+    expect(result.singletonStates?.["items"]).toEqual(ledger);
+    expect(result.singletonStates).not.toHaveProperty("inventory");
+  });
+
+  it("leaves every other singleton key untouched", () => {
+    const raw = { ...base, singletonStates: { inventory: ledger, "party-tracker": { members: [] } } };
+    const result = migrateWorkspace(raw);
+    expect(result.singletonStates?.["party-tracker"]).toEqual({ members: [] });
+  });
+
+  it("rewrites the widget type in every layout, keeping id, geometry and state", () => {
+    const widget = { id: "w1", type: "inventory", x: 10, y: 20, width: 420, height: 480, state: ledger };
+    const raw = {
+      ...base,
+      layouts: { Default: { widgets: [widget] }, Combat: { widgets: [widget] } },
+    };
+    const result = migrateWorkspace(raw);
+    for (const name of ["Default", "Combat"]) {
+      expect(result.layouts[name].widgets[0]).toMatchObject({
+        id: "w1", type: "items", x: 10, y: 20, width: 420, height: 480, state: ledger,
+      });
+    }
+  });
+
+  it("carries a pre-singleton instance ledger across under the new type", () => {
+    // No singletonStates at all: the ledger still lives on the widget instance, which App.tsx's
+    // `singletonStates[type] ?? instance` fallback then finds under "items".
+    const raw = {
+      ...base,
+      layouts: { Default: { widgets: [{ id: "w1", type: "inventory", x: 0, y: 0, width: 420, height: 480, state: ledger }] } },
+    };
+    const result = migrateWorkspace(raw);
+    expect(result.layouts["Default"].widgets[0].type).toBe("items");
+    expect(result.layouts["Default"].widgets[0].state).toEqual(ledger);
+  });
+
+  it("rewrites a disabled-list entry without duplicating or losing others", () => {
+    const raw = { ...base, disabledWidgetTypes: ["inventory", "dice-roller"] };
+    expect(migrateWorkspace(raw).disabledWidgetTypes).toEqual(["items", "dice-roller"]);
+  });
+
+  it("does not list items twice when both names were disabled", () => {
+    const raw = { ...base, disabledWidgetTypes: ["inventory", "items"] };
+    expect(migrateWorkspace(raw).disabledWidgetTypes).toEqual(["items"]);
+  });
+
+  it("keeps an existing items slice when both are present, still dropping the stale one", () => {
+    const newer = { items: [], currency: { cp: 1, sp: 0, ep: 0, gp: 0, pp: 0 } };
+    const raw = { ...base, singletonStates: { inventory: ledger, items: newer } };
+    const result = migrateWorkspace(raw);
+    expect(result.singletonStates?.["items"]).toEqual(newer);
+    expect(result.singletonStates).not.toHaveProperty("inventory");
+  });
+
+  it("is a no-op when neither key has ever existed, inventing no items slice", () => {
+    const result = migrateWorkspace({ ...base, singletonStates: { "dice-roller": {} } });
+    expect(result.singletonStates?.["items"]).toBeUndefined();
+    expect(result.version).toBe(2);
   });
 });

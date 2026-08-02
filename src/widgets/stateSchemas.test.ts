@@ -18,7 +18,8 @@ import {
   parseTimeTrackerState,
   parseRulesReferenceState,
   parseRuleCardsState,
-  parseSessionClockState,
+  parseItemsState,
+  parseMerchantsState,
   parseXpTrackerState,
   parseRollTablesState,
   parseEncounterBuilderState,
@@ -169,6 +170,19 @@ describe("parseInitiativeTrackerState", () => {
     expect(bad.autoAdvanceTime).toBe(true);
     const ok = parseInitiativeTrackerState({ combatants: [], currentId: null, round: 1, showOnPlayer: false, autoAdvanceTime: true, roundSeconds: 10 }) as { roundSeconds: number };
     expect(ok.roundSeconds).toBe(10);
+  });
+
+  it("keeps the encounter snapshot through a re-parse (strip-mode field must be declared)", () => {
+    const enc = { id: "e1", name: "Goblin Ambush", rewardXp: 1200 };
+    const result = parseInitiativeTrackerState({ combatants: [], currentId: null, round: 1, encounter: enc }) as { encounter?: typeof enc };
+    expect(result.encounter).toEqual(enc);
+  });
+
+  it("leaves the encounter absent for an ad-hoc combat, and drops a corrupt one", () => {
+    const none = parseInitiativeTrackerState({ combatants: [], currentId: null, round: 1 }) as { encounter?: unknown };
+    expect(none.encounter).toBeUndefined();
+    const corrupt = parseInitiativeTrackerState({ combatants: [], currentId: null, round: 1, encounter: { name: "no id" } }) as { encounter?: unknown };
+    expect(corrupt.encounter).toBeUndefined();
   });
 });
 
@@ -362,26 +376,70 @@ describe("parseRollTablesState", () => {
   });
 });
 
+type ParsedEnc = { encounters: { rewardXp?: number; members: { source?: { kind: string; id: string }; count: number }[] }[]; selectedId: string | null };
+
 describe("parseEncounterBuilderState", () => {
   it("passes valid state through", () => {
-    const enc = { id: "e1", name: "Ambush", notes: "at the bridge", members: [{ id: "m1", creatureId: "c1", name: "Goblin", count: 4 }] };
-    const result = parseEncounterBuilderState({ encounters: [enc], selectedId: "e1" }) as { encounters: unknown[]; selectedId: string };
+    const enc = {
+      id: "e1", name: "Ambush", notes: "at the bridge", rewardXp: 1200,
+      members: [{ id: "m1", source: { kind: "bestiary", id: "c1" }, name: "Goblin", count: 4 }],
+    };
+    const result = parseEncounterBuilderState({ encounters: [enc], selectedId: "e1" }) as ParsedEnc;
     expect(result.encounters).toEqual([enc]);
     expect(result.selectedId).toBe("e1");
   });
+  it("keeps every source kind, and a party/npc row's fields", () => {
+    const enc = {
+      id: "e1", name: "A",
+      members: [
+        { id: "m1", source: { kind: "party", id: "p1" }, name: "Aria", count: 1, included: false },
+        { id: "m2", source: { kind: "npc", id: "npcs/vex.json" }, name: "Vex", count: 2, kind: "ally", rollHp: true, sharedHp: true },
+      ],
+    };
+    const result = parseEncounterBuilderState({ encounters: [enc], selectedId: null }) as ParsedEnc;
+    expect(result.encounters[0].members).toEqual(enc.members);
+  });
   it("drops encounters missing id and members missing id", () => {
-    const good = { id: "e1", name: "A", members: [{ id: "m1", creatureId: "c1", name: "Goblin", count: 2 }, { creatureId: "c2", name: "no id", count: 1 }] };
+    const good = { id: "e1", name: "A", members: [{ id: "m1", source: { kind: "bestiary", id: "c1" }, name: "Goblin", count: 2 }, { source: { kind: "bestiary", id: "c2" }, name: "no id", count: 1 }] };
     const bad = { name: "no id", members: [] };
-    const result = parseEncounterBuilderState({ encounters: [good, bad], selectedId: null }) as { encounters: { members: unknown[] }[] };
+    const result = parseEncounterBuilderState({ encounters: [good, bad], selectedId: null }) as ParsedEnc;
     expect(result.encounters).toHaveLength(1);
     expect(result.encounters[0].members).toHaveLength(1);
   });
   it("defaults a missing count to 1", () => {
-    const result = parseEncounterBuilderState({ encounters: [{ id: "e1", name: "A", members: [{ id: "m1", creatureId: "c1", name: "Goblin" }] }], selectedId: null }) as { encounters: { members: { count: number }[] }[] };
+    const result = parseEncounterBuilderState({ encounters: [{ id: "e1", name: "A", members: [{ id: "m1", source: { kind: "bestiary", id: "c1" }, name: "Goblin" }] }], selectedId: null }) as ParsedEnc;
     expect(result.encounters[0].members[0].count).toBe(1);
   });
   it("returns default for null", () => {
     expect(parseEncounterBuilderState(null)).toEqual({ encounters: [], selectedId: null });
+  });
+
+  // ── creatureId -> tagged source migration ──
+  it("lifts a legacy creatureId row to a bestiary source and drops the dead field", () => {
+    const legacy = { encounters: [{ id: "e1", name: "A", members: [{ id: "m1", creatureId: "c1", name: "Goblin", count: 4 }] }], selectedId: null };
+    const result = parseEncounterBuilderState(legacy) as ParsedEnc;
+    expect(result.encounters[0].members[0]).toEqual({ id: "m1", source: { kind: "bestiary", id: "c1" }, name: "Goblin", count: 4 });
+  });
+  it("is idempotent - re-parsing its own output loses nothing (WidgetSlot re-parses every render)", () => {
+    const legacy = { encounters: [{ id: "e1", name: "A", rewardXp: 50, members: [{ id: "m1", creatureId: "c1", name: "Goblin", count: 2, groupInit: true }] }], selectedId: null };
+    const once = parseEncounterBuilderState(legacy);
+    const twice = parseEncounterBuilderState(once);
+    expect(twice).toEqual(once);
+  });
+  it("keeps a row whose source is unreadable, as a missing-source row rather than dropping it", () => {
+    const result = parseEncounterBuilderState({
+      encounters: [{ id: "e1", name: "A", members: [{ id: "m1", source: "nonsense", name: "Goblin", count: 1 }] }],
+      selectedId: null,
+    }) as ParsedEnc;
+    expect(result.encounters[0].members).toHaveLength(1);
+    expect(result.encounters[0].members[0].source).toEqual({ kind: "bestiary", id: "" });
+  });
+  it("prefers an existing source over a stale creatureId left alongside it", () => {
+    const result = parseEncounterBuilderState({
+      encounters: [{ id: "e1", name: "A", members: [{ id: "m1", creatureId: "old", source: { kind: "npc", id: "npcs/vex.json" }, name: "Vex", count: 1 }] }],
+      selectedId: null,
+    }) as ParsedEnc;
+    expect(result.encounters[0].members[0].source).toEqual({ kind: "npc", id: "npcs/vex.json" });
   });
 });
 
@@ -453,24 +511,6 @@ describe("parseHandoutGalleryState", () => {
   });
   it("defaults a non-string folder to null", () => {
     expect(parseHandoutGalleryState({ folder: 42 })).toEqual({ folder: null });
-  });
-});
-
-describe("parseSessionClockState", () => {
-  it("passes valid state through", () => {
-    const s = { mode: "timer" as const, running: true, startedAt: 1000, accumulatedMs: 5000, showSeconds: true };
-    expect(parseSessionClockState(s)).toEqual(s);
-  });
-  it("returns default for null", () => {
-    expect(parseSessionClockState(null)).toEqual({ mode: "clock", running: false, startedAt: null, accumulatedMs: 0, showSeconds: false });
-  });
-  it("defaults an invalid mode to 'clock'", () => {
-    const result = parseSessionClockState({ mode: "stopwatch", running: false, startedAt: null, accumulatedMs: 0, showSeconds: false }) as { mode: string };
-    expect(result.mode).toBe("clock");
-  });
-  it("defaults a non-number accumulatedMs to 0", () => {
-    const result = parseSessionClockState({ mode: "timer", running: false, startedAt: null, accumulatedMs: "corrupt", showSeconds: false }) as { accumulatedMs: number };
-    expect(result.accumulatedMs).toBe(0);
   });
 });
 
@@ -570,6 +610,30 @@ describe("parseTimeTrackerState", () => {
     const result = parseTimeTrackerState({ currentDate: null, currentHour: 14, currentMinute: 30, currentSecond: 42, history: [], showOnPlayer: false }) as { currentSecond: number };
     expect(result.currentSecond).toBe(42);
   });
+  it("seeds the four default jumps when the field is absent (pre-jumps saves)", () => {
+    const result = parseTimeTrackerState({ currentDate: null, currentHour: 8, currentMinute: 0, history: [], showOnPlayer: false }) as { jumps: unknown[] };
+    expect(result.jumps).toHaveLength(4);
+  });
+  it("keeps a valid jumps list, dropping only the corrupt entries", () => {
+    const result = parseTimeTrackerState({
+      currentDate: null, currentHour: 8, currentMinute: 0, history: [], showOnPlayer: false,
+      jumps: [
+        { id: "a", label: "Long Rest", amount: 8, unit: "hour" },
+        { id: "b", label: "bad amount", amount: "lots", unit: "hour" },
+        { id: "c", label: "Rewind", amount: -1, unit: "day" },
+        { id: "d", label: "bad unit", amount: 1, unit: "fortnight" },
+      ],
+    }) as { jumps: { id: string }[] };
+    expect(result.jumps.map((j) => j.id)).toEqual(["a", "c"]);
+  });
+  it("respects an intentionally empty jumps list (not seeded back to defaults)", () => {
+    const result = parseTimeTrackerState({ currentDate: null, currentHour: 8, currentMinute: 0, history: [], showOnPlayer: false, jumps: [] }) as { jumps: unknown[] };
+    expect(result.jumps).toEqual([]);
+  });
+  it("falls back to defaults when jumps is a non-array", () => {
+    const result = parseTimeTrackerState({ currentDate: null, currentHour: 8, currentMinute: 0, history: [], showOnPlayer: false, jumps: "oops" }) as { jumps: unknown[] };
+    expect(result.jumps).toHaveLength(4);
+  });
 });
 
 describe("parseRelationshipWebState", () => {
@@ -619,6 +683,270 @@ describe("parseCampaignTimelineState", () => {
     expect(result.entries.map((e) => e.id)).toEqual(["e3"]);
   });
   it("returns default for null", () => {
-    expect(parseCampaignTimelineState(null)).toEqual({ entries: [] });
+    expect(parseCampaignTimelineState(null)).toEqual({ entries: [], sortDirection: "asc" });
+  });
+  it("passes through a valid sortDirection", () => {
+    const result = parseCampaignTimelineState({ entries: [], sortDirection: "desc" }) as { sortDirection: string };
+    expect(result.sortDirection).toBe("desc");
+  });
+  it("defaults sortDirection to asc when missing or invalid", () => {
+    expect((parseCampaignTimelineState({ entries: [] }) as { sortDirection: string }).sortDirection).toBe("asc");
+    expect((parseCampaignTimelineState({ entries: [], sortDirection: "sideways" }) as { sortDirection: string }).sortDirection).toBe("asc");
+  });
+});
+
+describe("parseItemsState", () => {
+  // Carries every field, so "passes valid state through" doubles as the guard against the strip-mode
+  // trap: this is a z.object that WidgetSlot re-parses each render, so a field nobody declared here
+  // is silently dropped every frame.
+  const item = {
+    id: "i1", name: "Sunblade", kind: "weapon", rarity: "very-rare",
+    valueCp: 500000, weightLb: 3, description: "Radiant.", attuned: true,
+    damage: [{ dice: "1d8+8", type: "piercing" }, { dice: "1d6", type: "thunder" }],
+    versatileDice: "1d10", enchantment: 3, range: "5 ft", armourClass: "",
+    properties: ["versatile", "finesse"],
+    holdings: [{ holderId: null, qty: 1 }],
+  };
+  const base = {
+    items: [item], currency: { cp: 1, sp: 2, ep: 0, gp: 3, pp: 0 },
+    query: "", kindFilter: null, heldFilter: "all", showWeight: false, carryLimitLb: null,
+  };
+
+  it("passes valid state through", () => {
+    expect(parseItemsState(base)).toEqual(base);
+  });
+
+  it("drops an item with no id rather than inventing one", () => {
+    const result = parseItemsState({ ...base, items: [item, { name: "No id", holdings: [] }] }) as { items: unknown[] };
+    expect(result.items).toHaveLength(1);
+  });
+
+  it("falls back to gear for an unknown kind", () => {
+    const result = parseItemsState({ ...base, items: [{ ...item, kind: "wondrous" }] }) as { items: { kind: string }[] };
+    expect(result.items[0].kind).toBe("gear");
+  });
+
+  it("drops an unknown rarity instead of keeping the item stuck", () => {
+    const result = parseItemsState({ ...base, items: [{ ...item, rarity: "mythic" }] }) as { items: { rarity?: string }[] };
+    expect(result.items[0].rarity).toBeUndefined();
+  });
+
+  it("drops a holding with a non-numeric quantity", () => {
+    const holdings = [{ holderId: "pc1", qty: "many" }, { holderId: null, qty: 2 }];
+    const result = parseItemsState({ ...base, items: [{ ...item, holdings }] }) as { items: { holdings: unknown[] }[] };
+    expect(result.items[0].holdings).toEqual([{ holderId: null, qty: 2 }]);
+  });
+
+  it("keeps the rest of an item when one field is garbage", () => {
+    const result = parseItemsState({ ...base, items: [{ ...item, weightLb: "heavy" }] }) as { items: { name: string; weightLb?: number }[] };
+    expect(result.items[0].name).toBe("Sunblade");
+    expect(result.items[0].weightLb).toBeUndefined();
+  });
+
+  it("zeroes a corrupt coin without wiping the purse", () => {
+    const result = parseItemsState({ ...base, currency: { cp: "lots", sp: 2, ep: 0, gp: 3, pp: 0 } }) as { currency: Record<string, number> };
+    expect(result.currency).toEqual({ cp: 0, sp: 2, ep: 0, gp: 3, pp: 0 });
+  });
+
+  it("resets an unknown kindFilter so nothing filters everything out", () => {
+    const result = parseItemsState({ ...base, kindFilter: "wondrous" }) as { kindFilter: string | null };
+    expect(result.kindFilter).toBeNull();
+  });
+
+  it("keeps damage notation as written, since it is free text and not an enum", () => {
+    const damage = [{ dice: "1d6 per level" }];
+    const result = parseItemsState({ ...base, items: [{ ...item, damage }] }) as { items: { damage?: unknown }[] };
+    expect(result.items[0].damage).toEqual(damage);
+  });
+
+  // The editor adds an empty row and the GM types into it, but state is re-parsed on every render:
+  // rejecting a blank component here would delete the row between the click and the first keystroke.
+  it("keeps a damage component whose dice are still empty, since that is a row mid-edit", () => {
+    const damage = [{ dice: "1d8", type: "piercing" }, { dice: "", type: "fire" }, { type: "cold" }];
+    const result = parseItemsState({ ...base, items: [{ ...item, damage }] }) as { items: { damage?: unknown }[] };
+    expect(result.items[0].damage).toEqual([{ dice: "1d8", type: "piercing" }, { dice: "", type: "fire" }]);
+  });
+
+  // Damage was briefly a single string before it became a list. Nothing shipped with that shape, but
+  // a vault opened by a development build could hold it, and this is a strip-mode object: an
+  // unrecognised value is dropped on the very next render, so the GM would watch it vanish.
+  it("folds the older single-string damage into one component instead of losing it", () => {
+    const result = parseItemsState({ ...base, items: [{ ...item, damage: "1d8+1" }] }) as { items: { damage?: unknown }[] };
+    expect(result.items[0].damage).toEqual([{ dice: "1d8+1" }]);
+  });
+
+  it("drops the non-strings out of a properties list rather than the whole list", () => {
+    const result = parseItemsState({ ...base, items: [{ ...item, properties: ["light", 7, null, "thrown"] }] }) as { items: { properties?: string[] }[] };
+    expect(result.items[0].properties).toEqual(["light", "thrown"]);
+  });
+
+  it("empties a properties field that is not a list at all", () => {
+    const result = parseItemsState({ ...base, items: [{ ...item, properties: "light" }] }) as { items: { properties?: string[]; name: string }[] };
+    expect(result.items[0].properties).toEqual([]);
+    expect(result.items[0].name).toBe("Sunblade");
+  });
+
+  it("returns default for null", () => {
+    expect(parseItemsState(null)).toEqual({
+      items: [], currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+      query: "", kindFilter: null, heldFilter: "all", showWeight: false, carryLimitLb: null,
+    });
+  });
+});
+
+describe("parseItemsState quantity and range guards", () => {
+  const item = { id: "i1", name: "Rations", kind: "gear", holdings: [] as unknown[] };
+  const base = {
+    items: [item], currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+    query: "", kindFilter: null, heldFilter: "all", showWeight: false, carryLimitLb: null,
+  };
+
+  function holdingsOf(holdings: unknown[]): unknown[] {
+    const result = parseItemsState({ ...base, items: [{ ...item, holdings }] }) as { items: { holdings: unknown[] }[] };
+    return result.items[0].holdings;
+  }
+
+  it("drops a fractional quantity rather than flooring it to a phantom holding", () => {
+    expect(holdingsOf([{ holderId: "pc1", qty: 0.5 }])).toEqual([]);
+  });
+
+  it("drops a zero or negative quantity", () => {
+    expect(holdingsOf([{ holderId: "pc1", qty: 0 }, { holderId: "pc2", qty: -3 }])).toEqual([]);
+  });
+
+  it("keeps the valid holdings beside a dropped one", () => {
+    expect(holdingsOf([{ holderId: "pc1", qty: -1 }, { holderId: null, qty: 4 }]))
+      .toEqual([{ holderId: null, qty: 4 }]);
+  });
+
+  it("zeroes a negative or fractional coin", () => {
+    const result = parseItemsState({ ...base, currency: { cp: -5, sp: 1.5, ep: 0, gp: 3, pp: 0 } }) as { currency: Record<string, number> };
+    expect(result.currency).toEqual({ cp: 0, sp: 0, ep: 0, gp: 3, pp: 0 });
+  });
+
+  it("drops a negative or fractional value in copper", () => {
+    const neg = parseItemsState({ ...base, items: [{ ...item, valueCp: -100 }] }) as { items: { valueCp?: number }[] };
+    const frac = parseItemsState({ ...base, items: [{ ...item, valueCp: 12.5 }] }) as { items: { valueCp?: number }[] };
+    expect(neg.items[0].valueCp).toBeUndefined();
+    expect(frac.items[0].valueCp).toBeUndefined();
+  });
+
+  it("allows a fractional weight but not a negative one", () => {
+    const half = parseItemsState({ ...base, items: [{ ...item, weightLb: 0.5 }] }) as { items: { weightLb?: number }[] };
+    const neg = parseItemsState({ ...base, items: [{ ...item, weightLb: -2 }] }) as { items: { weightLb?: number }[] };
+    expect(half.items[0].weightLb).toBe(0.5);
+    expect(neg.items[0].weightLb).toBeUndefined();
+  });
+
+  it("drops a negative carry limit", () => {
+    const result = parseItemsState({ ...base, carryLimitLb: -50 }) as { carryLimitLb: number | null };
+    expect(result.carryLimitLb).toBeNull();
+  });
+});
+
+// App.tsx builds RollTablesContext and InventoryContext off these slices before any widget renders,
+// so a corrupt collection has to come back as an empty array here rather than reaching a .map/for-of
+// at app level, outside every widget error boundary.
+describe("shared-context slices survive corrupt state", () => {
+  it("turns a non-array roll-tables collection into an empty one", () => {
+    const result = parseRollTablesState({ tables: "corrupt", selectedId: null, mode: "roll", history: [] }) as { tables: unknown[] };
+    expect(result.tables).toEqual([]);
+  });
+
+  it("turns a non-array inventory collection into an empty one", () => {
+    const result = parseItemsState({ items: "corrupt" }) as { items: unknown[] };
+    expect(result.items).toEqual([]);
+  });
+
+  it("turns non-array holdings into an empty list instead of a non-iterable", () => {
+    const item = { id: "i1", name: "Rations", kind: "gear", holdings: 7 };
+    const result = parseItemsState({ items: [item] }) as { items: { holdings: unknown[] }[] };
+    expect(result.items[0].holdings).toEqual([]);
+  });
+
+  it("returns usable defaults when a widget has never been opened", () => {
+    expect((parseItemsState(undefined) as { items: unknown[] }).items).toEqual([]);
+    expect((parseRollTablesState(undefined) as { tables: unknown[] }).tables).toEqual([]);
+  });
+});
+
+describe("parseMerchantsState", () => {
+  const merchant = {
+    id: "m1", name: "Dorn's Forge", kind: "blacksmith",
+    owner: "Dorn", ownerRef: "npcs/dorn.json",
+    priceModifier: 1.2, buybackModifier: 0.5, rarities: ["common", "uncommon"],
+    stock: [{ itemId: "i1", qty: 3 }, { itemId: "i2", qty: null }],
+  };
+  const base = { merchants: [merchant], selectedId: "m1", query: "", kindFilter: null };
+
+  it("passes valid state through", () => {
+    expect(parseMerchantsState(base)).toEqual(base);
+  });
+
+  it("drops a merchant with no id rather than inventing one", () => {
+    const result = parseMerchantsState({ ...base, merchants: [{ ...merchant, id: undefined }] }) as { merchants: unknown[] };
+    expect(result.merchants).toEqual([]);
+  });
+
+  it("falls back to general for an unknown kind", () => {
+    const result = parseMerchantsState({ ...base, merchants: [{ ...merchant, kind: "fishmonger" }] }) as { merchants: { kind: string }[] };
+    expect(result.merchants[0].kind).toBe("general");
+  });
+
+  it("drops a stock row with no item reference, keeping its siblings", () => {
+    const stock = [{ itemId: "i1", qty: 1 }, { qty: 2 }, { itemId: "i3", qty: 3 }];
+    const result = parseMerchantsState({ ...base, merchants: [{ ...merchant, stock }] }) as { merchants: { stock: unknown[] }[] };
+    expect(result.merchants[0].stock).toEqual([{ itemId: "i1", qty: 1 }, { itemId: "i3", qty: 3 }]);
+  });
+
+  it("keeps null qty meaning unlimited rather than defaulting it to a number", () => {
+    const result = parseMerchantsState(base) as { merchants: { stock: { qty: number | null }[] }[] };
+    expect(result.merchants[0].stock[1].qty).toBeNull();
+  });
+
+  it("rescues a zero or non-finite price modifier, which would price the shelf at nothing", () => {
+    const bad = [{ ...merchant, priceModifier: 0 }, { ...merchant, id: "m2", priceModifier: "loads" }];
+    const result = parseMerchantsState({ ...base, merchants: bad }) as { merchants: { priceModifier: number }[] };
+    expect(result.merchants.map((m) => m.priceModifier)).toEqual([1, 1]);
+  });
+
+  it("resets an unknown kindFilter so nothing filters everything out", () => {
+    const result = parseMerchantsState({ ...base, kindFilter: "fishmonger" }) as { kindFilter: string | null };
+    expect(result.kindFilter).toBeNull();
+  });
+
+  it("returns default for null", () => {
+    expect(parseMerchantsState(null)).toEqual({
+      merchants: [], selectedId: null, query: "", kindFilter: null,
+    });
+  });
+
+  it("gives a merchant written before rarities existed a usable preset, not an empty list", () => {
+    // An empty list reads as "can never generate anything", which is a silent, confusing default.
+    const { rarities: _rarities, ...legacy } = merchant;
+    const result = parseMerchantsState({ ...base, merchants: [legacy] }) as { merchants: { rarities: string[] }[] };
+    expect(result.merchants[0].rarities).toEqual(["common", "uncommon"]);
+  });
+
+  it("resets a corrupt rarity list to the same preset", () => {
+    const result = parseMerchantsState({
+      ...base, merchants: [{ ...merchant, rarities: ["shiny", 7] }],
+    }) as { merchants: { rarities: string[] }[] };
+    expect(result.merchants[0].rarities).toEqual(["common", "uncommon"]);
+  });
+
+  it("keeps an explicit artifact tick, since that is the GM's call to make", () => {
+    const result = parseMerchantsState({
+      ...base, merchants: [{ ...merchant, rarities: ["artifact"] }],
+    }) as { merchants: { rarities: string[] }[] };
+    expect(result.merchants[0].rarities).toEqual(["artifact"]);
+  });
+
+  it("keeps a stock row's name snapshot", () => {
+    const stock = [{ itemId: "i1", qty: 1, name: "Flametongue" }];
+    const result = parseMerchantsState({
+      ...base, merchants: [{ ...merchant, stock }],
+    }) as { merchants: { stock: { name?: string }[] }[] };
+    expect(result.merchants[0].stock[0].name).toBe("Flametongue");
   });
 });

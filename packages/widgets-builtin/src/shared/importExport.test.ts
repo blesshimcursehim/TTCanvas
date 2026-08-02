@@ -5,7 +5,15 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { describe, it, expect } from "vitest";
-import { hashContent, dedupe, parseImportFile, exportCollection } from "./importExport";
+import {
+  hashContent,
+  dedupe,
+  parseImportFile,
+  exportCollection,
+  buildBundle,
+  readBundle,
+  BUNDLE_VERSION,
+} from "./importExport";
 
 describe("hashContent", () => {
   it("is stable regardless of key order", () => {
@@ -152,5 +160,44 @@ describe("exportCollection", () => {
   it("propagates a cancelled save (false)", async () => {
     const ok = await exportCollection(async () => false, {}, "out.json");
     expect(ok).toBe(false);
+  });
+});
+
+describe("buildBundle / readBundle", () => {
+  const validate = (parsed: unknown): { items: number[] } | null => {
+    const items = (parsed as { items?: unknown }).items;
+    return Array.isArray(items) ? { items: items as number[] } : null;
+  };
+
+  it("round-trips a bundle through build -> JSON -> read", () => {
+    const bundle = buildBundle("ttcanvas-test", { items: [1, 2, 3] });
+    expect(bundle).toEqual({ type: "ttcanvas-test", version: BUNDLE_VERSION, items: [1, 2, 3] });
+    const read = readBundle(JSON.stringify(bundle), "ttcanvas-test", validate);
+    expect(read).toEqual({ items: [1, 2, 3] });
+  });
+
+  it("rejects a bundle whose type is present but wrong", () => {
+    const text = JSON.stringify(buildBundle("ttcanvas-other", { items: [1] }));
+    expect(readBundle(text, "ttcanvas-test", validate)).toBeNull();
+  });
+
+  it("rejects a present-but-non-string type discriminator", () => {
+    // A malformed type (number, null, object) must not slip past to a validator
+    // that doesn't check the type itself.
+    for (const type of [7, null, { x: 1 }, ["a"]]) {
+      const text = JSON.stringify({ type, version: 1, items: [1] });
+      expect(readBundle(text, "ttcanvas-test", validate)).toBeNull();
+    }
+  });
+
+  it("accepts a bundle with no type for back-compat with older exports", () => {
+    const text = JSON.stringify({ version: 1, items: [9] });
+    expect(readBundle(text, "ttcanvas-test", validate)).toEqual({ items: [9] });
+  });
+
+  it("returns null for malformed JSON or a failing validator", () => {
+    expect(readBundle("not json", "ttcanvas-test", validate)).toBeNull();
+    const rightType = JSON.stringify(buildBundle("ttcanvas-test", { nope: true }));
+    expect(readBundle(rightType, "ttcanvas-test", validate)).toBeNull();
   });
 });

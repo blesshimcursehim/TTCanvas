@@ -4,7 +4,7 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import type { CalDate, CalendarDef, IntercalaryPeriod } from "@ttcanvas/core";
+import type { CalDate, CalEvent, CalendarDef, IntercalaryPeriod } from "@ttcanvas/core";
 
 export function validateCalendarDef(def: CalendarDef): string[] {
   const errs: string[] = [];
@@ -163,8 +163,13 @@ export function calDateEq(a: CalDate, b: CalDate): boolean {
     a.intercalaryIdx === b.intercalaryIdx;
 }
 
-// Advance from a given date+time by deltaSeconds (negative rewinds),
-// returning new date+time with seconds carried into minutes/hours/days.
+const SECONDS_PER_DAY = 86400;
+
+// Advance from a given date+time by deltaSeconds (negative rewinds), returning the new date+time with
+// seconds carried into minutes/hours/days. The whole timestamp is clamped at the epoch floor (day 1,
+// 00:00:00) as one value: clamping the date separately from the wrapped time-of-day (as an earlier
+// version did) let a rewind past the start pin the date at day 1 while the clock wrapped forward to
+// 23:xx, so "one hour before day 1 00:30" wrongly read as day 1 23:30 instead of the floor.
 export function advanceTimeSeconds(
   date: CalDate,
   hour: number,
@@ -173,18 +178,16 @@ export function advanceTimeSeconds(
   deltaSeconds: number,
   def: CalendarDef,
 ): { date: CalDate; hour: number; minute: number; second: number } {
-  const totalSec = hour * 3600 + minute * 60 + second + deltaSeconds;
-  const extraDays = Math.floor(totalSec / 86400);
-  const remainingSec = ((totalSec % 86400) + 86400) % 86400;
-  const newHour = Math.floor(remainingSec / 3600);
-  const newMinute = Math.floor((remainingSec % 3600) / 60);
-  const newSecond = remainingSec % 60;
-  const newAbsDay = calDateToAbsDay(date, def) + extraDays;
+  // Absolute seconds since the epoch floor. calDateToAbsDay is 1-based, so day 1 -> 0 days of offset.
+  const abs = (calDateToAbsDay(date, def) - 1) * SECONDS_PER_DAY + hour * 3600 + minute * 60 + second + deltaSeconds;
+  const clamped = Math.max(0, abs);
+  const dayIndex = Math.floor(clamped / SECONDS_PER_DAY);
+  const remainingSec = clamped - dayIndex * SECONDS_PER_DAY;
   return {
-    date: absDayToCalDate(Math.max(1, newAbsDay), def),
-    hour: newHour,
-    minute: newMinute,
-    second: newSecond,
+    date: absDayToCalDate(dayIndex + 1, def),
+    hour: Math.floor(remainingSec / 3600),
+    minute: Math.floor((remainingSec % 3600) / 60),
+    second: remainingSec % 60,
   };
 }
 
@@ -204,13 +207,47 @@ export function advanceTime(
 // All events active on a given day (started on or before, ends on or after).
 export function eventsOnDay(
   date: CalDate,
-  events: import("@ttcanvas/core").CalEvent[],
+  events: CalEvent[],
   def: CalendarDef,
-): import("@ttcanvas/core").CalEvent[] {
+): CalEvent[] {
   const abs = calDateToAbsDay(date, def);
   return events.filter((e) => {
     const start = calDateToAbsDay(e.start, def);
     const end = start + (e.duration ?? 1) - 1;
     return abs >= start && abs <= end;
   });
+}
+
+// Events that *begin* in the half-open day span (prev, current] a forward advance just crossed -
+// the "Festival of Ash begins today" reminders. Empty when the advance stayed on the same day
+// (hours only) or moved backwards (an undo), so neither ever nags. Sorted by start day so a long
+// jump that skips several starts reads in order.
+export function eventsStartingBetween(
+  prev: CalDate,
+  current: CalDate,
+  events: CalEvent[],
+  def: CalendarDef,
+): CalEvent[] {
+  const from = calDateToAbsDay(prev, def);
+  const to = calDateToAbsDay(current, def);
+  if (to <= from) return [];
+  return events
+    .filter((e) => {
+      const start = calDateToAbsDay(e.start, def);
+      return start > from && start <= to;
+    })
+    .sort((a, b) => calDateToAbsDay(a.start, def) - calDateToAbsDay(b.start, def));
+}
+
+// One-line toast summary for the events a forward advance crossed. "begins today" when the single
+// event starts on the day just landed on, otherwise the dated form (a longer jump may have passed
+// its start), and a titles list when several begin at once.
+export function describeCrossedEvents(events: CalEvent[], current: CalDate, def: CalendarDef): string {
+  if (events.length === 1) {
+    const e = events[0];
+    return calDateEq(e.start, current)
+      ? `${e.title} begins today`
+      : `${e.title} begins ${formatCalDate(e.start, def)}`;
+  }
+  return `${events.length} calendar events begin: ${events.map((e) => e.title).join(", ")}`;
 }

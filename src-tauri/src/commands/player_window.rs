@@ -32,6 +32,7 @@ pub async fn open_player_window(
     saved_y: Option<i32>,
     saved_w: Option<u32>,
     saved_h: Option<u32>,
+    text_scale: Option<f64>,
 ) -> Result<(), CommandError> {
     require_main_window(&window)?;
     if let Some(win) = app.get_webview_window("player") {
@@ -42,7 +43,17 @@ pub async fn open_player_window(
     let w = saved_w.unwrap_or(1280) as f64;
     let h = saved_h.unwrap_or(720) as f64;
 
-    let builder = WebviewWindowBuilder::new(&app, "player", WebviewUrl::App("index.html".into()))
+    // The text scale in force at open time rides in on the URL. Emitting it right after build()
+    // instead would race the new webview: an event that arrives before the frontend has finished
+    // registering its listener is dropped, so a saved Large setting would open at normal size.
+    // Tauri's `Url::join` keeps the query string, and its asset protocol ignores it when resolving
+    // the file, so this costs nothing in either dev or a packaged build.
+    let url = match text_scale {
+        Some(scale) if scale.is_finite() && scale > 0.0 => format!("index.html?textScale={scale}"),
+        _ => "index.html".to_string(),
+    };
+
+    let builder = WebviewWindowBuilder::new(&app, "player", WebviewUrl::App(url.into()))
         .title("TTCanvas - Player View")
         .inner_size(w, h)
         .decorations(false)
@@ -80,20 +91,19 @@ pub async fn open_player_window(
     let win_handle = win.clone();
     win.on_window_event(move |event| match event {
         tauri::WindowEvent::CloseRequested { .. } => {
-            if let Some(main) = app_handle.get_webview_window("main") {
-                if let (Ok(pos), Ok(size)) = (win_handle.outer_position(), win_handle.outer_size())
-                {
-                    main.emit(
-                        "player-window-bounds",
-                        PlayerWindowBounds {
-                            x: pos.x,
-                            y: pos.y,
-                            w: size.width,
-                            h: size.height,
-                        },
-                    )
-                    .ok();
-                }
+            if let Some(main) = app_handle.get_webview_window("main")
+                && let (Ok(pos), Ok(size)) = (win_handle.outer_position(), win_handle.outer_size())
+            {
+                main.emit(
+                    "player-window-bounds",
+                    PlayerWindowBounds {
+                        x: pos.x,
+                        y: pos.y,
+                        w: size.width,
+                        h: size.height,
+                    },
+                )
+                .ok();
             }
         }
         tauri::WindowEvent::Destroyed => {

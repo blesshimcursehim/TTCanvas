@@ -6,8 +6,8 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
-import type { WorkspaceState, WidgetInstance } from "@ttcanvas/core";
-import { logWarn } from "./diagnostics/log";
+import { logWarn, type WorkspaceState, type WidgetInstance } from "@ttcanvas/core";
+import { DEFAULT_SESSION_TIMER, reconcileSessionTimer } from "./sessionTimer";
 
 export type { WorkspaceState, WidgetInstance, Layout } from "@ttcanvas/core";
 
@@ -45,8 +45,19 @@ const LayoutSchema = z.object({
   backgroundImage: z.string().optional().catch(undefined),
 });
 
+const SessionTimerSchema = z
+  .object({
+    startedAt: z.number().nullable().catch(null),
+    accumulatedMs: z.number().catch(0),
+  })
+  .catch({ ...DEFAULT_SESSION_TIMER });
+
+/** The workspace schema version this build reads and writes. A file numbered higher than this
+ *  opens read-only rather than being overwritten (see `isFutureWorkspaceVersion`). */
+export const WORKSPACE_VERSION = 2;
+
 const WorkspaceV2Schema = z.object({
-  version: z.literal(2),
+  version: z.literal(WORKSPACE_VERSION),
   activeLayout: z.string().catch("Default"),
   layouts: z
     .record(z.string(), LayoutSchema.catch({ widgets: [] }))
@@ -55,21 +66,58 @@ const WorkspaceV2Schema = z.object({
   showVignette: z.boolean().catch(false),
   singletonStates: z.record(z.string(), z.unknown()).catch({}),
   disabledWidgetTypes: z.array(z.string()).catch([]),
+  sessionTimer: SessionTimerSchema,
 });
 
 // ---------------------------------------------------------------------------
 
 const DEFAULT_WS: WorkspaceState = {
-  version: 2,
+  version: WORKSPACE_VERSION,
   activeLayout: "Default",
   layouts: { Default: { widgets: [] } },
   showGrid: true,
   showVignette: false,
   singletonStates: {},
   disabledWidgetTypes: [],
+  sessionTimer: { ...DEFAULT_SESSION_TIMER },
 };
 
-export function migrateWorkspace(raw: unknown): WorkspaceState {
+/**
+ * Built-in widget types that shipped once and have since been removed. Instances, singleton
+ * state and disabled-list entries for these are stripped from every workspace on load, because
+ * App.tsx renders an unknown type as a live "Unknown widget type" frame rather than dropping it,
+ * so a retired widget would otherwise haunt a saved layout forever.
+ *
+ * Retiring another widget is one line here. Every entry MUST already be unregistered - a type
+ * listed while still registered would silently delete that widget from every layout on next
+ * load. `register.test.ts` pins that.
+ *
+ * This is for RETIREMENT only. A widget that was *renamed* must never be listed here: stripping
+ * deletes its singleton state, which is the widget's entire contents. Rename with a migration
+ * instead - `migrateInventoryToItems` below is the worked example.
+ */
+export const RETIRED_WIDGET_TYPES: readonly string[] = ["session-clock"];
+
+function stripRetiredWidgets(ws: WorkspaceState): WorkspaceState {
+  const retired = (type: string) => RETIRED_WIDGET_TYPES.includes(type);
+  const layouts = Object.fromEntries(
+    Object.entries(ws.layouts).map(([name, layout]) => [
+      name,
+      { ...layout, widgets: layout.widgets.filter((w) => !retired(w.type)) },
+    ])
+  );
+  const singletonStates = Object.fromEntries(
+    Object.entries(ws.singletonStates ?? {}).filter(([type]) => !retired(type))
+  );
+  return {
+    ...ws,
+    layouts,
+    singletonStates,
+    disabledWidgetTypes: (ws.disabledWidgetTypes ?? []).filter((type) => !retired(type)),
+  };
+}
+
+function parseWorkspace(raw: unknown): WorkspaceState {
   if (!raw) {
     return { ...DEFAULT_WS };
   }
@@ -88,9 +136,127 @@ export function migrateWorkspace(raw: unknown): WorkspaceState {
   return { ...DEFAULT_WS };
 }
 
-export async function loadWorkspace(vaultPath: string): Promise<WorkspaceState> {
+// The NPC Generator/Library merge moved the Generator's draft from its own `npc-generator`
+// singleton into NPC Library's own `generatorDraft` field. A workspace saved before that merge
+// has its draft (campaign-context system prompt, locks, in-progress fields) only under the old
+// key, which the merged UI never reads - so without this, that draft would be stranded the
+// moment the old (now-hidden) standalone Generator widget is closed. Runs once, here, because
+// this is the only place both keys are visible together - each widget's own `parseState` only
+// ever sees its own slice. Same "singleton state, falling back to a widget instance" read used
+// throughout src/singletonState.ts, since a pre-singleton workspace may only have the instance.
+function migrateNpcGeneratorDraft(ws: WorkspaceState): WorkspaceState {
+  const ss = ws.singletonStates ?? {};
+  const library = ss["npc-library"] as { generatorDraft?: unknown } | undefined;
+  if (library?.generatorDraft !== undefined) return ws;
+  const oldDraft = ss["npc-generator"]
+    ?? Object.values(ws.layouts).flatMap((l) => l.widgets).find((w) => w.type === "npc-generator")?.state;
+  if (oldDraft === undefined) return ws;
+  return { ...ws, singletonStates: { ...ss, "npc-library": { ...library, generatorDraft: oldDraft } } };
+}
+
+// The Inventory widget became Items: same data, catalogue framing, new type string.
+//
+// Renaming is NOT retiring - do not reach for RETIRED_WIDGET_TYPES here. stripRetiredWidgets
+// *deletes* the singleton key, which for this type is every item, every holding and the shared
+// party purse, silently and on load. This carries the ledger across instead, and rewrites the type
+// on every saved layout so App.tsx doesn't render it as a live "Unknown widget type" frame.
+//
+// Runs here for the same reason migrateNpcGeneratorDraft does: this is the only place both keys,
+// every layout and the disabled list are visible at once - each widget's own parseState only ever
+// sees its own slice.
+function migrateInventoryToItems(ws: WorkspaceState): WorkspaceState {
+  const ss = ws.singletonStates ?? {};
+  const inLayouts = Object.values(ws.layouts).some((l) => l.widgets.some((w) => w.type === "inventory"));
+  const inDisabled = (ws.disabledWidgetTypes ?? []).includes("inventory");
+  if (!("inventory" in ss) && !inLayouts && !inDisabled) return ws;
+
+  // The old key is dropped either way: nothing reads it after the rename, so keeping it would
+  // re-save a second, immediately-stale copy of the ledger forever. A workspace that already has an
+  // `items` slice was written by a build that had migrated, so that newer state wins.
+  const { inventory: legacy, ...rest } = ss;
+  const singletonStates = legacy !== undefined && !("items" in ss) ? { ...rest, items: legacy } : rest;
+
+  const layouts = Object.fromEntries(
+    Object.entries(ws.layouts).map(([name, layout]) => [
+      name,
+      {
+        ...layout,
+        // Rewrites `type` and keeps `state`, so a pre-singleton workspace whose ledger still lives
+        // on the widget instance survives too - App.tsx's `singletonStates[t] ?? instance` fallback
+        // then finds it under the new type.
+        widgets: layout.widgets.map((w) => (w.type === "inventory" ? { ...w, type: "items" } : w)),
+      },
+    ])
+  );
+
+  // Deduped: a workspace listing both would otherwise end up with "items" twice.
+  const disabledWidgetTypes = [
+    ...new Set((ws.disabledWidgetTypes ?? []).map((t) => (t === "inventory" ? "items" : t))),
+  ];
+
+  return { ...ws, layouts, singletonStates, disabledWidgetTypes };
+}
+
+// Every step runs on the *result* of parseWorkspace rather than inside its v2 branch, so they all
+// cover the v1 path too - that branch returns early without ever reaching Zod.
+const MIGRATIONS = [
+  stripRetiredWidgets,
+  reconcileSessionTimer,
+  migrateInventoryToItems,
+  migrateNpcGeneratorDraft,
+] as const;
+
+export function migrateWorkspace(raw: unknown): WorkspaceState {
+  return MIGRATIONS.reduce((ws, step) => step(ws), parseWorkspace(raw));
+}
+
+export interface LoadedWorkspace {
+  state: WorkspaceState;
+  /**
+   * The numeric `version` actually found on disk, or null when it was absent or not a number.
+   * `state.version` is always WORKSPACE_VERSION after migration, so this is the only record of
+   * what the file itself claimed - which is exactly what a diagnostics report needs to say.
+   */
+  diskVersion: number | null;
+  /**
+   * False when the on-disk file was written by a newer build (version > WORKSPACE_VERSION) we
+   * don't understand: we render defaults so the app is usable, but must NOT autosave over
+   * the real file, or opening a vault in an older build would silently destroy it.
+   */
+  persistable: boolean;
+  /** User-facing explanation to surface when `persistable` is false. */
+  notice?: string;
+}
+
+/** The `version` field as it appears on disk, or null if absent or non-numeric. */
+export function workspaceDiskVersion(raw: unknown): number | null {
+  if (!raw || typeof raw !== "object") return null;
+  const version = (raw as { version?: unknown }).version;
+  return typeof version === "number" ? version : null;
+}
+
+// A numeric version above the one we can parse means the file came from a newer
+// build. Everything else (absent/1/2, or a completely malformed file the Rust
+// side already backed up) is safe to overwrite once loaded.
+export function isFutureWorkspaceVersion(raw: unknown): boolean {
+  const version = workspaceDiskVersion(raw);
+  return version !== null && version > WORKSPACE_VERSION;
+}
+
+export async function loadWorkspace(vaultPath: string): Promise<LoadedWorkspace> {
   const raw = await invoke<unknown>("load_workspace", { vaultPath });
-  return migrateWorkspace(raw);
+  const state = migrateWorkspace(raw);
+  const diskVersion = workspaceDiskVersion(raw);
+  if (isFutureWorkspaceVersion(raw)) {
+    return {
+      state,
+      diskVersion,
+      persistable: false,
+      notice:
+        "This vault was saved by a newer version of TTCanvas. It's open read-only so your changes here won't overwrite it - update TTCanvas to edit it.",
+    };
+  }
+  return { state, diskVersion, persistable: true };
 }
 
 export function saveWorkspace(vaultPath: string, state: WorkspaceState): Promise<void> {

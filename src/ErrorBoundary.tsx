@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { Component, type ReactNode } from "react";
-import { logError } from "./diagnostics/log";
+import { logError } from "@ttcanvas/core";
 import { revealLogFile } from "./diagnostics/diagnostics";
 
 interface State { error: Error | null }

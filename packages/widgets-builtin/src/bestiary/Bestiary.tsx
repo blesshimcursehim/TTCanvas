@@ -5,12 +5,16 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useIT, useVault, pushCharacterScene } from "@ttcanvas/core";
+import { useIT, useVault, pushCharacterScene, logError } from "@ttcanvas/core";
 import type { BestiaryState, BestiaryEntry, BestiaryFolder } from "./types";
 import { CreatureSheetModal } from "./CreatureSheetModal";
-import { setActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
+import { setActiveTokenDrag, clearActiveTokenDrag, placeTokenAtCenter } from "../shared/tokenDrag";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
-import { dedupe, hashContent, parseImportFile, exportCollection, type DedupeResult } from "../shared/importExport";
+import { dedupe, hashContent, readBundle, buildBundle, exportCollection, type DedupeResult } from "../shared/importExport";
+import { pullSingletonBundle } from "../shared/crossVaultPull";
+import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./Bestiary.module.css";
 
 const FOE_COLOR = "oklch(0.55 0.20 25)";
@@ -92,7 +96,6 @@ export function Bestiary({ state, onChange }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState("");
   const renameRef = useRef<HTMLInputElement>(null);
-  const importInputRef = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [exportFlashId, setExportFlashId] = useState<string | null>(null);
   const [pendingImport, setPendingImport] = useState<{
@@ -107,7 +110,10 @@ export function Bestiary({ state, onChange }: Props) {
     filename: string,
     flashId: string,
   ) => {
-    const payload = { version: 1, entries: entriesToExport, folders: foldersToExport };
+    const payload = buildBundle("ttcanvas-bestiary", {
+      entries: entriesToExport,
+      folders: foldersToExport,
+    });
     const saved = await exportCollection(vault.saveTextFile, payload, filename);
     if (saved) {
       setExportFlashId(flashId);
@@ -127,54 +133,82 @@ export function Bestiary({ state, onChange }: Props) {
     exportEntries(entriesToExport, foldersToExport, `${folder.name.replace(/\s+/g, "-").toLowerCase()}.creature.json`, folder.id);
   }
 
-  function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
+  function exportAll() {
+    // Empty flashId: no per-row button to flash for a whole-library export.
+    exportEntries(entries, folders, "bestiary.creature.json", "");
+  }
+
+  async function handleImport(file: File) {
     setImportError(null);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const parsed = parseImportFile(ev.target?.result as string, validateCreatureBundle);
-      if (!parsed) {
-        setImportError("Not a valid creature file - missing entries array or invalid JSON.");
-        return;
-      }
-      const { entries: validEntries, folders: importedFolders, skipped } = parsed;
-      if (skipped > 0 && validEntries.length === 0) {
-        setImportError(`Import failed: no valid entries found (${skipped} skipped due to missing name/type).`);
-        return;
-      }
+    let text: string;
+    try {
+      text = await file.text();
+    } catch (err) {
+      logError("Bestiary: could not read the import file", err);
+      setImportError("Failed to read import file.");
+      return;
+    }
+    handleImportText(text);
+  }
 
-      const folderIdMap = new Map<string, string>();
-      const newFolders: BestiaryFolder[] = [];
-      for (const f of importedFolders) {
-        const mappedParentId = f.parentId !== null ? (folderIdMap.get(f.parentId) ?? null) : null;
-        const existing = state.folders.find(
-          (sf) => sf.name === f.name && sf.parentId === mappedParentId,
-        );
-        if (existing) {
-          folderIdMap.set(f.id, existing.id);
-        } else {
-          const newId = uid();
-          folderIdMap.set(f.id, newId);
-          newFolders.push({ ...f, id: newId, parentId: mappedParentId });
-        }
-      }
+  // Pull this widget's content from another vault: rebuild the export bundle from the
+  // source vault's singleton state and run it through the same import path as a file.
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    return pullSingletonBundle(
+      vault.readForeignSingleton,
+      sourceVault,
+      "bestiary",
+      "ttcanvas-bestiary",
+      (foreign) => {
+        const s = foreign as BestiaryState | undefined;
+        if (!s?.entries?.length) return null;
+        return { entries: s.entries, folders: s.folders ?? [] };
+      },
+      handleImportText,
+    );
+  }
 
-      const remapped: BestiaryEntry[] = validEntries.map((entry) => ({
-        ...entry,
-        folderId: entry.folderId ? (folderIdMap.get(entry.folderId) ?? null) : null,
-      }));
+  function handleImportText(text: string) {
+    setImportError(null);
+    const parsed = readBundle(text, "ttcanvas-bestiary", validateCreatureBundle);
+    if (!parsed) {
+      setImportError("Not a valid creature file - missing entries array or invalid JSON.");
+      return;
+    }
+    const { entries: validEntries, folders: importedFolders, skipped } = parsed;
+    if (skipped > 0 && validEntries.length === 0) {
+      setImportError(`Import failed: no valid entries found (${skipped} skipped due to missing name/type).`);
+      return;
+    }
 
-      const result = dedupe(remapped, state.entries, { idOf: (en) => en.id, contentKeyOf: creatureContentKey });
-      if (result.idConflicts.length > 0 || result.contentDuplicates.length > 0) {
-        setPendingImport({ result, newFolders, skipped });
+    const folderIdMap = new Map<string, string>();
+    const newFolders: BestiaryFolder[] = [];
+    for (const f of importedFolders) {
+      const mappedParentId = f.parentId !== null ? (folderIdMap.get(f.parentId) ?? null) : null;
+      const existing = state.folders.find(
+        (sf) => sf.name === f.name && sf.parentId === mappedParentId,
+      );
+      if (existing) {
+        folderIdMap.set(f.id, existing.id);
       } else {
-        applyImport(result, newFolders, skipped, "skip");
+        const newId = uid();
+        folderIdMap.set(f.id, newId);
+        newFolders.push({ ...f, id: newId, parentId: mappedParentId });
       }
-    };
-    reader.onerror = () => setImportError("Failed to read import file.");
-    reader.readAsText(file);
+    }
+
+    const remapped: BestiaryEntry[] = validEntries.map((entry) => ({
+      ...entry,
+      folderId: entry.folderId ? (folderIdMap.get(entry.folderId) ?? null) : null,
+    }));
+
+    const result = dedupe(remapped, state.entries, { idOf: (en) => en.id, contentKeyOf: creatureContentKey });
+    if (result.idConflicts.length > 0 || result.contentDuplicates.length > 0) {
+      setPendingImport({ result, newFolders, skipped });
+    } else {
+      applyImport(result, newFolders, skipped, "skip");
+    }
   }
 
   function applyImport(
@@ -263,7 +297,13 @@ export function Bestiary({ state, onChange }: Props) {
     // creature. Leaving it unset lets CombatantRow fall back to the combatant's own unique id, so
     // adding "Goblin" twice yields two independently map-linkable combatants instead of one shared
     // identity (which broke map-token dedup and the initiative spotlight for repeated creatures).
-    itCtx.addCombatant({ name: entry.name, initiative: 0, hp: entry.hp, maxHp: entry.hp, ac: entry.ac, kind: "foe", portraitPath: entry.portrait });
+    // templateId *does* carry entry.id, deliberately - it's a non-exclusive link back to this
+    // Bestiary entry (every repeated instance shares it), not an individual identity, so it doesn't
+    // reintroduce the dedup/spotlight bug sourceId had.
+    itCtx.addCombatant({
+      name: entry.name, initiative: 0, hp: entry.hp, maxHp: entry.hp, ac: entry.ac, kind: "foe",
+      portraitPath: entry.portrait, templateId: entry.id,
+    });
   }
 
   // ── Folder ops ────────────────────────────────────────
@@ -325,14 +365,16 @@ export function Bestiary({ state, onChange }: Props) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <button className={styles.importBtn} onClick={() => importInputRef.current?.click()} title="Import .creature.json">Import</button>
-        <input ref={importInputRef} type="file" accept=".json,.creature.json,.bestiary.json" style={{ display: "none" }} onChange={handleImport} />
         <button className={styles.addBtn} onClick={handleAddNew}>+ Add</button>
       </div>
 
-      {importError && (
-        <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
-      )}
+      <WidgetSettingsCog>
+        <CollectionIO onImportFile={handleImport} onExportAll={exportAll} exportDisabled={entries.length === 0} onError={setImportError} />
+        <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
+        {importError && (
+          <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
+        )}
+      </WidgetSettingsCog>
 
       {/* Type filter chips */}
       <div className={styles.typeChips}>
@@ -541,6 +583,11 @@ function BestiaryCard({ entry, exportFlash, onSelect, onExport, onCast }: CardPr
     e.stopPropagation();
   }
 
+  // The keyboard equivalent of dragging the portrait onto the map - same data as handleDragStart.
+  function handlePlaceAtCenter() {
+    placeTokenAtCenter({ sourceId: entry.id, label: entry.name, color: FOE_COLOR, portraitPath: entry.portrait, kind: "enemy" });
+  }
+
   return (
     <div className={styles.cardWrap}>
       <button className={styles.card} onClick={onSelect}>
@@ -585,6 +632,17 @@ function BestiaryCard({ entry, exportFlash, onSelect, onExport, onCast }: CardPr
       >
         {exportFlash ? "✓" : "⬇"}
       </button>
+      <button
+        className={styles.cardMapBtn}
+        onClick={(e) => { e.stopPropagation(); handlePlaceAtCenter(); }}
+        title={`Place ${entry.name} at map center`}
+        aria-label={`Place ${entry.name} at map center`}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="10" r="4" />
+          <path d="M12 14v6M9 20h6" />
+        </svg>
+      </button>
     </div>
   );
 }
@@ -599,6 +657,11 @@ function FlatRow({ entry, exportFlash, onOpen, onExport, onCast }: FlatRowProps)
     e.dataTransfer.setData("text/plain", "ttcanvas-token");
     e.dataTransfer.effectAllowed = "copy";
     e.stopPropagation();
+  }
+
+  // The keyboard equivalent of dragging the portrait onto the map - same data as handleDragStart.
+  function handlePlaceAtCenter() {
+    placeTokenAtCenter({ sourceId: entry.id, label: entry.name, color: FOE_COLOR, portraitPath: entry.portrait, kind: "enemy" });
   }
 
   return (
@@ -648,6 +711,17 @@ function FlatRow({ entry, exportFlash, onOpen, onExport, onCast }: FlatRowProps)
         title={exportFlash ? "Saved ✓" : "Export as .creature.json"}
       >
         {exportFlash ? "✓" : "⬇"}
+      </button>
+      <button
+        className={styles.flatRowMap}
+        onClick={(e) => { e.stopPropagation(); handlePlaceAtCenter(); }}
+        title={`Place ${entry.name} at map center`}
+        aria-label={`Place ${entry.name} at map center`}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="10" r="4" />
+          <path d="M12 14v6M9 20h6" />
+        </svg>
       </button>
     </div>
   );

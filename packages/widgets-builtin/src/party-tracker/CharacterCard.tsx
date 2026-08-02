@@ -7,8 +7,9 @@
 import { useState, useEffect } from "react";
 import type { PartyMember } from "./types";
 import { useVault, pushCharacterScene } from "@ttcanvas/core";
+import { currencyOf, withCurrency } from "./currency";
 import { CropModal } from "./CropModal";
-import { setActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
+import { setActiveTokenDrag, clearActiveTokenDrag, placeTokenAtCenter } from "../shared/tokenDrag";
 import { mimeForImageExt } from "../shared/mime";
 import styles from "./CharacterCard.module.css";
 
@@ -177,8 +178,8 @@ export function CharacterCard({ member, onChange, onOpenSheet }: Props) {
   async function handleCropConfirm(croppedDataUrl: string, fullDataUrl: string) {
     setCropDataUrl(null);
     if (!vault.vaultPath) return;
-    await vault.writeFileBase64(`${vault.vaultPath}/portraits`, `${member.id}.jpg`, croppedDataUrl.split(",")[1]);
-    await vault.writeFileBase64(`${vault.vaultPath}/portraits`, `${member.id}-full.jpg`, fullDataUrl.split(",")[1]);
+    await vault.writeFileBase64(`portraits/${member.id}.jpg`, croppedDataUrl.split(",")[1]);
+    await vault.writeFileBase64(`portraits/${member.id}-full.jpg`, fullDataUrl.split(",")[1]);
     patch({ portraitPath: `portraits/${member.id}.jpg`, portraitFullPath: `portraits/${member.id}-full.jpg` });
   }
 
@@ -215,6 +216,11 @@ export function CharacterCard({ member, onChange, onOpenSheet }: Props) {
     setActiveTokenDrag({ sourceId: member.id, label: member.name, color, portraitPath: member.portraitPath ?? undefined, kind: "player" });
     e.dataTransfer.setData("text/plain", "ttcanvas-token");
     e.dataTransfer.effectAllowed = "copy";
+  }
+
+  // The keyboard equivalent of dragging the avatar onto the map - same data as handleDragStart.
+  function handlePlaceAtCenter() {
+    placeTokenAtCenter({ sourceId: member.id, label: member.name, color, portraitPath: member.portraitPath ?? undefined, kind: "player" });
   }
 
   const showDeathSaves = member.hp === 0;
@@ -276,6 +282,17 @@ export function CharacterCard({ member, onChange, onOpenSheet }: Props) {
             title="Open full character sheet"
           >↗</button>
         )}
+        <button
+          className={styles.mapBtn}
+          onClick={handlePlaceAtCenter}
+          title={`Place ${member.name} at map center`}
+          aria-label={`Place ${member.name} at map center`}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="10" r="4" />
+            <path d="M12 14v6M9 20h6" />
+          </svg>
+        </button>
         <div className={styles.acGroup}>
           <svg className={styles.shieldIcon} width="13" height="15" viewBox="0 0 13 15" fill="none">
             <path
@@ -322,12 +339,13 @@ export function CharacterCard({ member, onChange, onOpenSheet }: Props) {
           borderColor="oklch(0.74 0.11 305 / 0.28)"
           onChange={(pp) => patch({ pp })}
         />
+        {/* The same gold as the sheet's purse, not a second tally - see ./currency.ts. */}
         <StatBox
           label="GP"
-          value={member.gp}
+          value={currencyOf(member).gp}
           color="var(--gp)"
           borderColor="oklch(0.82 0.11 90 / 0.28)"
-          onChange={(gp) => patch({ gp })}
+          onChange={(gp) => patch(withCurrency(member, { ...currencyOf(member), gp }))}
         />
       </div>
 

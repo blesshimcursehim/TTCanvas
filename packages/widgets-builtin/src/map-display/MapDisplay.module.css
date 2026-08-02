@@ -454,6 +454,24 @@
 
 .visKindBtn:hover { color: var(--ink); background: var(--surface-3); border-color: var(--accent-line); }
 
+/* Shown only on a pin linked to a Gazetteer place: names the place on hover, unlinks on click. */
+.visUnlinkBtn {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  background: transparent;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.visUnlinkBtn:hover { color: var(--hp); border-color: oklch(0.70 0.13 22 / 0.6); background: oklch(0.70 0.13 22 / 0.12); }
+
 .visBtnOn,
 .visBtnOn:hover:not(:disabled) {
   color: var(--accent-ink, oklch(0.2 0.03 260));
@@ -477,6 +495,13 @@
 @keyframes tokenSpotlightPulse {
   0%, 100% { box-shadow: 0 1px 4px oklch(0 0 0 / 0.5), 0 0 0 2px oklch(0.82 0.17 80 / 0.9); }
   50%      { box-shadow: 0 1px 4px oklch(0 0 0 / 0.5), 0 0 0 7px oklch(0.82 0.17 80 / 0.35); }
+}
+
+/* Selected via click or Tab - arrow keys nudge it, +/- resizes it, Delete removes it. Static (not
+   the spotlight's pulse) and always visible regardless of focus-visible's mouse-click suppression,
+   since selection here is a mode the GM needs to see whether it came from a click or the keyboard. */
+.tokenSelected {
+  box-shadow: 0 1px 4px oklch(0 0 0 / 0.5), 0 0 0 2px var(--accent);
 }
 
 .tokenGhostTag {
@@ -517,6 +542,14 @@
   align-items: center;
   justify-content: center;
   background: oklch(0.12 0.01 264);
+}
+
+/* The viewport is focusable (tabIndex -1) only so selecting an annotation can claim the keyboard,
+   and that focus is always programmatic - which :focus-visible still matches, so the app-wide focus
+   ring would draw a 2px outline around the whole map every time a shape was selected. It is never a
+   tab stop, so there is no keyboard user to strand by suppressing it. */
+.viewportWrap:focus-visible {
+  outline: none;
 }
 
 .mapWrapper {
@@ -995,6 +1028,29 @@
   pointer-events: none;
 }
 
+.tokenRenameInput {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90px;
+  height: 18px;
+  padding: 0 4px;
+  background: var(--surface);
+  border: 1px solid var(--accent-line);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 10px;
+  font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
+  text-align: center;
+  cursor: text;
+}
+
+.tokenRenameInput:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
 .tokenRemove {
   position: absolute;
   top: -6px;
@@ -1297,3 +1353,11 @@
 }
 
 .nudgeBtn:hover { background: var(--surface-2); color: var(--ink); }
+
+/* These suppress the browser's outline but put nothing back, so keyboard focus was invisible on
+   them. The app-wide :focus-visible ring in App.css ties with them on specificity and loses on
+   source order, hence the explicit rule. */
+.sceneRenameInput:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

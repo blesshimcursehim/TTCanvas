@@ -44,7 +44,7 @@ Tauri 2 (Rust backend) + React 19 + TypeScript (strict) + Vite, in a pnpm monore
 
 **Prerequisites**
 
-- **Node.js** LTS (20 or newer) and **pnpm 10** (`npm install -g pnpm`).
+- **Node.js** 24.x and **pnpm 10** (`npm install -g pnpm`).
 - **Rust** stable, via [rustup](https://rustup.rs/) - needed for the Tauri backend.
 - **Linux only** - system libraries for building Tauri:
 

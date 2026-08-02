@@ -5,8 +5,11 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import type { AbilityScores, NamedEntry, SpellcastingBlock } from "@ttcanvas/core";
+import type { NpcGeneratorState } from "../npc-generator/types";
 
-export type NpcRelationship = "ally" | "neutral" | "wary" | "hostile";
+// Lives in core so NpcContext can expose it; re-exported here for the widget's own importers.
+export type { NpcRelationship } from "@ttcanvas/core";
+import type { NpcRelationship } from "@ttcanvas/core";
 
 export interface NpcCustomField {
   label: string;
@@ -38,6 +41,10 @@ export interface ParsedNpc {
   // library metadata
   relationship?: NpcRelationship;
   location?: string;
+  /** Gazetteer location filename ("locations/x.json") this NPC's location is linked to. `location`
+   *  stays the cached/display name (kept fresh from the source when this is set, same convention as
+   *  Gazetteer's own `LinkedEntity`); absent means `location` is plain free text. */
+  locationRef?: string;
   faction?: string;
   customFields?: NpcCustomField[];
   lastSeen?: string;
@@ -74,4 +81,7 @@ export interface ParsedNpc {
 
 export interface NpcLibraryState {
   selectedFile: string | null;
+  // The NPC Generator's absorbed draft (see packages/widgets-builtin/src/npc-generator) - nested
+  // rather than routed through a context, since it's workflow scratch state with no other reader.
+  generatorDraft: NpcGeneratorState;
 }

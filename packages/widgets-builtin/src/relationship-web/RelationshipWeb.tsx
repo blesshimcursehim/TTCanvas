@@ -5,14 +5,16 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { useVault, useParty } from "@ttcanvas/core";
+import { ModalDialog } from "../shared/ModalDialog";
+import { useVault, useParty, useNpcs, useGazetteerLocations, type NpcRef } from "@ttcanvas/core";
 import { autoAccentColor } from "../npc-library/npcFormat";
 import { ConfirmDeleteButton as SharedConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { mimeForImageExt } from "../shared/mime";
+import { readEntitySource, type SourceDoc } from "../shared/wikilinks";
 import type { RelationshipWebState, RelNode, RelEdge, NodeKind, EdgeType } from "./types";
 import { EDGE_TYPES } from "./types";
 import { relaxLayout, seedPosition } from "./layout";
+import { suggestLinks, applySuggestions, type LinkSuggestion } from "./suggest";
 import { WebCanvas } from "./WebCanvas";
 import styles from "./RelationshipWeb.module.css";
 
@@ -21,38 +23,38 @@ interface Props {
   onChange: (state: RelationshipWebState) => void;
 }
 
-interface NpcRef { filename: string; name: string; portrait?: string; }
-
 const FACTION_COLOR = "oklch(0.62 0.13 290)";
 
 export function RelationshipWeb({ state, onChange }: Props) {
   const vault = useVault();
   const { members } = useParty();
-  const [npcs, setNpcs] = useState<NpcRef[]>([]);
+  const { npcs } = useNpcs();
+  const { locations } = useGazetteerLocations();
   const [expanded, setExpanded] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [showSuggest, setShowSuggest] = useState(false);
   const [linking, setLinking] = useState(false);
   const [linkSource, setLinkSource] = useState<string | null>(null);
 
-  // Load NPC Library names + portraits so linked nodes stay labelled and the picker can list them.
+  // NPC notes, read directly (not part of the lightweight NpcContext projection), so wikilink
+  // mentions in them can be suggested as links. Re-scanned when the vault or NPC list changes.
+  const [npcNoteSources, setNpcNoteSources] = useState<SourceDoc[]>([]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const files = (await vault.listFiles("json")).filter((f) => f.startsWith("npcs/"));
-        const refs = await Promise.all(files.map(async (filename): Promise<NpcRef | null> => {
-          try {
-            const obj = JSON.parse(await vault.readFile(filename));
-            const name = typeof obj?.name === "string" && obj.name.trim() ? obj.name : filename;
-            const portrait = typeof obj?.portrait === "string" ? obj.portrait : undefined;
-            return { filename, name, portrait };
-          } catch { return null; }
-        }));
-        if (!cancelled) setNpcs(refs.filter((r): r is NpcRef => r !== null));
-      } catch { if (!cancelled) setNpcs([]); }
+      const docs = await Promise.all(npcs.map((n) => readEntitySource(vault, n.filename, "npc", "notes")));
+      if (!cancelled) setNpcNoteSources(docs.filter((d): d is SourceDoc => d !== null));
     })();
     return () => { cancelled = true; };
-  }, [vault, vault.vaultVersion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [npcs, vault.readFile, vault.vaultVersion]);
+
+  // Links the graph doesn't already record, derived from NPC faction/location metadata, Gazetteer's
+  // own linked NPCs, and wikilink mentions in NPC notes.
+  const suggestions = useMemo(
+    () => suggestLinks(npcs, locations, npcNoteSources, state),
+    [npcs, locations, npcNoteSources, state],
+  );
 
   const npcByFile = useMemo(() => new Map(npcs.map((n) => [n.filename, n])), [npcs]);
   const partyById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
@@ -164,6 +166,11 @@ export function RelationshipWeb({ state, onChange }: Props) {
     onChange({ ...state, nodes: state.nodes.map((n) => ({ ...n, ...relaxed.get(n.id) })) });
   }
 
+  function applyAccepted(accepted: LinkSuggestion[]) {
+    if (accepted.length) onChange(applySuggestions(state, accepted));
+    setShowSuggest(false);
+  }
+
   function onNodeActivate(id: string) {
     if (!linking) { onChange({ ...state, selectedId: id }); return; }
     if (!linkSource) { setLinkSource(id); return; }
@@ -183,7 +190,7 @@ export function RelationshipWeb({ state, onChange }: Props) {
   // ── Render pieces ──
   const toolbar = (
     <div className={styles.toolbar}>
-      <button className={styles.toolBtn} onClick={() => setShowAdd((v) => !v)} aria-pressed={showAdd}>+ Node</button>
+      <button className={styles.toolBtn} onClick={() => { setShowAdd((v) => !v); setShowSuggest(false); }} aria-pressed={showAdd}>+ Node</button>
       <button
         className={`${styles.toolBtn} ${linking ? styles.toolActive : ""}`}
         onClick={toggleLink}
@@ -194,6 +201,15 @@ export function RelationshipWeb({ state, onChange }: Props) {
         + Link
       </button>
       <button className={styles.toolBtn} onClick={tidy} disabled={state.nodes.length < 2} title="Auto-arrange the web">Tidy</button>
+      <button
+        className={styles.toolBtn}
+        onClick={() => { setShowSuggest((v) => !v); setShowAdd(false); }}
+        aria-pressed={showSuggest}
+        disabled={suggestions.length === 0}
+        title={suggestions.length === 0 ? "No new links to suggest from your NPCs" : "Suggest links from NPC faction and location"}
+      >
+        Suggest{suggestions.length ? ` (${suggestions.length})` : ""}
+      </button>
       <span className={styles.spacer} />
       <button
         className={styles.toolBtn}
@@ -214,6 +230,10 @@ export function RelationshipWeb({ state, onChange }: Props) {
       onAdd={addNode}
       onClose={() => setShowAdd(false)}
     />
+  );
+
+  const suggestPanel = showSuggest && (
+    <SuggestPanel suggestions={suggestions} onApply={applyAccepted} onClose={() => setShowSuggest(false)} />
   );
 
   // Resolve an edge endpoint's name, tolerating a dangling id (e.g. from loaded state) rather than
@@ -259,6 +279,7 @@ export function RelationshipWeb({ state, onChange }: Props) {
       )}
       {linking && <div className={styles.linkHint}>{linkSource ? "Click the second node to connect" : "Click the first node"}</div>}
       {addPanel}
+      {suggestPanel}
       {inspector}
     </div>
   );
@@ -266,11 +287,10 @@ export function RelationshipWeb({ state, onChange }: Props) {
   const body = <>{toolbar}{stage}</>;
 
   if (expanded) {
-    return createPortal(
-      <div className={styles.scrim}>
+    return (
+      <ModalDialog label="Relationship Web, full screen" onClose={() => setExpanded(false)}>
         <div className={styles.fullWrap}>{body}</div>
-      </div>,
-      document.body,
+      </ModalDialog>
     );
   }
   return <div className={styles.root}>{body}</div>;
@@ -352,6 +372,49 @@ function AddPanel({ npcs, members, nodes, onAdd, onClose }: {
   );
 }
 
+// ── Suggested-links panel ───────────────────────────────────────
+
+/** Review step for "Suggest": lists proposed links from NPC metadata, all pre-checked, and adds
+ * only the ones still ticked when confirmed - so the import never changes the graph silently. */
+function SuggestPanel({ suggestions, onApply, onClose }: {
+  suggestions: LinkSuggestion[];
+  onApply: (accepted: LinkSuggestion[]) => void;
+  onClose: () => void;
+}) {
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(suggestions.map((s) => s.key)));
+  const toggle = (key: string) =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const accepted = suggestions.filter((s) => checked.has(s.key));
+
+  return (
+    <div className={styles.panel}>
+      <div className={styles.panelHead}>
+        <span className={styles.panelTitle}>Suggested links</span>
+        <button className={styles.iconBtn} onClick={onClose} aria-label="Close">✕</button>
+      </div>
+      <p className={styles.suggestHint}>From NPC faction and location fields, Gazetteer-linked places, and [[wikilink]] mentions in NPC notes. Nothing is added until you confirm.</p>
+      <div className={styles.pickList}>
+        {suggestions.map((s) => (
+          <label key={s.key} className={styles.suggestRow}>
+            <input type="checkbox" checked={checked.has(s.key)} onChange={() => toggle(s.key)} />
+            <span className={styles.suggestText}>
+              <strong>{s.fromName}</strong> {s.edgeLabel ?? EDGE_TYPES[s.edgeType].label.toLowerCase()} <strong>{s.target}</strong>
+            </span>
+          </label>
+        ))}
+      </div>
+      <button className={styles.addBtn} onClick={() => onApply(accepted)} disabled={accepted.length === 0}>
+        Add {accepted.length} link{accepted.length === 1 ? "" : "s"}
+      </button>
+    </div>
+  );
+}
+
 // ── Inspectors ──────────────────────────────────────────────────
 
 const KIND_LABEL: Record<NodeKind, string> = { npc: "NPC", pc: "Party", faction: "Faction", custom: "Other" };
@@ -405,7 +468,9 @@ function EdgeInspector({ edge, fromName, toName, onUpdate, onDelete, onClose }: 
         <button className={styles.iconBtn} onClick={onClose} aria-label="Close">✕</button>
       </div>
       <p className={styles.edgeEnds}>{fromName} → {toName}</p>
-      <label className={styles.fieldLabel}>Type</label>
+      {/* A span, not a label: the select carries its own aria-label, so a <label> here would be
+          one that labels nothing. */}
+      <span className={styles.fieldLabel}>Type</span>
       <select className={styles.select} value={edge.type} onChange={(e) => onUpdate(edge.id, { type: e.target.value as EdgeType })} aria-label="Link type">
         {(Object.keys(EDGE_TYPES) as EdgeType[]).map((t) => (
           <option key={t} value={t}>{EDGE_TYPES[t].label}</option>

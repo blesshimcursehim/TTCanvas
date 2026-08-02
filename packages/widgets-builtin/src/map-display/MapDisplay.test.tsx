@@ -61,6 +61,8 @@ function makeMockVault(
   return {
     vaultPath: "/fake/vault",
     vaultVersion: 1,
+    otherVaults: [],
+    readForeignSingleton: vi.fn().mockResolvedValue(undefined),
     readFileBase64,
     listFolderImages: vi.fn().mockResolvedValue(["map1.jpg", "map2.jpg"]),
     openVault: vi.fn().mockResolvedValue(undefined),

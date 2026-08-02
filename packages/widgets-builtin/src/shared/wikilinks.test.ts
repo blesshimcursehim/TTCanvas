@@ -58,9 +58,11 @@ describe("buildBacklinkIndex", () => {
 
 describe("linkGraph", () => {
   const { nodes, edges } = linkGraph(docs);
+  // Node ids are namespaced by kind, so render them "kind:ref" to keep assertions readable.
+  const label = (id: string) => id.replace("\n", ":");
 
-  it("includes only linked refs, carrying each node's kind", () => {
-    expect(nodes.map((n) => `${n.kind}:${n.id}`).sort()).toEqual([
+  it("includes only linked sources, carrying each node's kind and original ref", () => {
+    expect(nodes.map((n) => `${n.kind}:${n.ref}`).sort()).toEqual([
       "note:Citadel of Thorns.md",
       "note:The Gilded Cage.md",
       "npc:npcs/vex.json",
@@ -69,13 +71,26 @@ describe("linkGraph", () => {
   });
 
   it("emits an edge per resolved link from any source kind, de-duped, no self/dangling", () => {
-    const key = (e: { from: string; to: string }) => `${e.from} -> ${e.to}`;
+    const key = (e: { from: string; to: string }) => `${label(e.from)} -> ${label(e.to)}`;
     expect(edges.map(key).sort()).toEqual([
-      "Citadel of Thorns.md -> The Gilded Cage.md",
-      "The Gilded Cage.md -> Citadel of Thorns.md",
-      "locations/citadel.json -> The Gilded Cage.md",
-      "npcs/vex.json -> The Gilded Cage.md",
+      "note:Citadel of Thorns.md -> note:The Gilded Cage.md",
+      "note:The Gilded Cage.md -> note:Citadel of Thorns.md",
+      "npc:npcs/vex.json -> note:The Gilded Cage.md",
+      "place:locations/citadel.json -> note:The Gilded Cage.md",
     ]);
+  });
+
+  it("keeps a note and a rules file sharing a path as separate nodes", () => {
+    // Regression: both are folder-relative paths, so keying the graph by ref alone collapsed them into
+    // one node - dropping an edge and letting a click open the wrong widget.
+    const collided: SourceDoc[] = [
+      { kind: "note", ref: "Target.md", label: "Target", text: "", targetKey: linkKey("Target.md") },
+      { kind: "note", ref: "Grappling.md", label: "Grappling", text: "See [[Target]].", targetKey: linkKey("Grappling.md") },
+      { kind: "rule", ref: "Grappling.md", label: "Grappling", text: "Also see [[Target]]." },
+    ];
+    const g = linkGraph(collided);
+    expect(g.nodes.filter((n) => n.ref === "Grappling.md").map((n) => n.kind).sort()).toEqual(["note", "rule"]);
+    expect(g.edges).toHaveLength(2);
   });
 });
 

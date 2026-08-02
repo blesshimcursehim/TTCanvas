@@ -19,10 +19,23 @@ body {
   color: var(--ink);
 }
 
-/* ── EB Garamond token ─────────────────────────────── */
+/* ── Keyboard focus ─────────────────────────────────
+   The app had no focus style of its own, so keyboard users got whatever the webview drew, and
+   nothing at all wherever a component set `outline: none`. This is the baseline ring for every
+   focusable thing. `:focus-visible` rather than `:focus` keeps it off mouse clicks on buttons,
+   which is why the ring can be this loud without being annoying. A component that suppresses the
+   outline is responsible for putting a ring back with these same tokens. */
+
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* ── Font tokens ─────────────────────────────────── */
 
 :root {
   --font-serif: "EB GaramondVariable", "EB Garamond", Georgia, serif;
+  --font-mono: "JetBrains MonoVariable", "JetBrains Mono", monospace;
 }
 
 /* ── Global scrollbars ─────────────────────────────── */

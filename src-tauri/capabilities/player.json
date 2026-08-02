@@ -4,7 +4,8 @@
   "description": "Capability for the player window",
   "windows": ["player"],
   "permissions": [
-    "core:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
     "log:default"
   ]
 }

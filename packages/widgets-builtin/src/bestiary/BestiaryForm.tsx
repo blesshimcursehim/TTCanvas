@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState } from "react";
-import { createPortal } from "react-dom";
+import { ModalDialog } from "../shared/ModalDialog";
 import { useVault } from "@ttcanvas/core";
 import { CropModal } from "../party-tracker/CropModal";
 import type { BestiaryEntry, BestiaryFolder } from "./types";
@@ -76,13 +76,16 @@ export function BestiaryForm({ initial, folders, onConfirm, onCancel }: Props) {
 
   const flat = flattenFolders(folders, null, 0);
 
-  const modal = (
-    <div className={styles.overlay} onMouseDown={onCancel}>
-      <div className={styles.panel} onMouseDown={(e) => e.stopPropagation()}>
-        <div className={styles.header}>
-          <span className={styles.title}>{initial ? "Edit Creature" : "Add Creature"}</span>
-          <button className={styles.closeBtn} onClick={onCancel}>×</button>
-        </div>
+  const heading = initial ? "Edit Creature" : "Add Creature";
+
+  return (
+    <>
+      <ModalDialog label={heading} onClose={onCancel}>
+        <div className={styles.panel}>
+          <div className={styles.header}>
+            <span className={styles.title}>{heading}</span>
+            <button className={styles.closeBtn} onClick={onCancel} aria-label={`Close ${heading.toLowerCase()}`}>×</button>
+          </div>
 
         <div className={styles.body}>
           {/* Portrait */}
@@ -145,7 +148,8 @@ export function BestiaryForm({ initial, folders, onConfirm, onCancel }: Props) {
             {initial ? "Save" : "Add"}
           </button>
         </div>
-      </div>
+        </div>
+      </ModalDialog>
 
       {cropDataUrl && (
         <CropModal
@@ -154,8 +158,6 @@ export function BestiaryForm({ initial, folders, onConfirm, onCancel }: Props) {
           onCancel={() => setCropDataUrl(null)}
         />
       )}
-    </div>
+    </>
   );
-
-  return createPortal(modal, document.body);
 }

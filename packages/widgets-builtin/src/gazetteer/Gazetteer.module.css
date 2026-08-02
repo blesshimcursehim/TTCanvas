@@ -82,13 +82,6 @@
   font-size: 10px; color: var(--ink-4); border-top: 1px solid var(--line-soft); flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between; gap: 4px;
 }
-.footerBtns { display: flex; gap: 3px; }
-.fbtn {
-  padding: 2px 7px; background: transparent; border: 1px solid var(--line); border-radius: 4px;
-  color: var(--ink-3); font-size: 10px; cursor: pointer; font-family: "JetBrains MonoVariable", "JetBrains Mono", monospace;
-}
-.fbtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-.fbtn:disabled { opacity: 0.4; cursor: default; }
 .importError {
   padding: 4px 8px; font-size: 10px; cursor: pointer; flex-shrink: 0;
   background: oklch(0.38 0.14 22 / 0.18); border-top: 1px solid oklch(0.38 0.14 22 / 0.35); color: oklch(0.80 0.12 22);
@@ -232,6 +225,8 @@ button.chipBody:hover { color: var(--accent); }
   width: 100%; text-align: left; cursor: pointer; font-family: inherit;
 }
 .mapHook:hover { border-color: var(--accent-line); color: var(--ink); background: oklch(0.22 0.016 258 / 0.5); }
+/* Already pinned: a solid border reads as "this exists", against the dashed "not placed yet" state. */
+.mapHookPinned { border-style: solid; border-color: var(--accent-line); color: var(--ink-2); }
 
 .detailFooter { padding-top: 6px; border-top: 1px solid var(--line-soft); }
 .deleteBtn { background: transparent; border: none; color: var(--ink-3); font-size: 12px; cursor: pointer; padding: 0; }

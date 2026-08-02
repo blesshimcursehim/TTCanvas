@@ -4,9 +4,10 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
+use crate::commands::backup_file;
 use crate::error::CommandError;
 use crate::ipc_guard::require_main_window;
-use crate::vault_safety::{ensure_contained_dir, verify_contained};
+use crate::vault_safety::{ensure_contained_dir, reject_symlink, verify_contained};
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
@@ -148,9 +149,18 @@ fn load_workspace_impl(vault_path: &str) -> Result<Option<Value>, CommandError> 
     match serde_json::from_str::<Value>(&content) {
         Ok(state) => Ok(Some(state)),
         Err(_) => {
-            // Corrupted JSON - back it up so the user keeps a copy, then start fresh.
+            // Corrupted JSON - back it up so the user keeps a copy, then start
+            // fresh. Use the shared rename-then-copy helper so a cross-device
+            // .ttcanvas dir still preserves a copy, and log if even that fails
+            // rather than silently discarding the only copy (CR-014).
             let bak = path.with_extension("json.bak");
-            let _ = fs::rename(&path, &bak);
+            if !backup_file(&path, &bak) {
+                log::error!(
+                    "workspace: malformed {} could not be backed up before reset; \
+                     the original content may be unrecoverable",
+                    path.display()
+                );
+            }
             Ok(None)
         }
     }
@@ -162,6 +172,10 @@ fn save_workspace_impl(vault_path: &str, state: Value) -> Result<(), CommandErro
     let content = serde_json::to_string_pretty(&state)?;
     // Atomic write: write to a temp file then rename to avoid corruption on crash.
     let tmp = path.with_extension("json.tmp");
+    // ensure_contained_dir verified .ttcanvas itself, but not this fixed
+    // workspace.json.tmp final component - a symlink planted there would be
+    // followed by fs::write out of the vault (CR-011).
+    reject_symlink(&tmp)?;
     fs::write(&tmp, content)?;
     fs::rename(&tmp, &path)?;
     Ok(())

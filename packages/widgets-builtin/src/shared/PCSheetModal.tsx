@@ -5,16 +5,22 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useState } from "react";
-import type { PartyMember, PCCurrency } from "../party-tracker/types";
+import type { PartyMember } from "../party-tracker/types";
 import { SheetChrome } from "./sheet-primitives/SheetChrome";
 import { SectionHead } from "./sheet-primitives/SectionHead";
 import { AbilityGrid } from "./sheet-primitives/AbilityGrid";
+import { RollableStat } from "./sheet-primitives/RollableStat";
 import { NamedEntryList } from "./sheet-primitives/NamedEntryList";
-import type { AbilityScores, SpellSlots } from "@ttcanvas/core";
-import { useVault, pushCharacterScene } from "@ttcanvas/core";
+import type { AbilityScores, SpellSlots, PCCurrency } from "@ttcanvas/core";
+import { useVault, useItems, pushCharacterScene, abilityModifier, proficiencyBonus, CURRENCY_KEYS, formatCoin } from "@ttcanvas/core";
+import { currencyOf, withCurrency } from "../party-tracker/currency";
 import { portraitColor } from "../party-tracker/CharacterCard";
+import { ItemCard } from "./ItemCard";
 import styles from "./PCSheetModal.module.css";
 
+// "Inventory" here is deliberate, and not drift from the Items widget rename: a character genuinely
+// has an inventory, whilst the widget is a catalogue of definitions. Keeping both words is the whole
+// point of that split.
 const TABS = ["Overview", "Abilities", "Combat", "Spellcasting", "Features", "Inventory"] as const;
 type Tab = typeof TABS[number];
 
@@ -30,18 +36,15 @@ const ABILITY_LABELS: Record<keyof AbilityScores, string> = {
   str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA",
 };
 
-const CURRENCY_KEYS: (keyof PCCurrency)[] = ["cp", "sp", "ep", "gp", "pp"];
 const CURRENCY_LABELS: Record<keyof PCCurrency, string> = {
   cp: "Copper", sp: "Silver", ep: "Electrum", gp: "Gold", pp: "Platinum",
 };
 
 const DEFAULT_SCORES: AbilityScores = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
-const DEFAULT_CURRENCY: PCCurrency = { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
 const SPELL_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-function mod(score: number) {
-  const m = Math.floor((score - 10) / 2);
-  return m >= 0 ? `+${m}` : `${m}`;
+function fmtBonus(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`;
 }
 
 interface Props {
@@ -52,10 +55,12 @@ interface Props {
 
 export function PCSheetModal({ member, onSave, onClose }: Props) {
   const vault = useVault();
+  const ledgerItems = useItems().itemsFor(member.id);
   const [tab, setTab] = useState<Tab>("Overview");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<PartyMember>(member);
   const [newEquipItem, setNewEquipItem] = useState("");
+  const [openLedgerId, setOpenLedgerId] = useState<string | null>(null);
 
   function patch(p: Partial<PartyMember>) {
     setDraft((d) => ({ ...d, ...p }));
@@ -84,6 +89,15 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
     const slot = draft.spellcasting?.slots?.[level] ?? { total: 0, used: 0 };
     const used = idx < slot.used ? idx : idx + 1;
     patchSlots(level, { used: Math.min(used, slot.total) });
+  }
+
+  // A saving throw's total bonus: the ability modifier, plus the level-based proficiency bonus when
+  // the character is proficient in that save. Skills stay explicit numbers (the GM types the total),
+  // so proficiency is only computed here, for saves.
+  function saveBonus(key: keyof AbilityScores): number {
+    const score = draft.abilityScores?.[key] ?? 10;
+    const proficient = (draft.savingThrows ?? []).includes(key);
+    return abilityModifier(score) + (proficient && draft.level ? proficiencyBonus(draft.level) : 0);
   }
 
   function patchDeathSaves(field: "successes" | "failures", idx: number) {
@@ -184,6 +198,7 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
             scores={draft.abilityScores ?? DEFAULT_SCORES}
             editing={editing}
             onChange={(s) => patch({ abilityScores: s })}
+            subject={draft.name}
           />
 
           <SectionHead style={{ marginTop: 16 }}>Saving Throws</SectionHead>
@@ -202,19 +217,31 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
                       }}
                     />
                     <span>{ABILITY_LABELS[key]}</span>
-                    {draft.abilityScores && (
-                      <span className={styles.saveBonus}>{mod(draft.abilityScores[key])}</span>
-                    )}
+                    <span className={styles.saveBonus}>{fmtBonus(saveBonus(key))}</span>
                   </label>
                 );
               })}
             </div>
+          ) : draft.savingThrows?.length ? (
+            <div className={styles.saveThrowChips}>
+              {draft.savingThrows.map((s) => {
+                const key = s as keyof AbilityScores;
+                const label = ABILITY_LABELS[key] ?? s;
+                return (
+                  <RollableStat
+                    key={s}
+                    className={styles.saveChip}
+                    bonus={saveBonus(key)}
+                    label={`${label} save`}
+                    subject={draft.name}
+                  >
+                    {label} {fmtBonus(saveBonus(key))}
+                  </RollableStat>
+                );
+              })}
+            </div>
           ) : (
-            <p className={styles.saveThrowText}>
-              {draft.savingThrows?.length
-                ? draft.savingThrows.map((s) => ABILITY_LABELS[s as keyof AbilityScores] ?? s).join(", ")
-                : <em className={styles.empty}>None</em>}
-            </p>
+            <p className={styles.saveThrowText}><em className={styles.empty}>None</em></p>
           )}
 
           <SectionHead style={{ marginTop: 16 }}>Skills</SectionHead>
@@ -237,10 +264,10 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
                         patch({ skills });
                       }}
                     />
+                  ) : bonus != null ? (
+                    <RollableStat className={styles.skillBonus} bonus={bonus} label={skill} subject={draft.name} />
                   ) : (
-                    <span className={styles.skillBonus}>
-                      {bonus != null ? (bonus >= 0 ? `+${bonus}` : `${bonus}`) : "-"}
-                    </span>
+                    <span className={styles.skillBonus}>-</span>
                   )}
                 </div>
               );
@@ -474,11 +501,11 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
                     className={styles.currencyInput}
                     type="number"
                     min={0}
-                    value={draft.currency?.[key] ?? 0}
-                    onChange={(e) => patch({ currency: { ...(draft.currency ?? DEFAULT_CURRENCY), [key]: Number(e.target.value) || 0 } })}
+                    value={currencyOf(draft)[key]}
+                    onChange={(e) => patch(withCurrency(draft, { ...currencyOf(draft), [key]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
                   />
                 ) : (
-                  <span className={styles.currencyValue}>{draft.currency?.[key] ?? 0}</span>
+                  <span className={styles.currencyValue}>{currencyOf(draft)[key]}</span>
                 )}
                 <span className={styles.currencyName}>{CURRENCY_LABELS[key]}</span>
               </label>
@@ -538,6 +565,44 @@ export function PCSheetModal({ member, onSave, onClose }: Props) {
                 }}
               >+</button>
             </div>
+          )}
+
+          {/* Items the Items widget has assigned to this character. Read-only and driven by
+              `member.id`, never `draft`, so a save can never fold them into `equipment: string[]` -
+              that would flatten away rarity, value and weight, and duplicate them permanently.
+              Renders nothing at all when the ledger holds none, so sheets look unchanged without it. */}
+          {ledgerItems.length > 0 && (
+            <>
+              <SectionHead style={{ marginTop: 14 }}>Party ledger</SectionHead>
+              <div className={styles.ledgerList}>
+                {/* The whole row opens the card here, unlike the merchant's shelf: there is nothing
+                    else on it to click, so anything smaller than the row would just be a smaller
+                    target. */}
+                {ledgerItems.map((i) => {
+                  const open = openLedgerId === i.id;
+                  return (
+                    <div key={i.id}>
+                      <button
+                        className={styles.ledgerRow}
+                        aria-expanded={open}
+                        onClick={() => setOpenLedgerId(open ? null : i.id)}
+                      >
+                        <span className={styles.ledgerQty}>{i.qty}</span>
+                        <span className={styles.ledgerName}>
+                          {i.name}
+                          <span className={styles.ledgerMeta}>
+                            {i.kind}{i.rarity ? ` · ${i.rarity.replace("-", " ")}` : ""}
+                            {i.weightLb ? ` · ${i.weightLb} lb` : ""}
+                          </span>
+                        </span>
+                        <span className={styles.ledgerValue}>{i.valueCp ? formatCoin(i.valueCp) : ""}</span>
+                      </button>
+                      {open && <div className={styles.ledgerCard}><ItemCard item={i} qty={i.qty} /></div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       )}

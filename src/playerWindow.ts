@@ -13,12 +13,21 @@ export interface PlayerWindowBounds {
   h: number;
 }
 
-export function openPlayerWindow(savedBounds?: { x: number | null; y: number | null; w: number | null; h: number | null }): Promise<void> {
+/**
+ * `textScale` is the player window's text scale at open time. It goes in here rather than being
+ * emitted once the window is up, because the new webview can't listen for it until it has mounted -
+ * a push sent before that lands nowhere. Later changes still ride the "text-scale" event.
+ */
+export function openPlayerWindow(
+  savedBounds?: { x: number | null; y: number | null; w: number | null; h: number | null },
+  textScale?: number,
+): Promise<void> {
   return invoke("open_player_window", {
     savedX: savedBounds?.x ?? null,
     savedY: savedBounds?.y ?? null,
     savedW: savedBounds?.w ?? null,
     savedH: savedBounds?.h ?? null,
+    textScale: textScale ?? null,
   });
 }
 

@@ -420,21 +420,14 @@
 
 /* ── Link graph (full-screen) ───────────────────────────────── */
 
-.graphScrim {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  background: oklch(0.1 0.01 258 / 0.72);
-  backdrop-filter: blur(3px);
-  display: flex;
-  padding: 3vh 3vw;
-  box-sizing: border-box;
-}
+/* The scrim is gone - ModalDialog's <dialog> dims and centres this. The 3vh/3vw inset the scrim's
+   padding used to give is now the wrap's own size. */
 
 .graphWrap {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  width: 94vw;
+  height: 94vh;
   min-height: 0;
   background: var(--bg);
   border: 1px solid var(--line);
@@ -499,4 +492,12 @@
   justify-content: center;
   color: var(--ink-4);
   font-size: 13px;
+}
+
+/* These suppress the browser's outline but put nothing back, so keyboard focus was invisible on
+   them. The app-wide :focus-visible ring in App.css ties with them on specificity and loses on
+   source order, hence the explicit rule. */
+.editor:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }

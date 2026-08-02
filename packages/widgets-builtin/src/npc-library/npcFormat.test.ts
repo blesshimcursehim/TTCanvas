@@ -8,10 +8,12 @@ import { describe, it, expect } from "vitest";
 import {
   parseNpcJson,
   serializeNpcJson,
+  npcMetaValue,
   parseLegacyMd,
   nameToFilename,
   mdFilenameToJson,
   slugFromFilename,
+  uniqueNpcFilename,
   autoAccentColor,
   npcInitials,
 } from "./npcFormat";
@@ -124,6 +126,25 @@ describe("nameToFilename", () => {
   });
 });
 
+describe("uniqueNpcFilename", () => {
+  it("returns the plain slug when nothing collides", () => {
+    expect(uniqueNpcFilename("Gornak the Orc", [])).toBe("npcs/gornak-the-orc.json");
+  });
+
+  it("appends -1 when the base filename is already taken", () => {
+    expect(uniqueNpcFilename("Gornak", ["npcs/gornak.json"])).toBe("npcs/gornak-1.json");
+  });
+
+  it("keeps incrementing past multiple existing suffixes", () => {
+    const existing = ["npcs/gornak.json", "npcs/gornak-1.json", "npcs/gornak-2.json"];
+    expect(uniqueNpcFilename("Gornak", existing)).toBe("npcs/gornak-3.json");
+  });
+
+  it("accepts a Set as well as an array", () => {
+    expect(uniqueNpcFilename("Gornak", new Set(["npcs/gornak.json"]))).toBe("npcs/gornak-1.json");
+  });
+});
+
 describe("mdFilenameToJson", () => {
   it("replaces .md extension with .json", () => {
     expect(mdFilenameToJson("npcs/guard.md")).toBe("npcs/guard.json");
@@ -186,5 +207,32 @@ describe("npcInitials", () => {
   it("is uppercase", () => {
     const result = npcInitials("alice bob");
     expect(result).toBe(result.toUpperCase());
+  });
+});
+
+describe("npcMetaValue", () => {
+  it("reads a direct field", () => {
+    const npc = parseNpcJson("npcs/a.json", JSON.stringify({ name: "A", location: "Waterdeep", customFields: [] }));
+    expect(npcMetaValue(npc, "location")).toBe("Waterdeep");
+  });
+
+  it("falls back to a same-named custom field, case-insensitively", () => {
+    // A bare `faction` with no customFields is migrated into a "Faction" custom field by parseNpcJson.
+    const npc = parseNpcJson("npcs/a.json", JSON.stringify({ name: "A", faction: "Zhentarim" }));
+    expect(npc.faction).toBeUndefined(); // migrated away
+    expect(npcMetaValue(npc, "faction")).toBe("Zhentarim");
+  });
+
+  it("prefers the field over a custom field when both are set", () => {
+    const npc = parseNpcJson("npcs/a.json", JSON.stringify({
+      name: "A", faction: "Harpers", customFields: [{ label: "Faction", value: "Zhentarim" }],
+    }));
+    expect(npcMetaValue(npc, "faction")).toBe("Harpers");
+  });
+
+  it("is undefined when neither is present or the value is blank", () => {
+    const npc = parseNpcJson("npcs/a.json", JSON.stringify({ name: "A", customFields: [{ label: "Faction", value: "  " }] }));
+    expect(npcMetaValue(npc, "faction")).toBeUndefined();
+    expect(npcMetaValue(npc, "location")).toBeUndefined();
   });
 });

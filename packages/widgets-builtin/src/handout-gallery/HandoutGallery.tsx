@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useVault, pushHandoutScene } from "@ttcanvas/core";
+import { useVault, pushHandoutScene, logWarn, logError } from "@ttcanvas/core";
 import type { HandoutGalleryState } from "./types";
 import { mimeForImageExt } from "../shared/mime";
 import styles from "./HandoutGallery.module.css";
@@ -31,7 +31,8 @@ export function HandoutGallery({ state, onChange }: Props) {
     if (!state.folder) { setFiles([]); return; }
     try {
       setFiles((await vault.listFolderImages(state.folder)).sort());
-    } catch {
+    } catch (err) {
+      logError(`Handouts: could not list folder "${state.folder}"`, err);
       setFiles([]);
     }
   }, [state.folder, vault]);
@@ -50,7 +51,8 @@ export function HandoutGallery({ state, onChange }: Props) {
       try {
         const b64 = await vault.readBinaryFile(`${folder}/${f}`);
         if (!cancelled) setArt((prev) => ({ ...prev, [f]: `data:${mimeForImageExt(f)};base64,${b64}` }));
-      } catch {
+      } catch (err) {
+        logWarn(`Handouts: could not read image "${f}"`, err);
         if (!cancelled) setArt((prev) => ({ ...prev, [f]: "" }));
       }
     });

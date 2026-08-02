@@ -4,7 +4,7 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CalDate, CalEvent, CalendarState } from "@ttcanvas/core";
 import { useCalendar } from "@ttcanvas/core";
 import {
@@ -17,11 +17,13 @@ interface Props {
   state: CalendarState;
   onChange: (s: CalendarState) => void;
   onEdit: () => void;
+  /** When set, navigate the view to this date's month (does not change the in-game date). */
+  focusDate?: CalDate | null;
 }
 
 function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
 
-export function CalendarView({ state, onChange, onEdit }: Props) {
+export function CalendarView({ state, onChange, onEdit, focusDate }: Props) {
   const { def, events } = state;
   const calCtx = useCalendar();
   const today = calCtx.currentDate;
@@ -36,6 +38,18 @@ export function CalendarView({ state, onChange, onEdit }: Props) {
   const [newTitle, setNewTitle] = useState("");
   const [newNote, setNewNote] = useState("");
   const [newDuration, setNewDuration] = useState("1");
+
+  // Jump the view to a requested date's month (a searched calendar event), without touching the
+  // in-game date. An intercalary date maps to the month it follows.
+  useEffect(() => {
+    if (!focusDate || !def) return;
+    const m = focusDate.month >= 0
+      ? focusDate.month
+      : def.intercalaryPeriods[focusDate.intercalaryIdx ?? 0]?.afterMonth ?? 0;
+    setViewYear(focusDate.year);
+    setViewMonth(m);
+    setSelectedDate(null);
+  }, [focusDate, def]);
 
   if (!def) return null;
 
@@ -87,13 +101,15 @@ export function CalendarView({ state, onChange, onEdit }: Props) {
       setNewTitle("");
       setNewNote("");
       setNewDuration("1");
-      // sync Time Tracker
+      // sync the clock to the picked day, preserving the rest of the time state (seconds, jumps)
       calCtx.setTimeState({
         currentDate: date,
         currentHour: calCtx.currentHour,
         currentMinute: calCtx.currentMinute,
+        currentSecond: calCtx.currentSecond,
         history: calCtx.history,
         showOnPlayer: calCtx.showOnPlayer,
+        jumps: calCtx.jumps,
       });
     }
   }

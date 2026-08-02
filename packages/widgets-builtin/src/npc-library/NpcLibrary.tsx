@@ -4,36 +4,33 @@
 // Plugins loaded via the official Plugin SDK are not considered
 // derivative works; see the Plugin Exception in LICENSE.
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useVault, pushCharacterScene } from "@ttcanvas/core";
+import { useState, useEffect, useCallback } from "react";
+import { useVault, useGazetteerLocations, pushCharacterScene, logWarn, logError, type GazetteerLocationRef } from "@ttcanvas/core";
 import { CropModal } from "../party-tracker/CropModal";
+import { NpcGenerator } from "../npc-generator/NpcGenerator";
 import type { NpcLibraryState, ParsedNpc, NpcRelationship } from "./types";
 import {
   parseNpcJson, parseLegacyMd, serializeNpcJson,
-  nameToFilename, mdFilenameToJson, slugFromFilename,
+  uniqueNpcFilename, mdFilenameToJson,
   makeBlankNpc, autoAccentColor, npcInitials,
 } from "./npcFormat";
-import { setActiveTokenDrag, clearActiveTokenDrag } from "../shared/tokenDrag";
-import { renderMarkdown } from "../shared/markdownRenderer";
+import { setActiveTokenDrag, clearActiveTokenDrag, placeTokenAtCenter } from "../shared/tokenDrag";
+import { renderMarkdown, applyInline } from "../shared/markdownRenderer";
+import { handleEntityWikilinkClick } from "../shared/wikilinks";
 import { mimeForImageExt } from "../shared/mime";
+import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { NPCSheetModal } from "../shared/NPCSheetModal";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
-import { dedupe, hashContent, parseImportFile, exportCollection, type DedupeResult } from "../shared/importExport";
+import { dedupe, hashContent, readBundle, buildBundle, exportCollection, importFailure, type DedupeResult } from "../shared/importExport";
+import { copyPulledAssets, type PullAssets } from "../shared/crossVaultPull";
+import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./NpcLibrary.module.css";
 
 function npcContentKey(npc: ParsedNpc): string {
   const { id: _id, filename: _filename, ...rest } = npc;
   return hashContent(rest);
-}
-
-// Wikilink clicks in an NPC's notes use the cross-entity channel, so [[A Place]] / [[Another NPC]]
-// resolve to that entity (and [[A Note]] still opens the note). An NPC body may link out to entities.
-function onNpcWikilinkClick(e: React.MouseEvent) {
-  const link = (e.target as HTMLElement).closest("[data-wikilink]") as HTMLElement | null;
-  if (!link) return;
-  e.preventDefault();
-  const name = link.dataset.wikilink;
-  if (name) window.dispatchEvent(new CustomEvent("ttcanvas:open-entity-link", { detail: { name } }));
 }
 
 function validateNpcBundle(parsed: unknown): ParsedNpc[] | null {
@@ -62,8 +59,6 @@ const REL_LABELS: Record<NpcRelationship, string> = {
   ally: "Ally", neutral: "Neutral", wary: "Wary", hostile: "Hostile",
 };
 
-const EMPTY_ADD = { name: "", race: "", occupation: "" };
-
 function AvatarCircle({ npc, size = 36, onClick, onDragStart, onDragEnd }: {
   npc: ParsedNpc; size?: number;
   onClick?: () => void;
@@ -78,7 +73,10 @@ function AvatarCircle({ npc, size = 36, onClick, onDragStart, onDragEnd }: {
     const mime = mimeForImageExt(fileName);
     vault.readFileBase64(`${vault.vaultPath}/portraits`, fileName)
       .then((b64) => setPortraitUrl(`data:${mime};base64,${b64}`))
-      .catch(() => setPortraitUrl(null));
+      .catch((err: unknown) => {
+        logWarn(`NPC Library: could not load portrait "${fileName}"`, err);
+        setPortraitUrl(null);
+      });
     // vault's context value is a fresh object every render (tracked in
     // tracking/phase6-fixes.md) - depending on the whole object instead of
     // its stable fields would re-run this on every render.
@@ -126,19 +124,24 @@ export function NpcLibrary({ state, onChange }: Props) {
   const [search, setSearch] = useState("");
   const [relFilter, setRelFilter] = useState<RelFilter>("all");
   const [adding, setAdding] = useState(false);
-  const [addForm, setAddForm] = useState(EMPTY_ADD);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ParsedNpc | null>(null);
+  // The id (not a bare boolean) the delete confirmation was armed for, so switching the
+  // selection through any path (list click, external open, add, delete) auto-invalidates a
+  // stale confirmation instead of it silently reappearing armed for a different NPC.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   // Raw text for the Tags input, kept separate from draft.tags so the input reflects exactly what
   // was typed - deriving it from the parsed array on every keystroke strips a trailing comma before
   // the user can finish typing the next tag.
   const [tagsText, setTagsText] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [, setSaving] = useState(false);
   const [cropDataUrl, setCropDataUrl] = useState<string | null>(null);
   const [pendingImport, setPendingImport] = useState<DedupeResult<ParsedNpc> | null>(null);
+  // Held with pendingImport so the conflict dialog copies portraits only for the NPCs
+  // the user accepts; null for a plain file import (no cross-vault assets to copy).
+  const [pendingPull, setPendingPull] = useState<PullAssets<ParsedNpc> | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-  const importFileRef = useRef<HTMLInputElement>(null);
 
   const loadAll = useCallback(async () => {
     if (!vault.vaultPath) return;
@@ -156,8 +159,10 @@ export function NpcLibrary({ state, onChange }: Props) {
             const npc = parseLegacyMd(mdFile, content);
             await vault.writeFile(jsonFile, serializeNpcJson({ ...npc, filename: jsonFile }));
             jsonFiles.add(jsonFile);
-          } catch {
-            // skip failed migrations silently
+          } catch (err) {
+            // The .md file is left alone and retried next load, so this is recoverable - but it
+            // used to be skipped with no trace at all, which made a stuck migration invisible.
+            logWarn(`NPC Library: could not migrate legacy note "${mdFile}"`, err);
           }
         }
       }
@@ -168,16 +173,23 @@ export function NpcLibrary({ state, onChange }: Props) {
         try {
           const content = await vault.readFile(f);
           loaded.push(parseNpcJson(f, content));
-        } catch {
+        } catch (err) {
+          logWarn(`NPC Library: could not read NPC "${f}", showing a blank entry`, err);
           loaded.push(makeBlankNpc(f));
         }
       }
       loaded.sort((a, b) => a.name.localeCompare(b.name));
       setNpcs(loaded);
-    } catch {
+    } catch (err) {
+      logError("NPC Library: could not scan the NPC folder", err);
       setNpcs([]);
     }
-  }, [vault]);
+    // Stable fields/functions only, not the whole `vault` object - that value is a fresh object
+    // every VaultProvider render (see AvatarCircle's effect above), and now that the embedded NPC
+    // Generator writes this widget's own state on every keystroke, depending on `vault` wholesale
+    // would rescan the entire npcs/ folder on every keystroke while the "+" pane is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vault.vaultPath, vault.listFiles, vault.readFile, vault.writeFile]);
 
   useEffect(() => {
     loadAll();
@@ -209,6 +221,7 @@ export function NpcLibrary({ state, onChange }: Props) {
   }, [state, npcs, selectedId]);
 
   const selectedNpc = npcs.find((n) => n.id === selectedId) ?? null;
+  const confirmingDelete = !!selectedNpc && confirmDeleteId === selectedNpc.id;
 
   // User-driven selection: also write selectedFile so state tracks the current NPC (keeps the external
   // -open sync above honest, and persists the open NPC across reloads).
@@ -217,7 +230,7 @@ export function NpcLibrary({ state, onChange }: Props) {
     setEditing(false);
     setDraft(null);
     setAdding(false);
-    onChange({ selectedFile: npc.filename });
+    onChange({ ...state, selectedFile: npc.filename });
   }
 
   // filter tabs counts
@@ -279,48 +292,16 @@ export function NpcLibrary({ state, onChange }: Props) {
     });
   }
 
-  async function handleAdd() {
-    const name = addForm.name.trim();
-    if (!name) return;
-    const filename = nameToFilename(name);
-    const slug = slugFromFilename(filename);
-
-    // avoid duplicate filenames
-    let finalFilename = filename;
-    let suffix = 1;
-    while (npcs.find((n) => n.filename === finalFilename)) {
-      finalFilename = `npcs/${slug}-${suffix++}.json`;
-    }
-
-    const npc: ParsedNpc = {
-      filename: finalFilename,
-      id: crypto.randomUUID(),
-      name,
-      race: addForm.race.trim(),
-      occupation: addForm.occupation.trim(),
-    };
-    setSaving(true);
-    try {
-      await vault.writeFile(finalFilename, serializeNpcJson(npc));
-      setNpcs((prev) => [...prev, npc].sort((a, b) => a.name.localeCompare(b.name)));
-      setSelectedId(npc.id);
-      onChange({ selectedFile: npc.filename });
-      setAdding(false);
-      setAddForm(EMPTY_ADD);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function handleDelete() {
     if (!selectedNpc) return;
     await vault.deleteFile(selectedNpc.filename);
     const remaining = npcs.filter((n) => n.id !== selectedNpc.id);
     setNpcs(remaining);
     setSelectedId(remaining[0]?.id ?? null);
-    onChange({ selectedFile: remaining[0]?.filename ?? null });
+    onChange({ ...state, selectedFile: remaining[0]?.filename ?? null });
     setEditing(false);
     setDraft(null);
+    setConfirmDeleteId(null);
   }
 
   async function handleShowPlayers(npc: ParsedNpc) {
@@ -369,8 +350,8 @@ export function NpcLibrary({ state, onChange }: Props) {
     if (!selectedNpc || !vault.vaultPath) return;
     const fileName = `npc-${selectedNpc.id}.jpg`;
     const fullFileName = `npc-${selectedNpc.id}-full.jpg`;
-    await vault.writeFileBase64(`${vault.vaultPath}/portraits`, fileName, croppedDataUrl.split(",")[1]);
-    await vault.writeFileBase64(`${vault.vaultPath}/portraits`, fullFileName, fullDataUrl.split(",")[1]);
+    await vault.writeFileBase64(`portraits/${fileName}`, croppedDataUrl.split(",")[1]);
+    await vault.writeFileBase64(`portraits/${fullFileName}`, fullDataUrl.split(",")[1]);
     const portrait = `portraits/${fileName}`;
     const portraitFull = `portraits/${fullFileName}`;
     const updated = { ...selectedNpc, portrait, portraitFull };
@@ -379,32 +360,54 @@ export function NpcLibrary({ state, onChange }: Props) {
   }
 
   async function handleExportOne(npc: ParsedNpc) {
-    const bundle = { type: "ttcanvas-npc-library", version: 1, npcs: [npc] };
+    const bundle = buildBundle("ttcanvas-npc-library", { npcs: [npc] });
     await exportCollection(vault.saveTextFile, bundle, `${npc.name.replace(/[^a-z0-9]/gi, "_")}.npc-library.json`);
   }
 
   async function handleExportAll() {
-    const bundle = { type: "ttcanvas-npc-library", version: 1, npcs };
+    const bundle = buildBundle("ttcanvas-npc-library", { npcs });
     await exportCollection(vault.saveTextFile, bundle, "npcs.npc-library.json");
   }
 
-  function handleImportClick() {
+  async function handleImportFile(file: File) {
     setImportError(null);
-    importFileRef.current?.click();
-  }
-
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
     let text: string;
     try {
       text = await file.text();
-    } catch {
+    } catch (err) {
+      logError("NPC Library: could not read the import file", err);
       setImportError("Failed to read import file.");
       return;
     }
-    const incoming = parseImportFile(text, validateNpcBundle);
+    await handleImportText(text);
+  }
+
+  // Pull NPCs from another vault: read its npcs/*.json, then merge through the same
+  // import path as a file - which writes one json file per NPC into this vault. Portraits
+  // (paths are npc-id-based, so they stay valid) are copied by applyImport for the
+  // accepted NPCs only, so a skipped/cancelled conflict never clobbers current art.
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    const files = (await vault.listFolderFiles(sourceVault, "json")).filter((f) => f.startsWith("npcs/"));
+    const foreignNpcs: ParsedNpc[] = [];
+    for (const f of files) {
+      try {
+        foreignNpcs.push(parseNpcJson(f, await vault.readFolderFile(sourceVault, f)));
+      } catch (err) {
+        logWarn(`NPC Library: skipping unreadable NPC "${f}" during pull`, err);
+      }
+    }
+    if (foreignNpcs.length === 0) return false;
+    await handleImportText(JSON.stringify(buildBundle("ttcanvas-npc-library", { npcs: foreignNpcs })), {
+      sourceVault,
+      assetsOf: (n) => [n.portrait, n.portraitFull],
+    });
+    return true;
+  }
+
+  async function handleImportText(text: string, pull?: PullAssets<ParsedNpc>) {
+    setImportError(null);
+    const incoming = readBundle(text, "ttcanvas-npc-library", validateNpcBundle);
     if (!incoming) {
       setImportError("Not a valid NPC library file.");
       return;
@@ -412,35 +415,39 @@ export function NpcLibrary({ state, onChange }: Props) {
     const result = dedupe(incoming, npcs, { idOf: (n) => n.id, contentKeyOf: npcContentKey });
     if (result.idConflicts.length > 0 || result.contentDuplicates.length > 0) {
       setPendingImport(result);
+      setPendingPull(pull ?? null);
     } else {
-      await applyImport(result, "skip");
+      await applyImport(result, "skip", pull);
     }
   }
 
-  async function applyImport(result: DedupeResult<ParsedNpc>, conflictMode: "skip" | "replace") {
+  async function applyImport(result: DedupeResult<ParsedNpc>, conflictMode: "skip" | "replace", pull?: PullAssets<ParsedNpc> | null) {
     setPendingImport(null);
+    setPendingPull(null);
     setSaving(true);
     try {
+      if (pull) await copyPulledAssets(pull, result, conflictMode, vault.readFileBase64, vault.writeFileBase64);
       if (conflictMode === "replace") {
         for (const npc of result.idConflicts) {
           const existing = npcs.find((n) => n.id === npc.id);
           if (existing) await vault.writeFile(existing.filename, serializeNpcJson({ ...npc, filename: existing.filename }));
         }
       }
-      const usedFilenames = new Set<string>();
+      const usedFilenames = new Set(npcs.map((n) => n.filename));
       for (const npc of result.clean) {
-        let finalFilename = nameToFilename(npc.name);
-        let suffix = 1;
-        while (npcs.some((n) => n.filename === finalFilename) || usedFilenames.has(finalFilename)) {
-          finalFilename = nameToFilename(npc.name).replace(".json", `-${suffix++}.json`);
-        }
+        const finalFilename = uniqueNpcFilename(npc.name, usedFilenames);
         usedFilenames.add(finalFilename);
         await vault.writeFile(finalFilename, serializeNpcJson({ ...npc, filename: finalFilename }));
       }
+      await loadAll();
+    } catch (err) {
+      // Surface a failed apply - matters most on the conflict path, where Skip/Replace
+      // call this detached from the pull's own error handling (an unhandled rejection).
+      logError("NPC Library: import failed", err);
+      setImportError(importFailure(err));
     } finally {
       setSaving(false);
     }
-    await loadAll();
   }
 
   const displayNpc = editing && draft ? draft : selectedNpc;
@@ -465,7 +472,7 @@ export function NpcLibrary({ state, onChange }: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button className={styles.addIconBtn} onClick={() => { setAdding(true); setAddForm(EMPTY_ADD); }} title="Add NPC">+</button>
+          <button className={styles.addIconBtn} onClick={() => setAdding(true)} title="Add NPC">+</button>
         </div>
 
         <div className={styles.filterTabs}>
@@ -487,66 +494,75 @@ export function NpcLibrary({ state, onChange }: Props) {
             </div>
           )}
           {filteredNpcs.map((npc) => (
+            // The select control and the place-on-map control are siblings inside a plain
+            // wrapper. Nesting the second inside the first would be an invalid accessibility
+            // tree, and screen readers disagree about what to do with it.
             <div
               key={npc.id}
-              className={`${styles.listRow} ${npc.id === selectedId ? styles.listRowActive : ""}`}
-              role="button"
-              tabIndex={0}
-              onClick={() => selectNpc(npc)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") selectNpc(npc); }}
+              className={`${styles.listRowWrap} ${npc.id === selectedId ? styles.listRowActive : ""}`}
             >
-              <AvatarCircle
-                npc={npc}
-                size={36}
-                onDragStart={(e) => {
+              <button type="button" className={styles.listRow} onClick={() => selectNpc(npc)}>
+                <AvatarCircle
+                  npc={npc}
+                  size={36}
+                  onDragStart={(e) => {
+                    const color = npc.accentColor ?? autoAccentColor(npc.name || "?");
+                    setActiveTokenDrag({ sourceId: npc.id, label: npc.name, color, portraitPath: npc.portrait, kind: "npc" });
+                    e.dataTransfer.setData("text/plain", "ttcanvas-token");
+                    e.dataTransfer.effectAllowed = "copy";
+                  }}
+                  onDragEnd={clearActiveTokenDrag}
+                />
+                <div className={styles.listRowText}>
+                  <span className={styles.listName}>{npc.name}</span>
+                  <span className={styles.listMeta}>{[npc.race, npc.occupation].filter(Boolean).join(" · ")}</span>
+                </div>
+                <RelBadge rel={npc.relationship} />
+              </button>
+              {/* The keyboard equivalent of dragging the avatar onto the map. */}
+              <button
+                type="button"
+                className={styles.listMapBtn}
+                onClick={() => {
                   const color = npc.accentColor ?? autoAccentColor(npc.name || "?");
-                  setActiveTokenDrag({ sourceId: npc.id, label: npc.name, color, portraitPath: npc.portrait, kind: "npc" });
-                  e.dataTransfer.setData("text/plain", "ttcanvas-token");
-                  e.dataTransfer.effectAllowed = "copy";
+                  placeTokenAtCenter({ sourceId: npc.id, label: npc.name, color, portraitPath: npc.portrait, kind: "npc" });
                 }}
-                onDragEnd={clearActiveTokenDrag}
-              />
-              <div className={styles.listRowText}>
-                <span className={styles.listName}>{npc.name}</span>
-                <span className={styles.listMeta}>{[npc.race, npc.occupation].filter(Boolean).join(" · ")}</span>
-              </div>
-              <RelBadge rel={npc.relationship} />
+                title={`Place ${npc.name} at map center`}
+                aria-label={`Place ${npc.name} at map center`}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="10" r="4" />
+                  <path d="M12 14v6M9 20h6" />
+                </svg>
+              </button>
             </div>
           ))}
         </div>
 
-        {importError && (
-          <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
-        )}
         <div className={styles.listFooter}>
           <span>{npcs.length} NPC{npcs.length !== 1 ? "s" : ""} · {encounterCount} encountered</span>
-          <div className={styles.footerBtns}>
-            <button className={styles.footerBtn} onClick={handleImportClick}>Import</button>
-            <button className={styles.footerBtn} onClick={handleExportAll} disabled={npcs.length === 0}>Export all</button>
-          </div>
         </div>
+        <WidgetSettingsCog>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={npcs.length === 0} onError={setImportError} />
+          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
+          {importError && (
+            <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>
+          )}
+        </WidgetSettingsCog>
       </div>
 
       {/* ── Right: detail / add pane ────────────── */}
       <div className={styles.right}>
         {adding ? (
           <div className={styles.addForm}>
-            <div className={styles.addFormTitle}>New NPC</div>
-            <label className={styles.addLabel}>Name
-              <input className={styles.addInput} value={addForm.name} autoFocus onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }} />
-            </label>
-            <label className={styles.addLabel}>Race
-              <input className={styles.addInput} value={addForm.race} placeholder="e.g. Human" onChange={(e) => setAddForm((f) => ({ ...f, race: e.target.value }))} />
-            </label>
-            <label className={styles.addLabel}>Occupation
-              <input className={styles.addInput} value={addForm.occupation} placeholder="e.g. Guard" onChange={(e) => setAddForm((f) => ({ ...f, occupation: e.target.value }))} />
-            </label>
-            <div className={styles.addActions}>
+            <div className={styles.addFormTitle}>
+              New NPC
               <button className={styles.cancelBtn} onClick={() => setAdding(false)}>Cancel</button>
-              <button className={styles.saveBtn} onClick={handleAdd} disabled={saving || !addForm.name.trim()}>
-                {saving ? "Saving…" : "Create"}
-              </button>
             </div>
+            <NpcGenerator
+              state={state.generatorDraft}
+              onChange={(g) => onChange({ ...state, generatorDraft: g })}
+            />
           </div>
         ) : displayNpc ? (
           <div className={styles.detail}>
@@ -602,15 +618,24 @@ export function NpcLibrary({ state, onChange }: Props) {
               )}
             </div>
 
-            {/* Metadata fields */}
-            {(["location", "lastSeen"] as const).map((key) => (
-              <div key={key} className={styles.metaField}>
-                <div className={styles.sectionHead}>{key === "lastSeen" ? "Last seen" : "Location"}</div>
-                {editing
-                  ? <input className={styles.metaInput} value={draft?.[key] ?? ""} onChange={(e) => setNpc(key, e.target.value || undefined)} placeholder="-" />
-                  : <span className={styles.metaVal}>{displayNpc[key] || "-"}</span>}
-              </div>
-            ))}
+            {/* Location */}
+            <LocationField
+              npc={displayNpc}
+              editing={editing}
+              onPick={(loc) => patchDraft({ location: loc.name, locationRef: loc.filename })}
+              onUnlink={(liveName) => patchDraft({ locationRef: undefined, location: liveName })}
+              onTextChange={(v) => setNpc("location", v || undefined)}
+            />
+
+            {/* Last seen */}
+            <div className={styles.metaField}>
+              <div className={styles.sectionHead}>Last seen</div>
+              {editing
+                ? <input className={styles.metaInput} value={draft?.lastSeen ?? ""} onChange={(e) => setNpc("lastSeen", e.target.value || undefined)} placeholder="-" />
+                : displayNpc.lastSeen
+                  ? <span className={styles.metaVal} dangerouslySetInnerHTML={{ __html: applyInline(displayNpc.lastSeen) }} onClick={handleEntityWikilinkClick} />
+                  : <span className={styles.metaVal}>-</span>}
+            </div>
 
             {/* Custom fields */}
             {editing ? (
@@ -654,7 +679,9 @@ export function NpcLibrary({ state, onChange }: Props) {
               (displayNpc.customFields ?? []).filter((f) => f.label).map((f, i) => (
                 <div key={i} className={styles.metaField}>
                   <div className={styles.sectionHead}>{f.label}</div>
-                  <span className={styles.metaVal}>{f.value || "-"}</span>
+                  {f.value
+                    ? <span className={styles.metaVal} dangerouslySetInnerHTML={{ __html: applyInline(f.value) }} onClick={handleEntityWikilinkClick} />
+                    : <span className={styles.metaVal}>-</span>}
                 </div>
               ))
             )}
@@ -697,7 +724,7 @@ export function NpcLibrary({ state, onChange }: Props) {
               {editing
                 ? <textarea className={styles.notesTextarea} rows={4} value={draft?.notes ?? ""} onChange={(e) => patchDraft({ notes: e.target.value || undefined })} placeholder="GM notes… [[Place]] and [[NPC]] links work" />
                 : displayNpc.notes?.trim()
-                  ? <div className={styles.notesProse} dangerouslySetInnerHTML={{ __html: renderMarkdown(displayNpc.notes) }} onClick={onNpcWikilinkClick} />
+                  ? <div className={styles.notesProse} dangerouslySetInnerHTML={{ __html: renderMarkdown(displayNpc.notes) }} onClick={handleEntityWikilinkClick} />
                   : <p className={styles.notesText}>-</p>}
             </div>
 
@@ -717,7 +744,20 @@ export function NpcLibrary({ state, onChange }: Props) {
 
             {/* Footer */}
             <div className={styles.detailFooter}>
-              <button className={styles.removeBtn} onClick={handleDelete}>🗑 Remove</button>
+              <ConfirmDeleteButton
+                confirming={confirmingDelete}
+                trigger="🗑 Remove"
+                confirmQuestion={`Delete "${displayNpc.name}"?`}
+                confirmLabel="Yes, delete"
+                className={styles.removeBtn}
+                rowClassName={styles.confirmRow}
+                questionClassName={styles.confirmText}
+                confirmClassName={styles.confirmYes}
+                cancelClassName={styles.confirmNo}
+                onRequestConfirm={() => setConfirmDeleteId(displayNpc.id)}
+                onConfirm={handleDelete}
+                onCancel={() => setConfirmDeleteId(null)}
+              />
             </div>
           </div>
         ) : (
@@ -743,9 +783,6 @@ export function NpcLibrary({ state, onChange }: Props) {
         />
       )}
 
-      {/* Hidden file input for import */}
-      <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
-
       {/* Import conflict dialog */}
       {pendingImport && (
         <ImportConflictDialog
@@ -754,10 +791,76 @@ export function NpcLibrary({ state, onChange }: Props) {
           totalCount={pendingImport.idConflicts.length + pendingImport.contentDuplicates.length + pendingImport.clean.length}
           idConflicts={pendingImport.idConflicts.map((n) => ({ id: n.id, label: n.name }))}
           contentDuplicates={pendingImport.contentDuplicates.map((n) => ({ id: n.id, label: n.name }))}
-          onCancel={() => setPendingImport(null)}
-          onSkip={() => applyImport(pendingImport, "skip")}
-          onReplace={() => applyImport(pendingImport, "replace")}
+          onCancel={() => { setPendingImport(null); setPendingPull(null); }}
+          onSkip={() => applyImport(pendingImport, "skip", pendingPull)}
+          onReplace={() => applyImport(pendingImport, "replace", pendingPull)}
         />
+      )}
+    </div>
+  );
+}
+
+// Location field: free text, or - once linked to a real Gazetteer place (locationRef) - a chip
+// showing the place's live name (falls back to the cached `location` string if the ref is dangling
+// or hasn't loaded yet), clickable to open Gazetteer. Mirrors Gazetteer's own linked-NPC chip
+// convention. Unlinking is edit-gated like every other mutable field here; opening the chip isn't,
+// since it's navigation rather than an edit.
+function LocationField({ npc, editing, onPick, onUnlink, onTextChange }: {
+  npc: ParsedNpc; editing: boolean;
+  onPick: (loc: GazetteerLocationRef) => void;
+  /** Passed the currently-displayed live name, so unlinking after a Gazetteer rename keeps the name
+   *  the GM was just looking at instead of reverting to whatever `location` was cached at link time. */
+  onUnlink: (liveName: string | undefined) => void;
+  onTextChange: (v: string) => void;
+}) {
+  const { locations } = useGazetteerLocations();
+  const [picking, setPicking] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const linked = npc.locationRef ? locations.find((l) => l.filename === npc.locationRef) : undefined;
+  const liveName = linked?.name ?? npc.location;
+
+  function openGazetteer() {
+    if (npc.locationRef) window.dispatchEvent(new CustomEvent("ttcanvas:open-location", { detail: { filename: npc.locationRef } }));
+  }
+
+  const q = query.trim().toLowerCase();
+  const results = locations.filter((l) => !q || l.name.toLowerCase().includes(q));
+
+  return (
+    <div className={styles.metaField}>
+      <div className={styles.sectionHead}>Location</div>
+      {npc.locationRef ? (
+        <span className={styles.locationChip}>
+          <button type="button" className={styles.locationChipBody} onClick={openGazetteer} title={`Open ${liveName ?? "place"} in Gazetteer`}>
+            {liveName || "(missing place)"}
+          </button>
+          {editing && <button className={styles.locationChipRemove} onClick={() => onUnlink(liveName)} aria-label="Unlink location">×</button>}
+        </span>
+      ) : editing ? (
+        <div className={styles.locationEditRow}>
+          <input className={styles.metaInput} value={npc.location ?? ""} onChange={(e) => onTextChange(e.target.value)} placeholder="-" />
+          <button type="button" className={styles.locationLinkBtn} onClick={() => { setPicking((v) => !v); setQuery(""); }}>Link…</button>
+        </div>
+      ) : (
+        <span className={styles.metaVal}>{npc.location || "-"}</span>
+      )}
+      {editing && picking && (
+        <div className={styles.locationPicker}>
+          <input
+            className={styles.metaInput} value={query} onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search places" aria-label="Search Gazetteer places" autoFocus
+          />
+          <div className={styles.locationPickerList}>
+            {results.length === 0
+              ? <p className={styles.locationPickerEmpty}>No places to link.</p>
+              : results.map((l) => (
+                  <button key={l.filename} className={styles.locationPickerRow} onClick={() => { onPick(l); setPicking(false); }}>
+                    {l.name}
+                  </button>
+                ))}
+          </div>
+        </div>
       )}
     </div>
   );

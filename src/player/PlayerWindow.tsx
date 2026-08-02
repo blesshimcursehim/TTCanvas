@@ -7,7 +7,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import type { PlayerScene, FogReveal, MapToken, CharacterPayload, LocationPayload, InitiativeOverlay, BrushPoint, MapPing, ClockOverlay, DiceOverlay } from "@ttcanvas/core";
+import type { PlayerScene, FogReveal, MapToken, CharacterPayload, LocationPayload, ShopPayload, InitiativeOverlay, BrushPoint, MapPing, ClockOverlay, DiceOverlay } from "@ttcanvas/core";
 import { drawFogCanvas, renderFogReveals, lastBrushPoint, fogModeOf, PING_LIFETIME_MS } from "@ttcanvas/core";
 import { AnnotationLayer, clockWedges, mimeForImageExt } from "@ttcanvas/widgets-builtin";
 import "./PlayerWindow.css";
@@ -204,6 +204,56 @@ function LocationScene({ location, dragRegion }: { location: LocationPayload; dr
   );
 }
 
+// Nobody can scroll a screen across the table, so a long shelf flows into columns rather than
+// running off the bottom. Thresholds, not a fluid `columns: auto <width>`, so a five-line shop
+// stays a single readable list instead of becoming two columns of two.
+function shopColumns(lineCount: number): number {
+  if (lineCount > 22) return 3;
+  if (lineCount > 10) return 2;
+  return 1;
+}
+
+// A cast price list. The leader dots are drawn by the row's background rather than by repeated
+// characters, so a name that wraps still lines up with its price. Everything GM-only - buyback
+// rates, the party purse, the merchant's notes - was left behind by buildShopPayload.
+function ShopScene({ shop, dragRegion }: { shop: ShopPayload; dragRegion: React.ReactNode }) {
+  const { name, subtitle, lines } = shop;
+  return (
+    <div className="root shopRoot">
+      {dragRegion}
+      <div className="shopCard">
+        {subtitle && <div className="shopEyebrow">{subtitle}</div>}
+        <div className="shopName">{name}</div>
+        {lines.length === 0 ? (
+          <div className="shopEmpty">The shelves are bare.</div>
+        ) : (
+          <ul className="shopList" style={{ columnCount: shopColumns(lines.length) }}>
+            {lines.map((line, i) => {
+              const soldOut = line.qty === 0;
+              return (
+                <li
+                  key={`${line.name}-${i}`}
+                  className={`shopLine${soldOut ? " shopLineSoldOut" : ""}`}
+                  data-rarity={line.rarity}
+                >
+                  <span className="shopLineName">{line.name}</span>
+                  {/* Only a finite count is worth printing: unlimited stock is the common case and
+                      "xN" on every second line is noise players have to read past. */}
+                  {typeof line.qty === "number" && line.qty > 0 && (
+                    <span className="shopLineQty">×{line.qty}</span>
+                  )}
+                  <span className="shopLineDots" aria-hidden="true" />
+                  <span className="shopLinePrice">{soldOut ? "sold out" : line.price}</span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function IdleScreen({ children }: { children?: React.ReactNode }) {
   return (
     <div className="root idleRoot">
@@ -280,6 +330,24 @@ export function PlayerWindow() {
   useEffect(() => {
     const unlisten = listen<PlayerScene>("player-update", (event) => {
       setScene(event.payload);
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, []);
+
+  useEffect(() => {
+    // Pushed by the GM window, since this webview's capability is listen-only and can't read the
+    // app config itself. Straight onto the root as a CSS variable - every font-size in
+    // PlayerWindow.css multiplies by it, and falls back to 1 until something arrives.
+    //
+    // The scale that was set when this window opened comes in on the URL instead, because a push
+    // sent before the listener below exists is dropped - see openPlayerWindow. Number() turns both
+    // a missing param and a malformed one into NaN or 0, which the guard rejects.
+    const atOpen = Number(new URLSearchParams(window.location.search).get("textScale"));
+    if (Number.isFinite(atOpen) && atOpen > 0) {
+      document.documentElement.style.setProperty("--player-text-scale", String(atOpen));
+    }
+    const unlisten = listen<number>("text-scale", (event) => {
+      document.documentElement.style.setProperty("--player-text-scale", String(event.payload));
     });
     return () => { unlisten.then(fn => fn()); };
   }, []);
@@ -452,6 +520,18 @@ export function PlayerWindow() {
     return (
       <>
         <LocationScene location={scene.location} dragRegion={dragRegion} />
+        {inWorldDate && <div className="dateOverlay">{inWorldDate}</div>}
+        {itCard}
+        {clockCard}
+        {diceCard}
+      </>
+    );
+  }
+
+  if (scene.type === "shop" && scene.shop) {
+    return (
+      <>
+        <ShopScene shop={scene.shop} dragRegion={dragRegion} />
         {inWorldDate && <div className="dateOverlay">{inWorldDate}</div>}
         {itCard}
         {clockCard}

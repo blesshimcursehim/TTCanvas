@@ -6,8 +6,8 @@
 
 import { useState } from "react";
 import { useCalendar } from "@ttcanvas/core";
-import type { CalDate, CalendarDef } from "@ttcanvas/core";
-import { calDateToAbsDay, formatCalDate } from "../calendar/utils";
+import type { CalDate, CalEvent, CalendarDef } from "@ttcanvas/core";
+import { calDateToAbsDay, absDayToCalDate, formatCalDate, intercalaryActiveInYear } from "../calendar/utils";
 import { autoAccentColor } from "../npc-library/npcFormat";
 import type { CampaignTimelineState, TimelineEntry } from "./types";
 import { CATEGORY_PRESETS, CATEGORY_KEYS, isPreset } from "./types";
@@ -15,6 +15,7 @@ import { mergeTimeline } from "./timeline";
 import type { StreamItem } from "./timeline";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ModeToggle } from "../shared/ModeToggle";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import styles from "./CampaignTimeline.module.css";
 
 interface Props {
@@ -70,17 +71,24 @@ export function CampaignTimeline({ state, onChange }: Props) {
           defaultDate={cal.currentDate}
           onSave={saveEntry}
           onDelete={deleteEntry}
+          onSendToCalendar={cal.addCalendarEvent}
           onCancel={() => setEditing(null)}
         />
       </div>
     );
   }
 
-  const stream = mergeTimeline(state.entries, cal.events, cal.def, cal.currentDate);
+  const direction = state.sortDirection ?? "asc";
+  const stream = mergeTimeline(state.entries, cal.events, cal.def, cal.currentDate, direction);
   const currentAbs = cal.currentDate ? calDateToAbsDay(cal.currentDate, cal.def) : null;
-  // The "Now" divider sits before the first item that isn't in the past (or after everything).
-  const dividerBefore = currentAbs === null ? -1 : Math.max(0, stream.findIndex((s) => s.timePos !== "past"));
-  const dividerAtEnd = currentAbs !== null && stream.every((s) => s.timePos === "past");
+  // The "Now" divider sits at the boundary between past and not-past. Ascending (oldest first)
+  // runs past -> now -> future, so the divider goes before the first non-past item, and "all past"
+  // pushes it to the end. Descending mirrors this: future -> now -> past, so the divider goes
+  // before the first past item, and "nothing past yet" pushes it to the end.
+  const dividerBefore = currentAbs === null ? -1 : Math.max(0, stream.findIndex((s) =>
+    direction === "desc" ? s.timePos === "past" : s.timePos !== "past"));
+  const dividerAtEnd = currentAbs !== null && stream.every((s) =>
+    direction === "desc" ? s.timePos !== "past" : s.timePos === "past");
 
   return (
     <div className={styles.root}>
@@ -92,6 +100,16 @@ export function CampaignTimeline({ state, onChange }: Props) {
           onChange={(v) => setGrouped(v === "grouped")}
           options={[{ value: "timeline", label: "Timeline" }, { value: "grouped", label: "Grouped" }]}
         />
+        <WidgetSettingsCog>
+          <div className={styles.settingsRow}>
+            <span className={styles.settingsLabel}>Sort</span>
+            <ModeToggle
+              value={direction}
+              onChange={(v) => onChange({ ...state, sortDirection: v })}
+              options={[{ value: "asc", label: "Oldest first" }, { value: "desc", label: "Newest first" }]}
+            />
+          </div>
+        </WidgetSettingsCog>
       </div>
 
       <div className={styles.stream}>
@@ -184,13 +202,24 @@ function StreamCard({ item, def, onEdit, inGroup }: {
   const cat = item.category ? categoryMeta(item.category) : null;
   // Calendar events are read-only here (edited in the Calendar widget); entries open the editor.
   const editable = !isEvent;
+  // A multi-day event ends duration-1 days after its start: show a compact "Nd" badge (same idiom as
+  // the Calendar widget) and spell the final day out in the tooltip.
+  const endDate = item.durationDays ? absDayToCalDate(item.absDay + item.durationDays - 1, def) : null;
+  const eventTitle = endDate
+    ? `Calendar event · lasts ${item.durationDays} days, until ${formatCalDate(endDate, def)} (edit in the Calendar widget)`
+    : "Calendar event (edit in the Calendar widget)";
   const content = (
     <>
       <div className={styles.cardHead}>
         {!inGroup && <span className={styles.cardDate}>{formatCalDate(item.date, def)}</span>}
-        {isEvent
-          ? <span className={styles.calTag}>Calendar</span>
-          : cat && <span className={styles.chip} style={{ color: cat.color, borderColor: cat.color }}>{cat.label}</span>}
+        {isEvent ? (
+          <>
+            <span className={styles.calTag}>Calendar</span>
+            {item.durationDays && <span className={styles.durationBadge}>{item.durationDays}d</span>}
+          </>
+        ) : (
+          cat && <span className={styles.chip} style={{ color: cat.color, borderColor: cat.color }}>{cat.label}</span>
+        )}
       </div>
       <div className={styles.cardTitle}>{item.title}</div>
       {item.body && <div className={styles.cardBody}>{item.body}</div>}
@@ -199,18 +228,19 @@ function StreamCard({ item, def, onEdit, inGroup }: {
   return editable ? (
     <button className={`${styles.card} ${styles.cardEntry}`} onClick={() => onEdit(item.id)}>{content}</button>
   ) : (
-    <div className={`${styles.card} ${styles.cardEvent}`} title="Calendar event (edit in the Calendar widget)">{content}</div>
+    <div className={`${styles.card} ${styles.cardEvent}`} title={eventTitle}>{content}</div>
   );
 }
 
 // ── Entry editor ────────────────────────────────────────────────
 
-function EntryForm({ def, initial, defaultDate, onSave, onDelete, onCancel }: {
+function EntryForm({ def, initial, defaultDate, onSave, onDelete, onSendToCalendar, onCancel }: {
   def: CalendarDef;
   initial: TimelineEntry | null;
   defaultDate: CalDate | null;
   onSave: (e: TimelineEntry) => void;
   onDelete: (id: string) => void;
+  onSendToCalendar: (ev: CalEvent) => void;
   onCancel: () => void;
 }) {
   const start = initial?.date ?? defaultDate ?? { year: 1, month: 0, day: 1 };
@@ -220,9 +250,43 @@ function EntryForm({ def, initial, defaultDate, onSave, onDelete, onCancel }: {
   const [category, setCategory] = useState(initial?.category ?? "plot");
   const [customMode, setCustomMode] = useState(initial ? !isPreset(initial.category) : false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [sentToCalendar, setSentToCalendar] = useState(false);
 
-  // A regular month clamps day to its length; month -1 (intercalary) is not offered when adding.
-  const monthDays = date.month >= 0 && date.month < def.months.length ? def.months[date.month].days : 31;
+  // The picker offers every month plus each intercalary/festival period active in the chosen year
+  // (leap-style periods only surface in the years they occur). Option values encode the kind as
+  // "m:<i>" / "i:<i>" so one <select> carries both; `days` drives the day input's max.
+  const dateSlots: { value: string; label: string; days: number }[] = [];
+  def.months.forEach((m, i) => {
+    dateSlots.push({ value: `m:${i}`, label: m.name, days: m.days });
+    def.intercalaryPeriods.forEach((p, pi) => {
+      if (p.afterMonth === i && intercalaryActiveInYear(p, date.year)) {
+        dateSlots.push({ value: `i:${pi}`, label: p.name, days: p.days });
+      }
+    });
+  });
+  const slotValue = date.month >= 0 ? `m:${date.month}` : `i:${date.intercalaryIdx}`;
+  const monthDays = dateSlots.find((s) => s.value === slotValue)?.days ?? 31;
+
+  // Changing the year can strip a leap-style intercalary that doesn't occur then: fall back to the
+  // month it follows so the picker never holds an impossible date.
+  function setYear(year: number) {
+    const p = date.month < 0 && date.intercalaryIdx !== undefined ? def.intercalaryPeriods[date.intercalaryIdx] : null;
+    if (p && !intercalaryActiveInYear(p, year)) {
+      setDate({ year, month: Math.min(p.afterMonth, def.months.length - 1), day: date.day });
+    } else {
+      setDate({ ...date, year });
+    }
+  }
+
+  function setSlot(value: string) {
+    const idx = parseInt(value.slice(2), 10);
+    setDate(value.startsWith("i:")
+      ? { year: date.year, month: -1, day: date.day, intercalaryIdx: idx }
+      : { year: date.year, month: idx, day: date.day });
+  }
+
+  // Spread `date` so an intercalary entry keeps its intercalaryIdx; only the day is clamped.
+  const clampedDate = (): CalDate => ({ ...date, day: Math.min(Math.max(1, date.day), monthDays) });
 
   function save() {
     const t = title.trim();
@@ -232,8 +296,17 @@ function EntryForm({ def, initial, defaultDate, onSave, onDelete, onCancel }: {
       title: t,
       body: body.trim() || undefined,
       category: category.trim() || "other",
-      date: { year: date.year, month: date.month, day: Math.min(Math.max(1, date.day), monthDays) },
+      date: clampedDate(),
     });
+  }
+
+  // One-way copy into the Calendar widget: an independent, single-day event (duration defaults to 1),
+  // with no shared id or back-link. The pushed event then shows up in this stream as a Calendar card.
+  function sendToCalendar() {
+    const t = title.trim();
+    if (!t) return;
+    onSendToCalendar({ id: crypto.randomUUID(), title: t, note: body.trim() || undefined, start: clampedDate() });
+    setSentToCalendar(true);
   }
 
   return (
@@ -246,9 +319,9 @@ function EntryForm({ def, initial, defaultDate, onSave, onDelete, onCancel }: {
       <input className={styles.input} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" aria-label="Entry title" autoFocus />
 
       <div className={styles.dateRow}>
-        <input className={styles.yearInput} type="number" value={date.year} onChange={(e) => setDate({ ...date, year: parseInt(e.target.value, 10) || 1 })} aria-label="Year" />
-        <select className={styles.monthSelect} value={date.month} onChange={(e) => setDate({ ...date, month: parseInt(e.target.value, 10) })} aria-label="Month">
-          {def.months.map((m, i) => <option key={m.name} value={i}>{m.name}</option>)}
+        <input className={styles.yearInput} type="number" value={date.year} onChange={(e) => setYear(parseInt(e.target.value, 10) || 1)} aria-label="Year" />
+        <select className={styles.monthSelect} value={slotValue} onChange={(e) => setSlot(e.target.value)} aria-label="Month">
+          {dateSlots.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
         <input className={styles.dayInput} type="number" min={1} max={monthDays} value={date.day} onChange={(e) => setDate({ ...date, day: parseInt(e.target.value, 10) || 1 })} aria-label="Day" />
       </div>
@@ -294,6 +367,17 @@ function EntryForm({ def, initial, defaultDate, onSave, onDelete, onCancel }: {
         <button className={styles.cancelBtn} onClick={onCancel}>Cancel</button>
         <button className={styles.saveBtn} onClick={save} disabled={!title.trim() || (customMode && !category.trim())}>Save</button>
       </div>
+
+      {initial && (
+        <button
+          className={styles.sendBtn}
+          onClick={sendToCalendar}
+          disabled={!title.trim() || sentToCalendar}
+          title="Copy this entry into the Calendar widget as a one-way event"
+        >
+          {sentToCalendar ? "✓ Added to the Calendar" : "Send to Calendar"}
+        </button>
+      )}
     </div>
   );
 }

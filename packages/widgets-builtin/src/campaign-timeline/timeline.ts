@@ -25,6 +25,8 @@ export interface StreamItem {
   category?: string;
   date: CalDate;
   absDay: number;
+  /** Days a multi-day calendar event spans (>= 2); undefined for single-day events and entries. */
+  durationDays?: number;
   timePos: TimePos;
 }
 
@@ -36,15 +38,17 @@ function timePosFor(absDay: number, currentAbs: number | null): TimePos {
 }
 
 /**
- * Returns the merged Chronicle entries + calendar events, sorted earliest-first, each tagged with
- * its absolute day and past/now/future position. A day tie sorts events before entries, then by
- * title, so the order is stable (deterministic for tests). Requires a CalendarDef for the day maths.
+ * Returns the merged Chronicle entries + calendar events, sorted earliest-first by default (pass
+ * "desc" for newest-first), each tagged with its absolute day and past/now/future position. A day
+ * tie always sorts events before entries, then by title, regardless of direction, so same-day
+ * order stays stable (deterministic for tests). Requires a CalendarDef for the day maths.
  */
 export function mergeTimeline(
   entries: TimelineEntry[],
   events: CalEvent[],
   def: CalendarDef,
   currentDate: CalDate | null,
+  direction: "asc" | "desc" = "asc",
 ): StreamItem[] {
   const currentAbs = currentDate ? calDateToAbsDay(currentDate, def) : null;
 
@@ -55,11 +59,13 @@ export function mergeTimeline(
 
   const fromEvents: StreamItem[] = events.map((ev) => {
     const absDay = calDateToAbsDay(ev.start, def);
-    return { kind: "event", id: ev.id, title: ev.title, body: ev.note, date: ev.start, absDay, timePos: timePosFor(absDay, currentAbs) };
+    const durationDays = ev.duration && ev.duration > 1 ? ev.duration : undefined;
+    return { kind: "event", id: ev.id, title: ev.title, body: ev.note, date: ev.start, absDay, durationDays, timePos: timePosFor(absDay, currentAbs) };
   });
 
+  const dirMul = direction === "desc" ? -1 : 1;
   return [...fromEvents, ...fromEntries].sort(
-    (a, b) => a.absDay - b.absDay || kindRank(a.kind) - kindRank(b.kind) || a.title.localeCompare(b.title),
+    (a, b) => (a.absDay - b.absDay) * dirMul || kindRank(a.kind) - kindRank(b.kind) || a.title.localeCompare(b.title),
   );
 }
 

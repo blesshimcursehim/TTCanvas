@@ -7,8 +7,8 @@
 
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, cleanup, waitFor, screen, fireEvent } from "@testing-library/react";
-import { AIContext, VaultContext } from "@ttcanvas/core";
-import type { AIContextValue, VaultContextValue } from "@ttcanvas/core";
+import { AIContext, VaultContext, CalendarContext, ChronicleContext } from "@ttcanvas/core";
+import type { AIContextValue, VaultContextValue, CalendarContextValue, ChronicleContextValue, CalendarDef, CalDate } from "@ttcanvas/core";
 import { SessionRecorder } from "./SessionRecorder";
 import type { SessionRecorderState } from "./types";
 
@@ -100,5 +100,71 @@ describe("SessionRecorder - Previously On… recap", () => {
         text: { title: "Previously on…", body: "Redacted recap." },
       }),
     );
+  });
+});
+
+describe("SessionRecorder - Add to Chronicle", () => {
+  const DEF: CalendarDef = {
+    name: "Test", epochLabel: "TE", weekLength: 7,
+    weekDayNames: ["1", "2", "3", "4", "5", "6", "7"], startWeekday: 0,
+    months: [{ name: "Frost", days: 30 }], intercalaryPeriods: [],
+  };
+  const NOW: CalDate = { year: 1, month: 0, day: 5 };
+
+  function renderWithCalendar(addChronicleEntry: ChronicleContextValue["addChronicleEntry"], currentDate: CalDate | null = NOW) {
+    const seeded: SessionRecorderState = {
+      entries: [{ id: "1", text: "The party breached the citadel gates.", wallTime: Date.now() }],
+      exportFolder: null,
+    };
+    const cal: CalendarContextValue = {
+      def: DEF, events: [], setCalendarState: () => {}, addCalendarEvent: () => {},
+      currentDate, currentHour: 8, currentMinute: 0, currentSecond: 0,
+      history: [], showOnPlayer: false, jumps: [], setTimeState: () => {},
+    };
+    return render(
+      <AIContext.Provider value={aiValue}>
+        <VaultContext.Provider value={vault}>
+          <CalendarContext.Provider value={cal}>
+            <ChronicleContext.Provider value={{ addChronicleEntry }}>
+              <SessionRecorder state={seeded} onChange={() => {}} />
+            </ChronicleContext.Provider>
+          </CalendarContext.Provider>
+        </VaultContext.Provider>
+      </AIContext.Provider>,
+    );
+  }
+
+  const streamSummary = (text: string) =>
+    ollamaGenerateMock.mockImplementation((_model: string, _prompt: string, onChunk: (c: { type: string; text?: string }) => void) => {
+      onChunk({ type: "token", text });
+      onChunk({ type: "done" });
+      return { promise: Promise.resolve(), cancel: vi.fn() };
+    });
+
+  it("sends the summary to the Chronicle as a dated recap entry, then guards against a duplicate", async () => {
+    streamSummary("The party breached the gates.");
+    const addChronicleEntry = vi.fn();
+    renderWithCalendar(addChronicleEntry);
+
+    fireEvent.click(screen.getByRole("button", { name: "AI Summary" }));
+    const addBtn = await waitFor(() => screen.getByRole("button", { name: "Add to Chronicle" }));
+    fireEvent.click(addBtn);
+
+    expect(addChronicleEntry).toHaveBeenCalledWith({
+      title: "Session recap",
+      body: "The party breached the gates.",
+      category: "recap",
+      date: NOW,
+    });
+    // Flips to a disabled "Added" state so a second click can't append a duplicate entry.
+    expect(screen.getByRole("button", { name: "Added ✓" })).toBeDisabled();
+  });
+
+  it("disables Add to Chronicle when no in-game date is set", async () => {
+    streamSummary("Something happened.");
+    renderWithCalendar(vi.fn(), null);
+
+    fireEvent.click(screen.getByRole("button", { name: "AI Summary" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add to Chronicle" })).toBeDisabled());
   });
 });

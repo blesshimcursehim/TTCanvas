@@ -9,8 +9,10 @@ import type { ParsedNpc, NpcRelationship } from "../npc-library/types";
 import { SheetChrome } from "./sheet-primitives/SheetChrome";
 import { SectionHead } from "./sheet-primitives/SectionHead";
 import { AbilityGrid } from "./sheet-primitives/AbilityGrid";
+import { RollableStat } from "./sheet-primitives/RollableStat";
 import { NamedEntryList } from "./sheet-primitives/NamedEntryList";
 import type { AbilityScores, NamedEntry } from "@ttcanvas/core";
+import { abilityModifier, proficiencyBonus, proficiencyBonusForCr } from "@ttcanvas/core";
 import styles from "./NPCSheetModal.module.css";
 
 const TABS = ["Overview", "Abilities", "Combat", "Spellcasting", "Notes"] as const;
@@ -32,9 +34,8 @@ const ABILITY_LABELS: Record<keyof AbilityScores, string> = {
   str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA",
 };
 
-function mod(score: number) {
-  const m = Math.floor((score - 10) / 2);
-  return m >= 0 ? `+${m}` : `${m}`;
+function fmtBonus(n: number): string {
+  return n >= 0 ? `+${n}` : `${n}`;
 }
 
 const DEFAULT_SCORES: AbilityScores = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
@@ -52,6 +53,23 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
 
   function patch(p: Partial<ParsedNpc>) {
     setDraft((d) => ({ ...d, ...p }));
+  }
+
+  // The NPC's proficiency bonus, from whichever measure it's built on: level for class-leveled NPCs,
+  // else Challenge Rating for statblock monsters, else the +2 baseline every creature has. (Most
+  // library NPCs have no level, so gating on level alone would drop proficiency for CR-rated saves.)
+  function npcProficiencyBonus(): number {
+    if (draft.level) return proficiencyBonus(draft.level);
+    if (draft.cr) return proficiencyBonusForCr(draft.cr);
+    return 2;
+  }
+
+  // A saving throw's total: ability modifier (default score 10) plus the proficiency bonus when the
+  // NPC is proficient in that save.
+  function saveBonus(key: keyof AbilityScores): number {
+    const score = draft.abilityScores?.[key] ?? 10;
+    const proficient = (draft.savingThrows ?? []).includes(key);
+    return abilityModifier(score) + (proficient ? npcProficiencyBonus() : 0);
   }
 
   function set<K extends keyof ParsedNpc>(key: K, val: ParsedNpc[K]) {
@@ -176,6 +194,7 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
             scores={draft.abilityScores ?? DEFAULT_SCORES}
             editing={editing}
             onChange={(s) => patch({ abilityScores: s })}
+            subject={draft.name}
           />
 
           <SectionHead style={{ marginTop: 16 }}>Saving Throws</SectionHead>
@@ -194,17 +213,31 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
                       }}
                     />
                     <span>{ABILITY_LABELS[key]}</span>
-                    {draft.abilityScores && <span className={styles.saveBonus}>{mod(draft.abilityScores[key])}</span>}
+                    <span className={styles.saveBonus}>{fmtBonus(saveBonus(key))}</span>
                   </label>
                 );
               })}
             </div>
+          ) : draft.savingThrows?.length ? (
+            <div className={styles.saveThrowChips}>
+              {draft.savingThrows.map((s) => {
+                const key = s as keyof AbilityScores;
+                const label = ABILITY_LABELS[key] ?? s;
+                return (
+                  <RollableStat
+                    key={s}
+                    className={styles.saveChip}
+                    bonus={saveBonus(key)}
+                    label={`${label} save`}
+                    subject={draft.name}
+                  >
+                    {label} {fmtBonus(saveBonus(key))}
+                  </RollableStat>
+                );
+              })}
+            </div>
           ) : (
-            <p className={styles.saveThrowText}>
-              {draft.savingThrows?.length
-                ? draft.savingThrows.map((s) => ABILITY_LABELS[s as keyof AbilityScores] ?? s).join(", ")
-                : <em className={styles.empty}>None</em>}
-            </p>
+            <p className={styles.saveThrowText}><em className={styles.empty}>None</em></p>
           )}
 
           <SectionHead style={{ marginTop: 16 }}>Skills</SectionHead>
@@ -227,8 +260,10 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
                         patch({ skills });
                       }}
                     />
+                  ) : bonus != null ? (
+                    <RollableStat className={styles.skillBonus} bonus={bonus} label={skill} subject={draft.name} />
                   ) : (
-                    <span className={styles.skillBonus}>{bonus != null ? (bonus >= 0 ? `+${bonus}` : `${bonus}`) : "-"}</span>
+                    <span className={styles.skillBonus}>-</span>
                   )}
                 </div>
               );
@@ -265,7 +300,7 @@ export function NPCSheetModal({ npc, onSave, onClose }: Props) {
           </div>
 
           <div className={styles.fieldRow}>
-            <label className={styles.fieldLabel}>HP Formula
+            <label className={styles.fieldLabel}>Hit Dice
               {editing
                 ? <input className={styles.input} value={draft.hpFormula ?? ""} onChange={(e) => patch({ hpFormula: e.target.value || undefined })} placeholder="e.g. 4d8+4" />
                 : <span className={styles.fieldVal}>{draft.hpFormula || "-"}</span>}

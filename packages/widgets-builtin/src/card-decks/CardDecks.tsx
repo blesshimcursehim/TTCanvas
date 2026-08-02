@@ -5,7 +5,7 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useEffect, useRef, useState } from "react";
-import { useVault } from "@ttcanvas/core";
+import { useVault, logError } from "@ttcanvas/core";
 import type { CardDecksState, Deck, DeckCard, DeckDrawState } from "./types";
 import {
   cardByKey,
@@ -20,7 +20,11 @@ import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
 import { ImportConflictDialog } from "../shared/ImportConflictDialog";
 import { ModeToggle } from "../shared/ModeToggle";
 import { RouteResultButton } from "../shared/RouteResultButton";
-import { dedupe, hashContent, parseImportFile, exportCollection, type DedupeResult } from "../shared/importExport";
+import { dedupe, hashContent, readBundle, buildBundle, exportCollection, importFailure, type DedupeResult } from "../shared/importExport";
+import { copyPulledAssets, type PullAssets } from "../shared/crossVaultPull";
+import { CollectionIO } from "../shared/CollectionIO";
+import { VaultPullControl } from "../shared/VaultPullControl";
+import { WidgetSettingsCog } from "../shared/WidgetSettingsCog";
 import { mimeForImageExt } from "../shared/mime";
 import styles from "./CardDecks.module.css";
 
@@ -79,12 +83,14 @@ export function CardDecks({ state, onChange }: Props) {
   const [renameDraft, setRenameDraft] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
   const [pendingImport, setPendingImport] = useState<DedupeResult<Deck> | null>(null);
+  // Held alongside pendingImport so the conflict dialog's Skip/Replace can copy assets
+  // for exactly the accepted decks; null for a plain file import (no assets to copy).
+  const [pendingPull, setPendingPull] = useState<PullAssets<Deck> | null>(null);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [confirmDeleteDeck, setConfirmDeleteDeck] = useState(false);
   const [query, setQuery] = useState("");
   // Resolved card art, keyed by vault-relative imagePath -> data URL (like Party/NPC portraits).
   const [art, setArt] = useState<Record<string, string>>({});
-  const importFileRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef(new Map<string, HTMLInputElement>());
 
   const selected = decks.find((d) => d.id === selectedId) ?? null;
@@ -106,6 +112,7 @@ export function CardDecks({ state, onChange }: Props) {
           loaded[p] = `data:${mimeForImageExt(fileName)};base64,${b64}`;
         } catch {
           // File missing (e.g. imported pack without art) - skip; the card just shows text.
+          // Deliberately unlogged: an art-less imported pack is normal, not a fault.
         }
       }
       if (!cancelled && Object.keys(loaded).length > 0) setArt((prev) => ({ ...prev, ...loaded }));
@@ -228,45 +235,74 @@ export function CardDecks({ state, onChange }: Props) {
 
   // ── Import / export ───────────────────────────────────────
   async function handleExportOne(d: Deck) {
-    const bundle = { type: "ttcanvas-card-decks", version: 1, decks: [d] };
+    const bundle = buildBundle("ttcanvas-card-decks", { decks: [d] });
     await exportCollection(vault.saveTextFile, bundle, `${d.name.replace(/[^a-z0-9]/gi, "_")}.card-decks.json`);
   }
   async function handleExportAll() {
-    const bundle = { type: "ttcanvas-card-decks", version: 1, decks };
+    const bundle = buildBundle("ttcanvas-card-decks", { decks });
     await exportCollection(vault.saveTextFile, bundle, "card-decks.card-decks.json");
   }
-  function handleImportClick() {
+  async function handleImportFile(file: File) {
     setImportError(null);
-    importFileRef.current?.click();
-  }
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
     let text: string;
     try {
       text = await file.text();
-    } catch {
+    } catch (err) {
+      logError("Card Decks: could not read the import file", err);
       setImportError("Failed to read import file.");
       return;
     }
-    const incoming = parseImportFile(text, validateCardDecksBundle);
+    handleImportText(text);
+  }
+
+  // Pull decks from another vault: merge through the same import path as a file. Card
+  // art (imagePath is uuid-based, so the path stays valid) is copied by applyImport for
+  // the accepted decks only, so a skipped/cancelled conflict never clobbers current art.
+  async function handlePull(sourceVault: string): Promise<boolean> {
+    setImportError(null);
+    const foreign = (await vault.readForeignSingleton(sourceVault, "card-decks")) as
+      | CardDecksState
+      | undefined;
+    if (!foreign?.decks?.length) return false;
+    await handleImportText(JSON.stringify(buildBundle("ttcanvas-card-decks", { decks: foreign.decks })), {
+      sourceVault,
+      assetsOf: (d) => d.cards.map((c) => c.imagePath),
+    });
+    return true;
+  }
+
+  async function handleImportText(text: string, pull?: PullAssets<Deck>) {
+    setImportError(null);
+    const incoming = readBundle(text, "ttcanvas-card-decks", validateCardDecksBundle);
     if (!incoming) {
       setImportError("Not a valid Card Decks file.");
       return;
     }
     const result = dedupe(incoming, decks, { idOf: (d) => d.id, contentKeyOf: deckContentKey });
-    if (result.idConflicts.length > 0 || result.contentDuplicates.length > 0) setPendingImport(result);
-    else applyImport(result, "skip");
-  }
-  function applyImport(result: DedupeResult<Deck>, conflictMode: "skip" | "replace") {
-    setPendingImport(null);
-    let nextDecks = decks;
-    if (conflictMode === "replace") {
-      const byId = new Map(result.idConflicts.map((d) => [d.id, d]));
-      nextDecks = nextDecks.map((d) => byId.get(d.id) ?? d);
+    if (result.idConflicts.length > 0 || result.contentDuplicates.length > 0) {
+      setPendingImport(result);
+      setPendingPull(pull ?? null);
+    } else {
+      await applyImport(result, "skip", pull);
     }
-    onChange({ ...state, decks: [...nextDecks, ...result.clean] });
+  }
+  async function applyImport(result: DedupeResult<Deck>, conflictMode: "skip" | "replace", pull?: PullAssets<Deck> | null) {
+    setPendingImport(null);
+    setPendingPull(null);
+    try {
+      if (pull) await copyPulledAssets(pull, result, conflictMode, vault.readFileBase64, vault.writeFileBase64);
+      let nextDecks = decks;
+      if (conflictMode === "replace") {
+        const byId = new Map(result.idConflicts.map((d) => [d.id, d]));
+        nextDecks = nextDecks.map((d) => byId.get(d.id) ?? d);
+      }
+      onChange({ ...state, decks: [...nextDecks, ...result.clean] });
+    } catch (err) {
+      // Surface a failed apply - matters most on the conflict path, where Skip/Replace
+      // call this detached from the pull's own error handling (an unhandled rejection).
+      logError("Card Decks: import failed", err);
+      setImportError(importFailure(err));
+    }
   }
 
   // ── Derived (display-only; reconcile is pure, never written from render) ──
@@ -316,14 +352,14 @@ export function CardDecks({ state, onChange }: Props) {
           ))}
         </div>
 
-        {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
         <div className={styles.listFooter}>
           <span>{decks.length} deck{decks.length !== 1 ? "s" : ""}</span>
-          <div className={styles.footerBtns}>
-            <button className={styles.footerBtn} onClick={handleImportClick}>Import</button>
-            <button className={styles.footerBtn} onClick={handleExportAll} disabled={decks.length === 0}>Export all</button>
-          </div>
         </div>
+        <WidgetSettingsCog>
+          <CollectionIO onImportFile={handleImportFile} onExportAll={handleExportAll} exportDisabled={decks.length === 0} onError={setImportError} />
+          <VaultPullControl otherVaults={vault.otherVaults} onPull={handlePull} onError={setImportError} />
+          {importError && <div className={styles.importError} onClick={() => setImportError(null)}>{importError}</div>}
+        </WidgetSettingsCog>
       </div>
 
       {/* ── Right: detail / add pane ─────────────── */}
@@ -523,8 +559,6 @@ export function CardDecks({ state, onChange }: Props) {
         )}
       </div>
 
-      <input ref={importFileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
-
       {pendingImport && (
         <ImportConflictDialog
           title="Import Card Decks"
@@ -532,9 +566,9 @@ export function CardDecks({ state, onChange }: Props) {
           totalCount={pendingImport.idConflicts.length + pendingImport.contentDuplicates.length + pendingImport.clean.length}
           idConflicts={pendingImport.idConflicts.map((d) => ({ id: d.id, label: d.name }))}
           contentDuplicates={pendingImport.contentDuplicates.map((d) => ({ id: d.id, label: d.name }))}
-          onCancel={() => setPendingImport(null)}
-          onSkip={() => applyImport(pendingImport, "skip")}
-          onReplace={() => applyImport(pendingImport, "replace")}
+          onCancel={() => { setPendingImport(null); setPendingPull(null); }}
+          onSkip={() => applyImport(pendingImport, "skip", pendingPull)}
+          onReplace={() => applyImport(pendingImport, "replace", pendingPull)}
         />
       )}
     </div>

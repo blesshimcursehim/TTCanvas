@@ -11,9 +11,6 @@ export default defineConfig({
       "packages/*/src/**/*.test.ts",
       "packages/*/src/**/*.test.tsx",
     ],
-    environmentMatchGlobs: [
-      ["**/*.test.tsx", "jsdom"],
-    ],
     setupFiles: ["./src/test-setup.ts"],
   },
 });

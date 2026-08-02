@@ -8,8 +8,8 @@
 import { StrictMode } from "react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, cleanup, waitFor, screen, fireEvent } from "@testing-library/react";
-import { VaultContext } from "@ttcanvas/core";
-import type { VaultContextValue } from "@ttcanvas/core";
+import { VaultContext, NpcContext, MapPinsContext } from "@ttcanvas/core";
+import type { VaultContextValue, NpcContextValue } from "@ttcanvas/core";
 import { Gazetteer } from "./Gazetteer";
 import type { GazetteerState } from "./types";
 
@@ -20,25 +20,36 @@ const FILES: Record<string, string> = {
     id: "citadel", name: "Citadel of Thorns", kind: "settlement", parentId: "feywild",
     links: [{ kind: "npc", ref: "npcs/vex.json", label: "Vex (stale)" }, { kind: "faction", ref: null, label: "The Ashen Veil" }],
   }),
-  "npcs/vex.json": JSON.stringify({ name: "Vex Duloran" }),
 };
 
 const vault = {
   vaultPath: "/v",
   vaultVersion: 1,
+  otherVaults: [],
   listFiles: async (ext: string) => (ext === "json" ? Object.keys(FILES) : []),
   readFile: async (p: string) => FILES[p],
   readFileBase64: async () => "BASE64",
 } as unknown as VaultContextValue;
 
+// Linked NPCs resolve through NpcContext (NpcProvider scans the vault for them in the app), so the
+// live name the widget should prefer over the stale cached label lives here, not in the vault mock.
+const npcCtx: NpcContextValue = {
+  npcs: [{ filename: "npcs/vex.json", id: "vex-id", name: "Vex Duloran" }],
+  loading: false,
+};
+
 afterEach(cleanup);
 
-function renderWith(selectedFile: string | null) {
+function renderWith(selectedFile: string | null, pinnedLocationRefs: ReadonlySet<string> = new Set()) {
   const seeded: GazetteerState = { selectedFile };
   return render(
     <StrictMode>
       <VaultContext.Provider value={vault}>
-        <Gazetteer state={seeded} onChange={() => {}} />
+        <NpcContext.Provider value={npcCtx}>
+          <MapPinsContext.Provider value={{ pinnedLocationRefs }}>
+            <Gazetteer state={seeded} onChange={() => {}} />
+          </MapPinsContext.Provider>
+        </NpcContext.Provider>
       </VaultContext.Provider>
     </StrictMode>,
   );
@@ -75,5 +86,16 @@ describe("Gazetteer", () => {
       filename: "locations/citadel.json",
       name: "Citadel of Thorns",
     });
+  });
+
+  it("reads as already pinned when a map pin exists for this place", async () => {
+    renderWith("locations/citadel.json", new Set(["locations/citadel.json"]));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Pinned on a map - show me" })).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Pin this place on a map" })).toBeNull();
+  });
+
+  it("stays unpinned when only some other place has a pin", async () => {
+    renderWith("locations/citadel.json", new Set(["locations/feywild.json"]));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Pin this place on a map" })).toBeTruthy());
   });
 });

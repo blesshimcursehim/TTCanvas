@@ -5,14 +5,45 @@
 // derivative works; see the Plugin Exception in LICENSE.
 
 import { useMemo, useState } from "react";
-import { useBestiary, useParty, useIT, abilityModifier, type BestiaryCreatureRef } from "@ttcanvas/core";
-import type { Encounter, EncounterMember, EncounterBuilderState } from "./types";
-import { buildCombatants } from "./combat";
+import {
+  useBestiary, useParty, useNpcs, useIT, abilityModifier,
+  type CombatantKind,
+} from "@ttcanvas/core";
+import type { Encounter, EncounterMember, EncounterSource, EncounterBuilderState } from "./types";
+import { buildCombatants, type CombatSources } from "./combat";
+import { parseExpression } from "../dice-roller/dice";
 import { ConfirmDeleteButton } from "../shared/ConfirmDeleteButton";
+import { ModeToggle } from "../shared/ModeToggle";
 import styles from "./EncounterBuilder.module.css";
 
 function formatMod(mod: number): string {
   return mod >= 0 ? `+${mod}` : `${mod}`;
+}
+
+/** What a row needs to render, resolved live from whichever library owns the source. */
+interface RowView {
+  name: string;
+  meta: string;
+  dexMod: number;
+  /** The source has a parseable hit-dice formula, so "Roll HP" is worth offering. Party has none. */
+  hpFormula: string | null;
+}
+
+type PickTab = "bestiary" | "party" | "npc";
+
+const PICK_TABS: { value: PickTab; label: string }[] = [
+  { value: "bestiary", label: "Bestiary" },
+  { value: "party", label: "Party" },
+  { value: "npc", label: "NPCs" },
+];
+
+const NPC_SIDES: { value: CombatantKind; label: string }[] = [
+  { value: "foe", label: "Foe" },
+  { value: "ally", label: "Ally" },
+];
+
+function libraryOf(kind: EncounterSource["kind"]): string {
+  return kind === "bestiary" ? "the Bestiary" : kind === "party" ? "the party" : "the NPC Library";
 }
 
 interface Props {
@@ -23,7 +54,8 @@ interface Props {
 export function EncounterBuilder({ state, onChange }: Props) {
   const { creatures } = useBestiary();
   const { members: party } = useParty();
-  const { addCombatants } = useIT();
+  const { npcs } = useNpcs();
+  const { startCombat, combatantCount } = useIT();
   const { encounters, selectedId } = state;
 
   const [adding, setAdding] = useState(false);
@@ -32,13 +64,63 @@ export function EncounterBuilder({ state, onChange }: Props) {
   const [renameDraft, setRenameDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [pickTab, setPickTab] = useState<PickTab>("bestiary");
   const [pickQuery, setPickQuery] = useState("");
-  const [addParty, setAddParty] = useState(true);
   const [autoRoll, setAutoRoll] = useState(true);
-  const [lastStart, setLastStart] = useState<{ count: number; missing: number } | null>(null);
+  // Shown when "Start combat" is pressed while a combat is already running - replace vs append.
+  const [confirmStart, setConfirmStart] = useState(false);
+  const [lastStart, setLastStart] = useState<{ count: number; missing: number; duplicates: number } | null>(null);
 
   const selected = encounters.find((e) => e.id === selectedId) ?? null;
-  const creaturesById = useMemo(() => new Map(creatures.map((c) => [c.id, c])), [creatures]);
+
+  const sources: CombatSources = useMemo(() => ({
+    bestiary: new Map(creatures.map((c) => [c.id, c])),
+    party: new Map(party.map((m) => [m.id, m])),
+    npcs: new Map(npcs.map((n) => [n.filename, n])),
+  }), [creatures, party, npcs]);
+
+  /** A formula worth offering "Roll HP" for - present and valid notation. Unparseable = not offered. */
+  function rollableFormula(formula: string | undefined): string | null {
+    return formula && parseExpression(formula) ? formula : null;
+  }
+
+  /** Resolves a row against its library. null = the source is gone (deleted since it was added). */
+  function rowView(member: EncounterMember): RowView | null {
+    const { kind, id } = member.source;
+    if (kind === "bestiary") {
+      const c = sources.bestiary.get(id);
+      if (!c) return null;
+      return {
+        name: c.name,
+        meta: `CR ${c.cr} · ${c.hp} HP · AC ${c.ac}`,
+        dexMod: c.abilityScores ? abilityModifier(c.abilityScores.dex) : 0,
+        hpFormula: rollableFormula(c.hitDice),
+      };
+    }
+    if (kind === "party") {
+      const m = sources.party.get(id);
+      if (!m) return null;
+      return {
+        name: m.name,
+        meta: `${m.hp}/${m.maxHp} HP · AC ${m.ac}`,
+        dexMod: m.abilityScores ? abilityModifier(m.abilityScores.dex) : 0,
+        hpFormula: null, // party HP is authoritative, never rolled
+      };
+    }
+    const n = sources.npcs.get(id);
+    if (!n) return null;
+    // Rolling is offered only when the NPC has no decided HP - a named individual's HP is specific,
+    // not a template average to re-roll (mirrors resolveMember in combat.ts).
+    const hpDecided = n.hp !== undefined || n.hpMax !== undefined;
+    const bits = [n.cr ? `CR ${n.cr}` : null, n.hp ? `${n.hp} HP` : null, n.ac ? `AC ${n.ac}` : null]
+      .filter((b): b is string => b !== null);
+    return {
+      name: n.name,
+      meta: bits.length ? bits.join(" · ") : "no statblock",
+      dexMod: n.abilityScores ? abilityModifier(n.abilityScores.dex) : 0,
+      hpFormula: hpDecided ? null : rollableFormula(n.hpFormula),
+    };
+  }
 
   // ── Encounter CRUD ────────────────────────────────────────
   function patchEncounters(next: Encounter[]) {
@@ -54,6 +136,7 @@ export function EncounterBuilder({ state, onChange }: Props) {
     setAdding(false);
     setRenaming(false);
     setConfirmDelete(false);
+    setConfirmStart(false);
     setPicking(false);
     setLastStart(null);
   }
@@ -80,18 +163,37 @@ export function EncounterBuilder({ state, onChange }: Props) {
   }
 
   // ── Member editing ────────────────────────────────────────
-  function addMember(creature: BestiaryCreatureRef) {
+  function sameSource(a: EncounterSource, b: EncounterSource): boolean {
+    return a.kind === b.kind && a.id === b.id;
+  }
+
+  function addMember(source: EncounterSource, name: string, kind?: CombatantKind) {
     if (!selected) return;
-    const existing = selected.members.find((m) => m.creatureId === creature.id);
+    const existing = selected.members.find((m) => sameSource(m.source, source));
     if (existing) {
-      // Bump the count rather than adding a duplicate row.
-      updateMember(existing.id, { count: existing.count + 1 });
+      // Only a Bestiary template stacks; re-picking a named individual (party member or NPC) is a
+      // no-op rather than a second copy.
+      if (source.kind === "bestiary") updateMember(existing.id, { count: existing.count + 1 });
     } else {
-      const member: EncounterMember = { id: crypto.randomUUID(), creatureId: creature.id, name: creature.name, count: 1 };
+      const member: EncounterMember = { id: crypto.randomUUID(), source, name, count: 1, kind };
       updateEncounter(selected.id, { members: [...selected.members, member] });
     }
     setPicking(false);
     setPickQuery("");
+  }
+
+  /** Bulk convenience replacing the old all-or-nothing "Also add party" checkbox. */
+  function addWholeParty() {
+    if (!selected) return;
+    const fresh = party
+      .filter((m) => !selected.members.some((x) => sameSource(x.source, { kind: "party", id: m.id })))
+      .map((m): EncounterMember => ({
+        id: crypto.randomUUID(),
+        source: { kind: "party", id: m.id },
+        name: m.name,
+        count: 1,
+      }));
+    if (fresh.length) updateEncounter(selected.id, { members: [...selected.members, ...fresh] });
   }
 
   function updateMember(memberId: string, patch: Partial<EncounterMember>) {
@@ -111,23 +213,63 @@ export function EncounterBuilder({ state, onChange }: Props) {
   }
 
   // ── Start combat ──────────────────────────────────────────
-  function handleStartCombat() {
+  function runStartCombat(mode: "replace" | "append") {
     if (!selected) return;
-    const { combatants, missing, groups } = buildCombatants(selected, creaturesById, party, { addParty, autoRoll });
-    addCombatants(combatants, groups);
-    setLastStart({ count: combatants.length, missing });
+    const { combatants, missing, groups } = buildCombatants(selected, sources, { autoRoll });
+    // startCombat returns how many it accepted; append drops combatants already in the fight, so
+    // the feedback must report `added`, not the built count, or it claims "Sent 4" when 0 landed.
+    const added = startCombat(combatants, groups, mode, { id: selected.id, name: selected.name, rewardXp: selected.rewardXp });
+    setConfirmStart(false);
+    setLastStart({ count: added, missing, duplicates: combatants.length - added });
+  }
+
+  // Primary "Start combat": straight through when the tracker is empty, otherwise ask
+  // replace-vs-append first rather than silently piling a second copy onto a live fight.
+  function handleStartCombat() {
+    if (combatantCount > 0) setConfirmStart(true);
+    else runStartCombat("replace");
   }
 
   // ── Render ────────────────────────────────────────────────
-  const totalCreatures = selected
-    ? selected.members.reduce((sum, m) => sum + (creaturesById.has(m.creatureId) ? Math.max(1, m.count) : 0), 0)
-    : 0;
-  const missingCount = selected
-    ? selected.members.filter((m) => !creaturesById.has(m.creatureId)).length
-    : 0;
+  const includedMembers = selected?.members.filter((m) => m.included !== false) ?? [];
+  const totalCombatants = includedMembers.reduce(
+    (sum, m) => sum + (rowView(m) ? (m.source.kind === "party" ? 1 : Math.max(1, m.count)) : 0),
+    0,
+  );
+  const missingCount = includedMembers.filter((m) => !rowView(m)).length;
+  const hasPartyRow = selected?.members.some((m) => m.source.kind === "party") ?? false;
 
   const pq = pickQuery.trim().toLowerCase();
-  const pickList = pq ? creatures.filter((c) => c.name.toLowerCase().includes(pq)) : creatures;
+  const pickList: { key: string; name: string; meta: string; add: () => void }[] =
+    pickTab === "bestiary"
+      ? creatures
+          .filter((c) => !pq || c.name.toLowerCase().includes(pq))
+          .map((c) => ({
+            key: c.id, name: c.name, meta: `CR ${c.cr}`,
+            add: () => addMember({ kind: "bestiary", id: c.id }, c.name),
+          }))
+      : pickTab === "party"
+        ? party
+            .filter((m) => !pq || m.name.toLowerCase().includes(pq))
+            .map((m) => ({
+              key: m.id, name: m.name, meta: `${m.hp}/${m.maxHp} HP`,
+              add: () => addMember({ kind: "party", id: m.id }, m.name),
+            }))
+        : npcs
+            .filter((n) => !pq || n.name.toLowerCase().includes(pq))
+            .map((n) => ({
+              key: n.filename, name: n.name, meta: n.cr ? `CR ${n.cr}` : "NPC",
+              // An NPC's standing towards the party is the sensible default side to seed from.
+              add: () => addMember(
+                { kind: "npc", id: n.filename }, n.name,
+                n.relationship === "ally" ? "ally" : "foe",
+              ),
+            }));
+
+  const pickEmptyHint =
+    pickTab === "bestiary" ? "The Bestiary is empty. Add creatures there first."
+      : pickTab === "party" ? "The party roster is empty. Add characters in the Party Tracker."
+        : "The NPC Library is empty. Add NPCs there first.";
 
   return (
     <div className={styles.root}>
@@ -194,7 +336,7 @@ export function EncounterBuilder({ state, onChange }: Props) {
                     title="Double-click to rename"
                   >{selected.name}</span>
                 )}
-                <span className={styles.detailSub}>{totalCreatures} creature{totalCreatures !== 1 ? "s" : ""}</span>
+                <span className={styles.detailSub}>{totalCombatants} combatant{totalCombatants !== 1 ? "s" : ""}</span>
               </div>
               <div className={styles.detailActions}>
                 <ConfirmDeleteButton
@@ -220,35 +362,75 @@ export function EncounterBuilder({ state, onChange }: Props) {
               onChange={(e) => updateEncounter(selected.id, { notes: e.target.value || undefined })}
             />
 
+            {/* Reward XP - GM-entered, never derived from CR. The end-combat review is the only place
+                it is awarded, so the GM confirms who was in on it there rather than firing blind here. */}
+            <label className={styles.rewardRow}>
+              <span className={styles.rewardLabel}>Reward XP</span>
+              <input
+                className={styles.rewardInput}
+                type="number"
+                min={0}
+                placeholder="none"
+                aria-label="Reward XP"
+                value={selected.rewardXp ?? ""}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  updateEncounter(selected.id, { rewardXp: Number.isFinite(n) && n > 0 ? n : undefined });
+                }}
+              />
+            </label>
+
             {/* Member list */}
             <div className={styles.memberList}>
-              {selected.members.length === 0 && <div className={styles.emptyHint}>No creatures yet. Add some from the Bestiary below.</div>}
+              {selected.members.length === 0 && <div className={styles.emptyHint}>No combatants yet. Add some from the libraries below.</div>}
               {selected.members.map((m) => {
-                const creature = creaturesById.get(m.creatureId);
-                const missing = !creature;
-                const dexMod = creature?.abilityScores ? abilityModifier(creature.abilityScores.dex) : 0;
+                const view = rowView(m);
+                const excluded = m.included === false;
+                // Only a Bestiary template stacks; party members and NPCs are individuals (count 1).
+                const isStackable = m.source.kind === "bestiary";
                 return (
-                  <div key={m.id} className={styles.memberRow}>
-                    <span className={`${styles.memberName} ${missing ? styles.memberMissing : ""}`}>
-                      {creature?.name ?? m.name}
-                      {missing && <span className={styles.missingTag}> · missing from Bestiary</span>}
+                  <div key={m.id} className={`${styles.memberRow} ${excluded ? styles.memberRowExcluded : ""}`}>
+                    <input
+                      type="checkbox"
+                      className={styles.includeCheck}
+                      checked={!excluded}
+                      title={excluded ? "Excluded from Start combat" : "Included in Start combat"}
+                      aria-label={`Include ${view?.name ?? m.name}`}
+                      onChange={(e) => updateMember(m.id, { included: e.target.checked ? undefined : false })}
+                    />
+                    <span className={`${styles.memberName} ${!view ? styles.memberMissing : ""}`}>
+                      {view?.name ?? m.name}
+                      {!view && <span className={styles.missingTag}> · missing from {libraryOf(m.source.kind)}</span>}
                     </span>
-                    {creature && (
+                    {view && (
                       <span className={styles.memberMeta}>
-                        CR {creature.cr} · {creature.hp} HP · AC {creature.ac}
-                        {dexMod !== 0 && (
-                          <span className={styles.memberDexMod} title="Added to this creature's rolled initiative">
-                            {" "}· DEX {formatMod(dexMod)} init
+                        {view.meta}
+                        {view.dexMod !== 0 && (
+                          <span className={styles.memberDexMod} title="Added to this combatant's rolled initiative">
+                            {" "}· DEX {formatMod(view.dexMod)} init
                           </span>
                         )}
                       </span>
                     )}
-                    <div className={styles.countStepper}>
-                      <button className={styles.stepBtn} onClick={() => setMemberCount(m.id, m.count - 1)} disabled={m.count <= 1} title="Fewer">−</button>
-                      <span className={styles.countValue}>{m.count}</span>
-                      <button className={styles.stepBtn} onClick={() => setMemberCount(m.id, m.count + 1)} title="More">+</button>
-                    </div>
-                    {m.count > 1 && (
+                    {m.source.kind === "npc" && (
+                      <ModeToggle
+                        value={m.kind === "ally" ? "ally" : "foe"}
+                        options={NPC_SIDES}
+                        className={styles.sideToggle}
+                        onChange={(k) => updateMember(m.id, { kind: k })}
+                      />
+                    )}
+                    {isStackable ? (
+                      <div className={styles.countStepper}>
+                        <button className={styles.stepBtn} onClick={() => setMemberCount(m.id, m.count - 1)} disabled={m.count <= 1} title="Fewer">−</button>
+                        <span className={styles.countValue}>{m.count}</span>
+                        <button className={styles.stepBtn} onClick={() => setMemberCount(m.id, m.count + 1)} title="More">+</button>
+                      </div>
+                    ) : (
+                      // A named individual (party member or NPC) is always one, so no stepper.
+                      <span className={styles.countStatic} title="A named individual, not a template">1</span>
+                    )}
+                    {isStackable && m.count > 1 && (
                       <label className={styles.groupCheck} title="Roll one shared initiative for the whole stack, instead of one per copy">
                         <input
                           type="checkbox"
@@ -258,33 +440,52 @@ export function EncounterBuilder({ state, onChange }: Props) {
                         Group
                       </label>
                     )}
+                    {view?.hpFormula && (
+                      <label className={styles.groupCheck} title={`Roll HP from ${view.hpFormula} instead of the static average`}>
+                        <input
+                          type="checkbox"
+                          checked={m.rollHp ?? false}
+                          onChange={(e) => updateMember(m.id, { rollHp: e.target.checked || undefined })}
+                        />
+                        Roll HP
+                      </label>
+                    )}
+                    {view?.hpFormula && m.rollHp && m.count > 1 && (
+                      <label className={styles.groupCheck} title="Roll HP once for the whole stack, instead of one roll per copy">
+                        <input
+                          type="checkbox"
+                          checked={m.sharedHp ?? false}
+                          onChange={(e) => updateMember(m.id, { sharedHp: e.target.checked || undefined })}
+                        />
+                        shared
+                      </label>
+                    )}
                     <button className={styles.removeBtn} onClick={() => removeMember(m.id)} title="Remove">×</button>
                   </div>
                 );
               })}
             </div>
 
-            {/* Add-from-Bestiary picker */}
+            {/* Add-a-combatant picker */}
             {picking ? (
               <div className={styles.picker}>
+                <ModeToggle value={pickTab} options={PICK_TABS} onChange={(t) => { setPickTab(t); setPickQuery(""); }} />
                 <input
                   className={styles.pickSearch}
                   value={pickQuery}
                   autoFocus
-                  placeholder="Search the Bestiary…"
+                  placeholder={`Search ${PICK_TABS.find((t) => t.value === pickTab)?.label}…`}
                   onChange={(e) => setPickQuery(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Escape") { setPicking(false); setPickQuery(""); } }}
                 />
                 <div className={styles.pickList}>
-                  {creatures.length === 0 ? (
-                    <div className={styles.emptyHint}>The Bestiary is empty. Add creatures there first.</div>
-                  ) : pickList.length === 0 ? (
-                    <div className={styles.emptyHint}>No matches.</div>
+                  {pickList.length === 0 ? (
+                    <div className={styles.emptyHint}>{pq ? "No matches." : pickEmptyHint}</div>
                   ) : (
-                    pickList.map((c) => (
-                      <button key={c.id} className={styles.pickRow} onClick={() => addMember(c)}>
-                        <span className={styles.pickName}>{c.name}</span>
-                        <span className={styles.pickMeta}>CR {c.cr}</span>
+                    pickList.map((row) => (
+                      <button key={row.key} className={styles.pickRow} onClick={row.add}>
+                        <span className={styles.pickName}>{row.name}</span>
+                        <span className={styles.pickMeta}>{row.meta}</span>
                       </button>
                     ))
                   )}
@@ -292,30 +493,60 @@ export function EncounterBuilder({ state, onChange }: Props) {
                 <button className={styles.pickClose} onClick={() => { setPicking(false); setPickQuery(""); }}>Done</button>
               </div>
             ) : (
-              <button className={styles.addFromBtn} onClick={() => setPicking(true)}>+ Add from Bestiary</button>
+              <button className={styles.addFromBtn} onClick={() => setPicking(true)}>+ Add combatant</button>
             )}
 
             {/* Start combat panel */}
             <div className={styles.startPanel}>
-              <label className={styles.check}>
-                <input type="checkbox" checked={addParty} onChange={(e) => setAddParty(e.target.checked)} />
-                Also add party{party.length > 0 ? ` (${party.length})` : ""}
-              </label>
+              {/* Party used to ride along on a checkbox that was never saved, so encounters built
+                  before party rows existed would silently start with no PCs. Say so, with the fix. */}
+              {!hasPartyRow && party.length > 0 && (
+                <div className={styles.partyHint}>
+                  No party members in this encounter.
+                  <button className={styles.partyHintBtn} onClick={addWholeParty}>+ Add party ({party.length})</button>
+                </div>
+              )}
               <label className={styles.check}>
                 <input type="checkbox" checked={autoRoll} onChange={(e) => setAutoRoll(e.target.checked)} />
                 Auto-roll initiative
               </label>
-              <button className={styles.startBtn} onClick={handleStartCombat} disabled={totalCreatures === 0 && !(addParty && party.length > 0)}>
-                Start combat
-              </button>
+              {confirmStart ? (
+                // Inline confirm (the InitiativeTracker "Clear all" idiom), not a modal: three
+                // outcomes, so ConfirmDeleteButton's two-way control doesn't fit.
+                <div className={styles.confirmStart}>
+                  <span className={styles.confirmStartMsg}>
+                    A combat is already running ({combatantCount} combatant{combatantCount !== 1 ? "s" : ""}).
+                  </span>
+                  <div className={styles.confirmStartActions}>
+                    <button className={styles.startBtn} onClick={() => runStartCombat("replace")}>Replace it</button>
+                    <button className={styles.appendBtn} onClick={() => runStartCombat("append")}>Append</button>
+                    <button className={styles.cancelBtn} onClick={() => setConfirmStart(false)}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.startActions}>
+                  <button className={styles.startBtn} onClick={handleStartCombat} disabled={totalCombatants === 0}>
+                    Start combat
+                  </button>
+                  <button
+                    className={styles.appendBtn}
+                    onClick={() => runStartCombat("append")}
+                    disabled={totalCombatants === 0 || combatantCount === 0}
+                    title="Add these combatants to the combat already in the tracker"
+                  >
+                    Add to current combat
+                  </button>
+                </div>
+              )}
               {lastStart && (
                 <div className={styles.startResult}>
-                  Added {lastStart.count} to the Initiative Tracker.
-                  {lastStart.missing > 0 && <span className={styles.startMissing}> {lastStart.missing} missing creature{lastStart.missing !== 1 ? "s" : ""} skipped.</span>}
+                  Sent {lastStart.count} to the Initiative Tracker.
+                  {lastStart.duplicates > 0 && <span className={styles.startMissing}> {lastStart.duplicates} already in combat.</span>}
+                  {lastStart.missing > 0 && <span className={styles.startMissing}> {lastStart.missing} missing source{lastStart.missing !== 1 ? "s" : ""} skipped.</span>}
                 </div>
               )}
               {missingCount > 0 && !lastStart && (
-                <div className={styles.startMissing}>{missingCount} creature{missingCount !== 1 ? "s" : ""} missing from the Bestiary - will be skipped.</div>
+                <div className={styles.startMissing}>{missingCount} combatant{missingCount !== 1 ? "s" : ""} missing from their library - will be skipped.</div>
               )}
             </div>
           </div>

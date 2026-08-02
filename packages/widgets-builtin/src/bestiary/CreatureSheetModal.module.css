@@ -203,6 +203,12 @@
   line-height: 1.4;
 }
 
+.skillList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
 .fieldInput {
   width: 100%;
   box-sizing: border-box;
@@ -579,4 +585,12 @@
 }
 .castBtn:hover {
   background: oklch(from var(--accent) l c h / 0.1);
+}
+
+/* These suppress the browser's outline but put nothing back, so keyboard focus was invisible on
+   them. The app-wide :focus-visible ring in App.css ties with them on specificity and loses on
+   source order, hence the explicit rule. */
+.nameInput:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }
